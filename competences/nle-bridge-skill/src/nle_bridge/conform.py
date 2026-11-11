@@ -1,0 +1,289 @@
+"""Conform package: everything an editor needs to open the cut somewhere else, in one folder (and optionally a zip).
+
+    <out>/
+      timeline/<name>.otio  .xml  .edl  .srt      the cut (export.py), plus <name>.json (nle-bridge/timeline@1)
+      media/<file>                                 only with --copy-media
+      relink.json                                  nle-bridge/relink@1: one entry per media file
+      manifest.json                                nle-bridge/conform@1: every file of the package with its sha256
+
+relink.json says, for each media file: where the plan found it, where it is in the package (when copied), whether
+it exists, its size and sha256, its start timecode, length, frame rate and picture size, and where each of those
+facts came from (`ffmpeg-skill probe` when ffmpeg-skill is available, else the plan, else null with the reason),
+plus every range of it the timeline uses (in / out as source timecode, the record timecode it lands on).
+
+Nothing in the package records a clock time, so the same plan and media give the same bytes (the zip too: fixed
+entry dates and order).
+"""
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import zipfile
+from fractions import Fraction
+from typing import Any, Callable, Dict, List, Optional
+
+from . import __version__
+from .export import sha256_file, write_files
+from .layers import layer_list
+from .model import (PROBE, NleBridgeError, asset_start_frames, base_name, rate_of, start_frames, summary,
+                    take_probe_timecode, warning)
+from .timecode import frames_to_timecode, seconds_to_frames
+from .transitions import resolve as resolve_transitions, tails
+
+RELINK_SCHEMA = "nle-bridge/relink@1"
+CONFORM_SCHEMA = "nle-bridge/conform@1"
+_ZIP_DATE = (1980, 1, 1, 0, 0, 0)
+
+
+def _hex(value: Any) -> str:
+    v = str(value).strip().lower()
+    return v[7:] if v.startswith("sha256:") else v
+
+
+def _write_json(path: str, doc: Any) -> None:
+    if os.path.lexists(path):
+        os.unlink(path)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(doc, fh, ensure_ascii=False, indent=2, sort_keys=False)
+        fh.write("\n")
+
+
+def relink_entries(tl: Dict[str, Any], probe: Optional[Callable[[str], Optional[Dict[str, Any]]]],
+                   hash_media: bool = True, dissolves: bool = False) -> Dict[str, Any]:
+    rate = rate_of(tl)
+    heads = resolve_transitions(tl)[0] if dissolves else {}
+    leaving = tails(heads)
+    drop = tl["drop_frame"]
+    start = start_frames(tl)
+    warns: List[Dict[str, Any]] = []
+    out = []
+    for aid, a in tl["assets"].items():
+        path = a["path"]
+        exists = os.path.isfile(path)
+        p = probe(path) if (probe and exists) else None
+        if p and not a.get("start_timecode_from"):  # a timeline read without the prober: take the probe's here
+            a = dict(a)
+            w = take_probe_timecode(aid, a, p, rate)
+            if w:
+                warns.append(w)
+        e: Dict[str, Any] = {"asset": aid, "name": a["name"], "original_path": path, "package_path": None,
+                             "exists": exists, "size_bytes": os.path.getsize(path) if exists else a.get("size_bytes"),
+                             "sha256": None, "start_timecode": a.get("start_timecode"),
+                             "drop_frame": a.get("drop_frame") if a.get("start_timecode") else None,
+                             "duration_frames": a.get("duration_frames"), "duration": None,
+                             "fps": a.get("fps"), "width": a.get("width"), "height": a.get("height"),
+                             "has_video": a.get("has_video", True), "has_audio": a.get("has_audio", True),
+                             "facts_from": {}}
+        if exists and hash_media:
+            e["sha256"] = sha256_file(path)
+            e["facts_from"]["sha256"] = "computed"
+            if a.get("sha256") and _hex(a["sha256"]) != e["sha256"]:
+                warns.append(warning("MEDIA_CHANGED", f"{a['name']}: sha256 differs from the plan's ({a['sha256']}): the "
+                                     "file is not the one the plan was made from", item=aid))
+        elif a.get("sha256"):
+            e["sha256"] = _hex(a["sha256"])
+            e["facts_from"]["sha256"] = "plan"
+        if not exists:
+            warns.append(warning("MEDIA_MISSING", f"{a['name']}: {path} does not exist here; the manifest carries the "
+                                 "plan's facts only and the editor must relink it", item=aid))
+        for k in ("fps", "width", "height"):
+            e["facts_from"][k] = "plan" if e[k] is not None else None
+        if p:
+            v = p.get("video") or {}
+            if v.get("fps"):
+                e["fps"] = float(v["fps"])
+                e["facts_from"]["fps"] = "ffmpeg-skill probe"
+            if v.get("width") and v.get("height"):
+                e["width"], e["height"] = int(v["width"]), int(v["height"])
+                e["facts_from"]["width"] = e["facts_from"]["height"] = "ffmpeg-skill probe"
+            if p.get("duration") is not None:
+                e["duration"] = round(float(p["duration"]), 3)
+                e["duration_frames"] = seconds_to_frames(Fraction(str(p["duration"])), rate)
+                e["facts_from"]["duration"] = "ffmpeg-skill probe"
+            e["has_video"] = bool(v.get("width"))
+            e["has_audio"] = bool((p.get("audio") or {}).get("channels"))
+        if e["duration"] is None and e["duration_frames"]:
+            e["duration"] = round(float(Fraction(e["duration_frames"]) / rate), 3)
+            e["facts_from"]["duration"] = "plan"
+        e["facts_from"].setdefault("duration", None)
+        tc_from = (a.get("start_timecode_from") or "plan") if e["start_timecode"] else None
+        e["facts_from"]["start_timecode"] = e["facts_from"]["drop_frame"] = tc_from
+        if not e["start_timecode"]:
+            if p is None:
+                why = "no ffmpeg-skill probe of the file" + ("" if exists else " (it is not here)")
+            elif not isinstance(p.get("timecode"), dict):
+                why = "this ffmpeg-skill's probe does not report one (3.0.0 and later do)"
+            else:
+                why = "ffmpeg-skill probe found no timecode tag in the file"
+            e["start_timecode_note"] = (f"not known: {why}, and the plan gives none; 00:00:00:00 is assumed in the "
+                                        "OTIO, the EDL and the XML")
+        if tc_from == PROBE:
+            e["start_timecode_source"] = a.get("start_timecode_source")
+        base = asset_start_frames(a, rate)
+        uses = []
+        for t in tl["tracks"]:
+            for it in t["items"]:
+                if it.get("asset") != aid:
+                    continue
+                n = it["record_out"] - it["record_in"]
+                use = {"item": it["id"], "track": t["name"],
+                       "source_in": frames_to_timecode(base + it["source_in"], rate, drop),
+                       "source_out": frames_to_timecode(base + it["source_in"] + n, rate, drop),
+                       "record_in": frames_to_timecode(start + it["record_in"], rate, drop),
+                       "record_out": frames_to_timecode(start + it["record_out"], rate, drop)}
+                if it["id"] in heads or it["id"] in leaving:  # a dissolve uses media beyond the visible range
+                    use["handle_before"] = heads[it["id"]]["before"] if it["id"] in heads else 0
+                    use["handle_after"] = leaving[it["id"]]["after"] if it["id"] in leaving else 0
+                uses.append(use)
+        e["used"] = uses
+        layer = next((it["layer"] for t in tl["tracks"] for it in t["items"] if it.get("asset") == aid and it.get("layer")), None)
+        if layer:  # a graphics layer (layers.py): what it is and where it sits, which the timelines may not carry
+            e["layer"] = layer
+        stem = next((it["stem"] for t in tl["tracks"] for it in t["items"] if it.get("asset") == aid and it.get("stem")), None)
+        if stem:  # an audio-production stem (audio_delivery.py)
+            e["stem"] = stem
+        out.append(e)
+    return {"schema": RELINK_SCHEMA, "rate": tl["rate"], "drop_frame": drop, "media": out, "warnings": warns}
+
+
+def _asset_of(tl: Dict[str, Any], item_id: str) -> Optional[str]:
+    return next((it.get("asset") for t in tl["tracks"] for it in t["items"] if it["id"] == item_id), None)
+
+
+def _audio_delivery(tl: Dict[str, Any], relink: Dict[str, Any], out_dir: str, copy_media: bool, hash_media: bool,
+                    warns: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The audio-production delivery of the plan (audio_delivery.py) for manifest.json: each stem with its track and
+    package path, each loudness version with its target and measurement, copied to media/loudness/ with
+    --copy-media and its sha256 checked against audio-production's."""
+    ad = tl.get("audio_delivery")
+    if not ad:
+        return None
+    pkg = {e["asset"]: e for e in relink["media"]}
+    track_of = {it["id"]: t["name"] for t in tl["tracks"] for it in t["items"]}
+    stems = [{"output_id": s["output_id"], "track": track_of.get(s["item"]), "item": s["item"], "file": s["path"],
+              "package_path": (pkg.get(s["item"]) or {}).get("package_path"), "sha256": s.get("sha256"),
+              "duration": s.get("duration"), "channels": s.get("channels"), "sample_rate": s.get("sample_rate")}
+             for s in ad.get("stems") or []]
+    versions = []
+    for v in ad.get("loudness_versions") or []:
+        exists = os.path.isfile(v["path"])
+        out = {"output_id": v["output_id"], "file": v["path"], "exists": exists, "package_path": None,
+               "sha256": v.get("sha256"), "duration": v.get("duration"), "channels": v.get("channels"),
+               "sample_rate": v.get("sample_rate"), "target": v.get("target"), "measured": v.get("measured"),
+               "within_target": v.get("within_target")}
+        if not exists:
+            warns.append(warning("MEDIA_MISSING", f"loudness version {v['output_id']}: {v['path']} does not exist here",
+                                 item=v["output_id"]))
+        elif hash_media:
+            h = sha256_file(v["path"])
+            if v.get("sha256") and _hex(v["sha256"]) != h:
+                warns.append(warning("MEDIA_CHANGED", f"loudness version {v['output_id']}: sha256 differs from "
+                                     "audio-production's: the file is not the one it measured", item=v["output_id"]))
+            out["sha256"] = h
+        if exists and copy_media:
+            d = os.path.join(out_dir, "media", "loudness")
+            os.makedirs(d, exist_ok=True)
+            dest = os.path.join(d, base_name(v["path"]))
+            if os.path.lexists(dest):
+                os.unlink(dest)
+            shutil.copyfile(v["path"], dest)
+            out["package_path"] = f"media/loudness/{base_name(v['path'])}"
+        versions.append(out)
+    return {"from": "audio-production-skill", "skill": ad.get("skill"), "response": ad.get("response"),
+            "stems": stems, "loudness_versions": versions}
+
+
+def package(tl: Dict[str, Any], out_dir: str, formats: List[str], *, name: Optional[str] = None,
+            copy_media: bool = False, make_zip: bool = False, overwrite: bool = False,
+            probe: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None, hash_media: bool = True,
+            inputs: Optional[List[str]] = None, extra: Optional[Dict[str, Any]] = None,
+            dissolves: bool = False) -> Dict[str, Any]:
+    out_dir = os.path.abspath(out_dir)
+    if os.path.exists(out_dir) and os.listdir(out_dir) and not overwrite:
+        raise NleBridgeError("OUTPUT_EXISTS", f"{out_dir} is not empty: pass --overwrite (only the package's own "
+                                              "files are replaced)")
+    zip_path = out_dir.rstrip("/\\") + ".zip"
+    if make_zip and os.path.lexists(zip_path) and not overwrite:
+        raise NleBridgeError("OUTPUT_EXISTS", f"refusing to overwrite {zip_path}: pass --overwrite")
+    for p in inputs or []:
+        rp = os.path.realpath(p)
+        if rp == os.path.realpath(out_dir) or rp.startswith(os.path.realpath(out_dir) + os.sep):
+            raise NleBridgeError("OUTPUT_IS_INPUT", f"the package folder {out_dir} holds an input ({p})")
+    os.makedirs(os.path.join(out_dir, "timeline"), exist_ok=True)
+    if probe and any(not a.get("start_timecode_from") for a in tl["assets"].values()):
+        # start timecodes the probe reports go into the timelines too, not only into relink.json
+        tl = json.loads(json.dumps(tl))
+        for aid, a in tl["assets"].items():
+            if not a.get("start_timecode_from") and os.path.isfile(a["path"]):
+                w = take_probe_timecode(aid, a, probe(a["path"]), rate_of(tl))
+                if w:
+                    tl["warnings"].append(w)
+    relink = relink_entries(tl, probe, hash_media, dissolves)
+    warns = list(relink["warnings"])
+    tl_out = tl
+    if copy_media:
+        media_dir = os.path.join(out_dir, "media")
+        os.makedirs(media_dir, exist_ok=True)
+        used_names: Dict[str, str] = {}
+        tl_out = json.loads(json.dumps(tl))
+        for e in relink["media"]:
+            if not e["exists"]:
+                continue
+            fname = e["name"] if e["name"] not in used_names else f"{e['asset']}_{e['name']}"
+            used_names[fname] = e["asset"]
+            dest = os.path.join(media_dir, fname)
+            if os.path.lexists(dest):
+                os.unlink(dest)
+            shutil.copyfile(e["original_path"], dest)
+            e["package_path"] = f"media/{fname}"
+            tl_out["assets"][e["asset"]]["path"] = dest
+    audio = _audio_delivery(tl, relink, out_dir, copy_media, hash_media, warns)
+    stem = name or tl["name"]
+    written = write_files(tl_out, os.path.join(out_dir, "timeline"), formats, name=stem, overwrite=True, inputs=inputs,
+                          dissolves=dissolves)
+    warns += written["warnings"]
+    tl_json = os.path.join(out_dir, "timeline", stem + ".json")
+    _write_json(tl_json, tl_out)
+    relink_doc = {k: v for k, v in relink.items() if k != "warnings"}
+    _write_json(os.path.join(out_dir, "relink.json"), relink_doc)
+    files = []
+    for root, _dirs, fnames in os.walk(out_dir):
+        for f in fnames:
+            if f == "manifest.json" and root == out_dir:
+                continue
+            p = os.path.join(root, f)
+            rel = os.path.relpath(p, out_dir).replace(os.sep, "/")
+            files.append({"path": rel, "size_bytes": os.path.getsize(p), "sha256": sha256_file(p)})
+    files.sort(key=lambda x: x["path"])
+    manifest = {"schema": CONFORM_SCHEMA, "skill": "nle-bridge-skill", "skill_version": __version__,
+                "timeline": summary(tl_out), "formats": [f["format"] for f in written["files"]],
+                "media_copied": copy_media, "files": files, "warnings": warns, **(extra or {})}
+    if audio:
+        manifest["audio"] = audio
+    lays = layer_list(tl)
+    if lays:
+        pkg = {e["asset"]: e["package_path"] for e in relink["media"]}
+        manifest["layers"] = [dict(x, package_path=pkg.get(_asset_of(tl, x["item"])),
+                                   record_in=frames_to_timecode(start_frames(tl) + x["record_in"], rate_of(tl), tl["drop_frame"]),
+                                   record_out=frames_to_timecode(start_frames(tl) + x["record_out"], rate_of(tl), tl["drop_frame"]))
+                              for x in lays]
+    _write_json(os.path.join(out_dir, "manifest.json"), manifest)
+    zipped = None
+    if make_zip:
+        if os.path.lexists(zip_path):
+            os.unlink(zip_path)
+        top = base_name(out_dir.rstrip("/\\"))
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
+            for rel in sorted([f["path"] for f in files] + ["manifest.json"]):
+                info = zipfile.ZipInfo(f"{top}/{rel}", date_time=_ZIP_DATE)
+                info.external_attr = 0o644 << 16
+                info.compress_type = zipfile.ZIP_DEFLATED
+                src_path = os.path.join(out_dir, rel)
+                big = os.path.getsize(src_path) > 0x7FFF0000
+                with open(src_path, "rb") as src, z.open(info, "w", force_zip64=big) as dst:
+                    shutil.copyfileobj(src, dst, 1 << 20)
+        zipped = {"path": zip_path, "sha256": sha256_file(zip_path)}
+    return {"package": out_dir, "zip": zipped, "files": written["files"], "relink": relink_doc,
+            "manifest": os.path.join(out_dir, "manifest.json"), "warnings": warns, "timeline": summary(tl_out)}
+

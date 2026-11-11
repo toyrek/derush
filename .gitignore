@@ -1,0 +1,18 @@
+# modules et environnements (installés chez chacun)
+node_modules/
+__pycache__/
+*.pyc
+
+# clés et réglages locaux : jamais dans le dépôt
+.env
+.env.*
+*.local
+
+# traces
+.DS_Store
+Thumbs.db
+*.log
+
+# essais
+/essais/
+/.derush/

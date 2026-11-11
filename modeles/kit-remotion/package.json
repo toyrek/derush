@@ -1,0 +1,37 @@
+{
+  "name": "montage-derush",
+  "private": true,
+  "description": "Kit de rendu Dérush : le montage, les effets, les titres et les sous-titres posés dans Dérush sont déjà en place.",
+  "scripts": {
+    "studio": "remotion studio",
+    "image": "remotion still Montage ../rendu/image.png --frame=30",
+    "rendu": "node rendre.mjs Montage ../rendu/montage.mp4"
+  },
+  "dependencies": {
+    "@remotion/animation-utils": "4.0.538",
+    "@remotion/cli": "4.0.538",
+    "@remotion/effects": "4.0.538",
+    "@remotion/layout-utils": "4.0.538",
+    "@remotion/lottie": "4.0.538",
+    "@remotion/media": "4.0.538",
+    "@remotion/motion-blur": "4.0.538",
+    "@remotion/noise": "4.0.538",
+    "@remotion/paths": "4.0.538",
+    "@remotion/shapes": "4.0.538",
+    "@remotion/three": "4.0.538",
+    "@remotion/transitions": "4.0.538",
+    "@react-three/fiber": "8.18.0",
+    "animejs": "4.5.0",
+    "konva": "10.9.1",
+    "lottie-web": "5.13.0",
+    "planck": "1.5.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-konva": "18.2.16",
+    "regl": "2.1.1",
+    "remotion": "4.0.538",
+    "scenejs": "1.10.3",
+    "three": "0.187.0",
+    "zdog": "1.1.3"
+  }
+}

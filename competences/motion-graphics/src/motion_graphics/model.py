@@ -1,0 +1,824 @@
+"""Typed Graphics Document model and request validation.
+
+Concepts (docs/architecture.md):
+  GraphicsDocument  one video input, one output, a list of GraphicsElement (GraphicsDocument.ordered_elements()
+                    is the timeline: the (start, id)-ordered sequence this skill actually renders in)
+  GraphicsElement   id, type, timeline range [start, end), type-specific typed parameters, optional Animation
+  Animation         kind ("fade" only, today), typed parameters (duration) -- no keyframe expressions, no eval
+
+Validation here is structural and semantic but never touches the file system or a font/asset registry that needs
+it: PathPolicy (security.py), the font registry (fonts.py) for font_id only, and the executor do that. Unknown
+fields are rejected everywhere; fields that could carry a command, a shell, or a raw ffmpeg filter are rejected by
+name, recursively, no matter how deep they appear in the document."""
+from __future__ import annotations
+
+import math
+import re
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
+
+from . import REQUEST_SCHEMA_VERSION, SKILL_ID
+from .colors import NAMED_COLORS, is_hex, split_alpha
+from .errors import MotionGraphicsError
+from .styles import applied_summary, parse_brand_kit, style_name, style_values
+from .regions import parse_reserved_regions
+from .textfit import PROFILES as FIT_PROFILES
+from .textfit import TEMPLATE_LAYOUT as FIT_TEMPLATES
+
+REQUEST_SCHEMA_ID = f"{SKILL_ID}/request@{REQUEST_SCHEMA_VERSION}"
+ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+COLOR_RE = re.compile(r"^([A-Za-z]{2,24}|[0-9A-Fa-f]{6})(@(0(\.[0-9]+)?|1(\.0+)?))?$")
+
+# Fields that could carry a command, a shell invocation, an argv fragment, or a raw ffmpeg filter/expression.
+# Rejected wherever they appear in the request, at any nesting depth (see _reject_forbidden).
+FORBIDDEN_KEYS = frozenset({
+    "command", "commands", "argv", "args", "cmd", "shell", "exec", "executable", "script",
+    "filter", "filters", "filter_complex", "vf", "af", "env", "cwd", "eval", "expression",
+})
+
+POSITION_NAMES = ("top-left", "top", "top-right", "left", "center", "right", "bottom-left", "bottom", "bottom-right")
+# ffmpeg-skill/graphics's "bug" template takes only a corner --position (argparse choices, no {x,y}); a strict
+# subset of POSITION_NAMES, not the full 9-way position `text_overlay`/`image_overlay` support.
+CORNER_POSITION_NAMES = ("top-left", "top-right", "bottom-left", "bottom-right")
+
+# Destinations ffmpeg-skill's --platform knows (graphics and overlay): each edge's margin becomes that destination's
+# safe zone. The canonical names only -- not its aliases (fb, ig, x, yt, yt-shorts) -- and not `custom`, which is "no
+# safe zone" and so the same as leaving document.options.platform out. Whether the located checkout accepts one is
+# checked against its own choices at run time (executor.Executor._check_checkout).
+PLATFORM_NAMES = ("broadcast", "facebook", "instagram", "linkedin", "podcast", "reels", "shorts", "tiktok", "twitter", "youtube", "youtube-shorts")
+
+MAX_TEXT_LENGTH = 500
+MAX_TITLE_LENGTH = 200
+MAX_ELEMENTS = 64
+MAX_DURATION = 24 * 3600.0
+
+_STR, _INT, _NUM, _BOOL, _POS, _FONT, _COLOR, _ANIM, _PATH = (
+    "string", "integer", "number", "boolean", "position", "font", "color", "animation", "path",
+)
+
+def _template_color() -> Dict[str, Any]:
+    """A colour parameter of a graphics-template element. ffmpeg-skill/graphics takes --primary / --text-color as opaque
+    RRGGBB only and has no opacity flag for them, so the schema says `alpha: false` and a name is converted to its RRGGBB
+    before the call (colors.py, docs/decisions.md ADR-20). The overlay element types' colours have no `alpha` key: they
+    take @alpha (contract `colors.alpha`)."""
+    return {"type": _COLOR, "required": False, "alpha": False,
+            "description": "RRGGBB hex or a colour name from the contract's colors.named table (sent to ffmpeg-skill/graphics as RRGGBB); "
+                           "no @alpha: the template draws this colour opaque and has no opacity for it"}
+
+
+# ---- element type table: the only types this skill will ever render. Adding a type here without a working
+# renderer in executor.py is exactly the mistake STEP 9 forbids -- contract.py and doctor.py both derive from
+# this table, never hand-list types, so "supported" always matches what render actually does.
+ELEMENT_TYPES: Dict[str, Dict[str, Any]] = {
+    "title": {
+        "tool": "graphics", "template": "title",
+        "description": "Centered title card with an optional subtitle. Built-in 0.3s alpha fade in/out (ffmpeg-skill/graphics --template title); not configurable per element.",
+        "animation": "builtin_fade",
+        "parameters": {
+            "title": {"type": _STR, "required": True, "max_length": MAX_TITLE_LENGTH},
+            "subtitle": {"type": _STR, "required": False, "max_length": MAX_TITLE_LENGTH},
+            "text_color": _template_color(),
+            "primary_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "filter:drawbox", "encoder:libx264"],
+    },
+    "lower_third": {
+        "tool": "graphics", "template": "lower-third",
+        "description": "Name + title bar sliding in from the left. Built-in slide-in/out and fade (ffmpeg-skill/graphics --template lower-third); not configurable per element.",
+        "animation": "builtin_slide_fade",
+        "parameters": {
+            "name": {"type": _STR, "required": True, "max_length": MAX_TITLE_LENGTH},
+            "title": {"type": _STR, "required": False, "max_length": MAX_TITLE_LENGTH},
+            "text_color": _template_color(),
+            "primary_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "filter:overlay", "filter:color", "encoder:libx264"],
+    },
+    "text_overlay": {
+        "tool": "overlay", "mode": "text",
+        "description": "Free-form text drawn at a position, with an optional configurable fade in/out (ffmpeg-skill/overlay --text).",
+        "animation": "configurable",
+        "parameters": {
+            "text": {"type": _STR, "required": True, "max_length": MAX_TEXT_LENGTH},
+            "position": {"type": _POS, "required": False, "default": "bottom"},
+            "margin": {"type": _INT, "required": False, "min": 0, "max": 2000, "default": 24, "platform_replaces_default": True},
+            "font": {"type": _FONT, "required": False},
+            "font_size": {"type": _INT, "required": False, "min": 8, "max": 300, "default": 42},
+            "font_color": {"type": _COLOR, "required": False, "default": "white"},
+            "border_width": {"type": _INT, "required": False, "min": 0, "max": 20, "default": 2},
+            "border_color": {"type": _COLOR, "required": False, "default": "black"},
+            "box": {"type": _BOOL, "required": False, "default": False},
+            "box_color": {"type": _COLOR, "required": False, "default": "black@0.5"},
+            "opacity": {"type": _NUM, "required": False, "min": 0.0, "max": 1.0, "default": 1.0},
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "encoder:libx264"],
+    },
+    "image_overlay": {
+        "tool": "overlay", "mode": "image",
+        "description": "Composite a PNG/JPG image or logo at a position, with optional static scale and a configurable fade in/out (ffmpeg-skill/overlay --image).",
+        "animation": "configurable",
+        "parameters": {
+            "image_path": {"type": _PATH, "required": True},
+            "position": {"type": _POS, "required": False, "default": "top-right"},
+            "margin": {"type": _INT, "required": False, "min": 0, "max": 2000, "default": 24, "platform_replaces_default": True},
+            "scale_width": {"type": _INT, "required": False, "min": 1, "max": 8192},
+            "scale_percent": {"type": _NUM, "required": False, "min": 0.1, "max": 100.0},
+            "opacity": {"type": _NUM, "required": False, "min": 0.0, "max": 1.0, "default": 1.0},
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:overlay", "filter:scale", "filter:colorchannelmixer", "encoder:libx264"],
+    },
+    "video_overlay": {
+        "tool": "overlay", "mode": "video",
+        "description": "Composite a second video as a picture-in-picture layer at a position, with optional static scale, opacity, and chroma-key (green-screen) removal (ffmpeg-skill/overlay --video, --chromakey). Only this element's own audio track, if any, is dropped -- the base video's audio is unaffected, same as image_overlay/text_overlay.",
+        # ffmpeg-skill/overlay's --fade is never applied to the --video branch (only --image/--text read
+        # args.fade at all; the --video branch's filter chain has no fade term) -- exposing a configurable fade
+        # here would be a parameter that silently does nothing, the same reasoning ADR-12 gives for chapter's
+        # missing text_color. See docs/decisions.md ADR-15.
+        "animation": "none",
+        "parameters": {
+            "video_path": {"type": _PATH, "required": True},
+            "position": {"type": _POS, "required": False, "default": "bottom-right"},
+            "margin": {"type": _INT, "required": False, "min": 0, "max": 2000, "default": 24, "platform_replaces_default": True},
+            "scale_width": {"type": _INT, "required": False, "min": 1, "max": 8192},
+            "scale_percent": {"type": _NUM, "required": False, "min": 0.1, "max": 100.0},
+            "opacity": {"type": _NUM, "required": False, "min": 0.0, "max": 1.0, "default": 1.0},
+            # ffmpeg-skill/overlay validates 0 < chromakey_similarity <= 1 (strictly positive) and
+            # 0 <= chromakey_blend <= 1; 0.01 stands in for "greater than zero" the same way the `fade` animation's
+            # `duration` minimum does (both are decimal, not integer, bounds).
+            "chromakey": {"type": _COLOR, "required": False},
+            "chromakey_similarity": {"type": _NUM, "required": False, "min": 0.01, "max": 1.0, "default": 0.15},
+            "chromakey_blend": {"type": _NUM, "required": False, "min": 0.0, "max": 1.0, "default": 0.05},
+        },
+        # filter:chromakey is only exercised when `chromakey` is set, but this list is the union of capabilities
+        # any parameter combination of this type could need (the same convention image_overlay's
+        # filter:colorchannelmixer -- only used when opacity < 1 -- already follows), not "always needed".
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:overlay", "filter:scale", "filter:colorchannelmixer", "filter:chromakey", "encoder:libx264"],
+    },
+    "bug": {
+        "tool": "graphics", "template": "bug",
+        "description": "Persistent text bug in a corner (e.g. \"@handle\" or \"LIVE\"). Built-in 0.3s alpha fade in/out "
+                       "(ffmpeg-skill/graphics --template bug); not configurable per element.",
+        "animation": "builtin_fade",
+        "parameters": {
+            "title": {"type": _STR, "required": True, "max_length": MAX_TITLE_LENGTH},
+            # A closed-vocabulary string, not the `position` type: ffmpeg-skill/graphics's "bug" template takes
+            # only a corner name (argparse choices, no {x,y}) -- a strict subset of the 9-way `position` type
+            # `text_overlay`/`image_overlay` use, so it is expressed as `enum` on `string` (already a
+            # generically-handled shape) rather than inventing a new parameter type.
+            "position": {"type": _STR, "required": False, "default": "top-right", "enum": CORNER_POSITION_NAMES},
+            "text_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "encoder:libx264"],
+    },
+    "chapter": {
+        "tool": "graphics", "template": "chapter",
+        "description": "Small chip in a corner (e.g. \"Part 2 -- Setup\"). Built-in 0.3s alpha fade in/out "
+                       "(ffmpeg-skill/graphics --template chapter); not configurable per element.",
+        "animation": "builtin_fade",
+        "parameters": {
+            "title": {"type": _STR, "required": True, "max_length": MAX_TITLE_LENGTH},
+            "position": {"type": _STR, "required": False, "default": "bottom-left", "enum": CORNER_POSITION_NAMES},
+            # Unlike `bug`, `chapter`'s exposed color parameter is `primary_color` (the chip's background), not
+            # `text_color`: ffmpeg-skill/graphics's chapter branch always uses the brand background color for text
+            # and `--primary`/brand primary for the box -- `--text-color` has no effect on this template at all
+            # (see graphics.py: `txt_color = bg if template == "chapter" else text_c`), so exposing it here would
+            # be a parameter that silently does nothing.
+            "primary_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "encoder:libx264"],
+    },
+    "progress": {
+        "tool": "graphics", "template": "progress",
+        "description": "Thin progress bar along the bottom of the frame that fills from empty to full over the "
+                       "element's own start/end window (ffmpeg-skill/graphics --template progress). No text, no "
+                       "position (always full-width along the bottom), and no fade -- it has none of its own to "
+                       "expose: the bar's fill is driven entirely by the element's timeline, not by an alpha.",
+        "animation": "none",
+        "parameters": {
+            # graphics.py's progress branch never reads --title/--text-color/--position at all; its only
+            # CLI-overridable value is the fill bar's color (brand primary, via --primary). The track behind it
+            # is always the fixed brand background color, not overridable by any flag this Skill could pass.
+            "primary_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:color", "filter:drawbox", "filter:overlay", "encoder:libx264"],
+    },
+    "countdown": {
+        "tool": "graphics", "template": "countdown",
+        "description": "Big centered numbers counting down from count_from to 0, evenly spaced across the "
+                       "element's own start/end window, each with a brief built-in pulse "
+                       "(ffmpeg-skill/graphics --template countdown). No text, no position (always centered).",
+        # graphics.py's countdown branch gives each digit its own alpha curve (a brief opacity dip at the start
+        # of its segment, `1-0.15*min(1,(t-ks)/(seg*0.5))`), fixed and not exposed by any CLI flag -- this is a
+        # real built-in animation, distinct from both title/bug/chapter's `fade` and progress's total absence of
+        # one, so it gets its own honest label rather than being folded into "builtin_fade" or "none".
+        "animation": "builtin_pulse",
+        "parameters": {
+            # graphics.py never reads --title/--text-color/--position for countdown; digit color comes from
+            # --primary (so primary_color), the digit border is always the fixed brand background (not
+            # overridable). count_from mirrors --from (its own CLI default is 5); bounded the same way
+            # MAX_ELEMENTS bounds the request as a whole, so a request cannot make this Skill build an
+            # unreasonably long chain of per-digit drawtext filters.
+            "count_from": {"type": _INT, "required": False, "default": 5, "min": 1, "max": 60},
+            "primary_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "encoder:libx264"],
+    },
+    # sticker / hook / meme are graphics templates ffmpeg-skill added after 0.12.5 (the oldest checkout this skill is
+    # verified against): each lists a `graphics-template:<name>` capability, which doctor derives from the checkout's own
+    # `--template` choices, so on an older checkout the type is reported unsupported and a request for it is refused
+    # before anything renders (docs/decisions.md ADR-19).
+    "sticker": {
+        "tool": "graphics", "template": "sticker",
+        "description": "Filled chip of short text in a corner (e.g. \"NEW\", \"LIVE NOW\") that pops in: the chip fades up while "
+                       "rising 0.25s into place, and fades out over the last 0.3s (ffmpeg-skill/graphics --template sticker); "
+                       "not configurable per element. The text is drawn in the template's fixed dark colour on a primary-colour "
+                       "plate, so only primary_color is exposed -- text_color would have no effect on this template.",
+        "animation": "builtin_pop",
+        "parameters": {
+            "text": {"type": _STR, "required": True, "max_length": MAX_TITLE_LENGTH},
+            "position": {"type": _STR, "required": False, "default": "top-right", "enum": CORNER_POSITION_NAMES},
+            "primary_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "encoder:libx264", "graphics-template:sticker"],
+    },
+    "hook": {
+        "tool": "graphics", "template": "hook",
+        "description": "Full-width opening card with a large centered title over a dark band, and a thin bar along the top of the "
+                       "frame that empties across the element's own start/end window so the viewer sees how long the card lasts "
+                       "(ffmpeg-skill/graphics --template hook, the short-form opener). The card stays up for the whole window: "
+                       "this skill passes the window's length as the template's own --duration. No fade.",
+        # The bar's emptying is driven entirely by the element's timeline, not by an alpha, and the band/title never fade
+        # (`enable` windows only) -- the same reasoning as `progress` for "none" (ADR-13).
+        "animation": "none",
+        "parameters": {
+            "title": {"type": _STR, "required": True, "max_length": MAX_TITLE_LENGTH},
+            "text_color": _template_color(),
+            "primary_color": _template_color(),
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "filter:drawbox", "filter:overlay", "filter:color", "encoder:libx264", "graphics-template:hook"],
+    },
+    "meme": {
+        "tool": "graphics", "template": "meme",
+        "description": "Classic meme layout: heavy white upper-case lines with a black outline, one at the top margin and one at the "
+                       "bottom margin (ffmpeg-skill/graphics --template meme). At least one of top / bottom is required. Colours, "
+                       "position and size are fixed by the template, and there is no fade.",
+        "animation": "none",
+        "parameters": {
+            "top": {"type": _STR, "required": False, "max_length": MAX_TITLE_LENGTH},
+            "bottom": {"type": _STR, "required": False, "max_length": MAX_TITLE_LENGTH},
+        },
+        # cross-field rule _element() enforces and contract.py publishes as `constraints`
+        "at_least_one_of": ("top", "bottom"),
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:drawtext", "encoder:libx264", "graphics-template:meme"],
+    },
+    # shape (ADR-22): the one element type that takes two delegate calls. ffmpeg-skill/background generates the rectangle as
+    # a silent, exact-size solid-colour clip (a derived input, identified and cached by its own content identity), then
+    # ffmpeg-skill/overlay --video composites it like a video_overlay layer. Still one stage per element: `tool` is the
+    # stage's tool (overlay), `generator` the extra call. No raw filter is built (ADR-1).
+    "shape": {
+        "tool": "overlay", "mode": "shape", "generator": "background",
+        "description": "Solid-colour rectangle of an exact size at a position, with opacity, over the element's start/end window "
+                       "(e.g. a backing plate behind text, a letterbox bar, a highlight box): ffmpeg-skill/background generates the "
+                       "rectangle as a clip and ffmpeg-skill/overlay --video composites it, two tool calls in one stage (ADR-22). "
+                       "Rectangles only: no rounded corners, border, rotation or gradient, and no fade (the --video branch has none).",
+        "animation": "none",
+        "parameters": {
+            # background.py refuses odd sizes (4:2:0 chroma), so an odd size is refused here before anything renders
+            "width": {"type": _INT, "required": True, "min": 2, "max": 7680, "multiple_of": 2},
+            "height": {"type": _INT, "required": True, "min": 2, "max": 7680, "multiple_of": 2},
+            # opaque: the rectangle's transparency is `opacity` (overlay's colorchannelmixer), so @alpha is refused like
+            # the template colours' (the generated clip is 4:2:0 video and carries no alpha)
+            "color": {"type": _COLOR, "required": True, "alpha": False,
+                      "description": "RRGGBB hex or a colour name from the contract's colors.named table (sent to ffmpeg-skill/background as "
+                                     "0xRRGGBB); no @alpha: use opacity"},
+            "position": {"type": _POS, "required": False, "default": "center"},
+            "margin": {"type": _INT, "required": False, "min": 0, "max": 2000, "default": 24, "platform_replaces_default": True},
+            "opacity": {"type": _NUM, "required": False, "min": 0.0, "max": 1.0, "default": 1.0},
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:color", "filter:overlay", "filter:colorchannelmixer", "encoder:libx264",
+                                  "ffmpeg-skill-tool:background"],
+    },
+    # logo (ADR-29): the active theme's logo, composited like an image_overlay (ffmpeg-skill/overlay --image). Its image, and the
+    # defaults for the parameters below, come from the theme file; a document without a theme that has a logo is refused at plan/run.
+    # No configurable fade: offering one would change the contract's `animations` block, which consumers pin (use an image_overlay
+    # of the same file for a fade).
+    "logo": {
+        "tool": "overlay", "mode": "image",
+        "description": "The active theme's logo (options.themes / options.theme) composited at a position over the element's window "
+                       "(ffmpeg-skill/overlay --image). Position, margin, width and opacity default to the theme's logo settings.",
+        "animation": "none",
+        "parameters": {
+            "position": {"type": _POS, "required": False, "default": "top-right"},
+            "margin": {"type": _INT, "required": False, "min": 0, "max": 2000, "default": 24, "platform_replaces_default": True},
+            "scale_width": {"type": _INT, "required": False, "min": 1, "max": 8192},
+            "scale_percent": {"type": _NUM, "required": False, "min": 0.1, "max": 100.0},
+            "opacity": {"type": _NUM, "required": False, "min": 0.0, "max": 1.0, "default": 1.0},
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:overlay", "filter:scale", "filter:colorchannelmixer", "encoder:libx264"],
+    },
+    # rendered_layer (ADR-25): a pre-rendered clip with an alpha channel (animated graphics made elsewhere), laid on the video by
+    # ffmpeg-skill/overlay --video with one --place per piece: its IN segment at the element's start, its LOOP segment repeated
+    # to fill the window, its OUT segment ending at the element's end. The motion is in the clip; this skill only places it.
+    "rendered_layer": {
+        "tool": "overlay", "mode": "layer",
+        "description": "Place a pre-rendered clip with an alpha channel (e.g. an animated lower third exported as ProRes 4444) at a position "
+                       "over the element's window (ffmpeg-skill/overlay --video --place). in_duration seconds from the clip's start play "
+                       "at the element's start, out_duration seconds from its end finish at the element's end, and the part between them "
+                       "(the loop) is repeated to fill the rest when loop is true, or played once and cut when false. The layer must "
+                       "decode with alpha (a yuva/rgba pixel format: ProRes 4444, QuickTime Animation, PNG in MOV); a VP9 alpha WebM is "
+                       "refused because overlay decodes it without its alpha. No fade or other motion of its own: the animation is the clip's.",
+        "animation": "none",
+        "parameters": {
+            "video_path": {"type": _PATH, "required": True},
+            "position": {"type": _POS, "required": False, "default": "center"},
+            "margin": {"type": _INT, "required": False, "min": 0, "max": 2000, "default": 24, "platform_replaces_default": True},
+            "scale_width": {"type": _INT, "required": False, "min": 1, "max": 8192},
+            "scale_percent": {"type": _NUM, "required": False, "min": 0.1, "max": 100.0},
+            "opacity": {"type": _NUM, "required": False, "min": 0.0, "max": 1.0, "default": 1.0},
+            "in_duration": {"type": _NUM, "required": False, "min": 0.0, "max": 60.0, "default": 0.0},
+            "out_duration": {"type": _NUM, "required": False, "min": 0.0, "max": 60.0, "default": 0.0},
+            "loop": {"type": _BOOL, "required": False, "default": True},
+        },
+        "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "filter:overlay", "filter:scale", "filter:colorchannelmixer", "encoder:libx264",
+                                  "ffmpeg-skill-flag:overlay.place"],
+    },
+}
+# Requested in STEP 1 / STEP 24 but not implemented in this contract: no delegate tool renders them without this
+# skill building a raw filter string itself, which STEP 7 / STEP 10 forbid. Listed so contract/doctor never claim
+# support they cannot back with a renderer (STEP 9).
+# None today: `shape`, the last one, is implemented as a two-call stage (ADR-22).
+UNSUPPORTED_ELEMENT_TYPES: Dict[str, str] = {}
+
+ANIMATION_KINDS: Dict[str, Dict[str, Any]] = {
+    "fade": {
+        # ffmpeg-skill/overlay's --fade always fades in at `start` AND out at `end` when both are given (its
+        # alpha_expr multiplies both terms whenever `end` is not None); it has no flag to select only one
+        # direction over a bounded window. Rather than approximate an "in-only" or "out-only" fade by omitting
+        # --end (which would also cancel this element's own timeline end), this skill exposes exactly the
+        # semantics the engine has: always both directions, one shared duration.
+        "description": "Linear alpha fade in at start and out at end, over the same duration (ffmpeg-skill/overlay --fade). Only for text_overlay and image_overlay.",
+        "parameters": {
+            "duration": {"type": _NUM, "required": True, "min": 0.01, "max": 30.0},
+        },
+    },
+}
+# Requested in STEP 1 but not backed by a typed, parameterised delegate today: overlay.py takes a static position
+# and a static --scale / --scale-percent, and graphics.py's lower-third slide is a fixed, non-configurable
+# built-in of the template (see ELEMENT_TYPES[...]["animation"] == "builtin_slide_fade"). Exposing a generic
+# "slide"/"move"/"scale" Animation would mean this skill inventing its own per-frame filter expression, which is
+# exactly the raw-filter authority STEP 5 / STEP 10 withhold from it.
+UNSUPPORTED_ANIMATIONS: Dict[str, str] = {
+    "slide": "position animation is not exposed as a typed, per-element parameter by ffmpeg-skill/overlay; lower_third has a fixed, non-configurable built-in slide instead",
+    "move": "arbitrary position keyframes would require a per-frame expression, which this skill does not construct (no raw filters, STEP 10)",
+    "scale": "scale animation over time is not exposed as a typed parameter by ffmpeg-skill/overlay (static --scale / --scale-percent only)",
+    "opacity_keyframes": "arbitrary opacity keyframe curves are not supported; use a fade (2-point in/out/in_out) instead",
+}
+
+
+@dataclass(frozen=True)
+class Animation:
+    kind: str
+    parameters: Dict[str, Any]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"kind": self.kind, "parameters": dict(self.parameters)}
+
+
+@dataclass(frozen=True)
+class GraphicsElement:
+    element_id: str
+    type: str
+    start: float
+    end: float
+    parameters: Dict[str, Any]
+    animation: Optional[Animation] = None
+    # ADR-24: which preset / brand kit filled which parameters ({preset, brand_kit, applied}); None when unstyled.
+    # Reported only: the resolved values are in `parameters`, which is what identity and rendering use.
+    style: Optional[Dict[str, Any]] = None
+    # ADR-27: text fit settings {width, max_lines, min_scale, profile?, lang?} (lower_third / title only); None when not asked for.
+    # The fit itself needs the frame size, so the executor computes it.
+    fit: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = {"id": self.element_id, "type": self.type, "start": self.start, "end": self.end, "parameters": dict(self.parameters)}
+        if self.animation is not None:
+            d["animation"] = self.animation.to_dict()
+        if self.style is not None:
+            d["style"] = dict(self.style)
+        if self.fit is not None:
+            d["fit"] = dict(self.fit)
+        return d
+
+
+@dataclass(frozen=True)
+class GraphicsDocument:
+    video_path: str
+    output_path: str
+    overwrite: bool
+    elements: Tuple[GraphicsElement, ...]
+    options: Dict[str, Any] = field(default_factory=dict)
+
+    def ordered_elements(self) -> Tuple[GraphicsElement, ...]:
+        """Deterministic rendering order: by (start time, element id). This is an execution-order decision, not a
+        correction of the caller's timeline -- the validated start/end of every element are rendered unchanged;
+        only the sequence in which independent full-frame overlays are composited is canonicalised so the same
+        document always renders the same way regardless of the order elements were listed in (docs/decisions.md)."""
+        return tuple(sorted(self.elements, key=lambda e: (e.start, e.element_id)))
+
+
+# ---- validation helpers
+def _reject_forbidden(obj: Any, where: str) -> None:
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if not isinstance(k, str):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where}: object keys must be strings")
+            if k.lower() in FORBIDDEN_KEYS:
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where}: field {k!r} is not accepted (this skill never takes commands, argv, filters or executables)",
+                                           {"field": k, "reason": "forbidden_field"})
+            _reject_forbidden(v, f"{where}.{k}")
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            _reject_forbidden(v, f"{where}[{i}]")
+
+
+def _obj(value: Any, where: str, allowed: Tuple[str, ...], required: Tuple[str, ...]) -> Dict[str, Any]:
+    if not isinstance(value, dict):
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} must be an object", {"field": where})
+    unknown = sorted(k for k in value if k not in allowed)
+    if unknown:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where}: unknown field(s) {unknown}", {"field": where, "unknown": unknown, "allowed": list(allowed)})
+    missing = [k for k in required if k not in value]
+    if missing:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where}: missing required field(s) {missing}", {"field": where, "missing": missing})
+    return value
+
+
+def _id(value: Any, where: str) -> str:
+    if not isinstance(value, str) or not ID_RE.match(value):
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} must match {ID_RE.pattern}", {"field": where})
+    return value
+
+
+def _finite_number(value: Any, where: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} must be a number", {"field": where})
+    v = float(value)
+    if math.isnan(v) or math.isinf(v):
+        raise MotionGraphicsError("INVALID_TIME_RANGE", f"{where} must be finite (NaN/Infinity are not allowed)", {"field": where, "value": str(value)})
+    return v
+
+
+def _string(value: Any, where: str, max_length: Optional[int] = None, allow_empty: bool = False) -> str:
+    if not isinstance(value, str):
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} must be a string", {"field": where})
+    if "\x00" in value:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} may not contain a NUL byte", {"field": where})
+    if not allow_empty and not value.strip():
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} must not be empty", {"field": where})
+    if max_length is not None and len(value) > max_length:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} is longer than {max_length} characters", {"field": where, "length": len(value), "max_length": max_length})
+    return value
+
+
+def _color(value: Any, where: str, alpha: bool = True, element: Optional[Tuple[str, str]] = None) -> str:
+    """A colour: a name from colors.NAMED_COLORS (any case) or bare RRGGBB, with @alpha only where the parameter's schema
+    allows it (`alpha: false` marks the graphics-template colours, which ffmpeg-skill draws opaque; ADR-20). `element`
+    is (element_id, element_type), named in the refusal so a caller can tell which element to fix."""
+    text = _string(value, where, max_length=40)
+    if not COLOR_RE.match(text):
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where} must be a named color or RRGGBB hex, optionally with @alpha: {value!r}", {"field": where})
+    base, alpha_part = split_alpha(text)
+    if not is_hex(base) and base.lower() not in NAMED_COLORS:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where}: {base!r} is not a colour name this skill knows (the contract's colors.named table, "
+                                   f"FFmpeg's own colour names) -- give RRGGBB hex instead", {"field": where, "reason": "unknown_color_name"})
+    if alpha_part is not None and not alpha:
+        element_id, element_type = element or ("", "")
+        if ELEMENT_TYPES.get(element_type, {}).get("generator") == "background":
+            how = "ffmpeg-skill/background, whose clip has no alpha -- remove the @" + alpha_part + " and set opacity instead"
+        else:
+            how = f"ffmpeg-skill/graphics, which has no opacity for it -- remove the @{alpha_part} (give RRGGBB or a colour name)"
+        raise MotionGraphicsError("UNSUPPORTED_OPERATION", f"{where}: element {element_id!r} ({element_type}) draws this colour opaque through {how}",
+                                   {"field": where, "element_id": element_id, "element_type": element_type, "value": text, "reason": "color_alpha_not_supported"})
+    return text
+
+
+def _position(value: Any, where: str) -> str:
+    if isinstance(value, str):
+        if value not in POSITION_NAMES:
+            raise MotionGraphicsError("INVALID_REQUEST", f"{where} must be one of {POSITION_NAMES} or an {{x,y}} object", {"field": where, "value": value})
+        return value
+    if isinstance(value, dict):
+        obj = _obj(value, where, ("x", "y"), ("x", "y"))
+        x, y = obj["x"], obj["y"]
+        if isinstance(x, bool) or isinstance(y, bool) or not isinstance(x, int) or not isinstance(y, int):
+            raise MotionGraphicsError("INVALID_REQUEST", f"{where}.x and {where}.y must be integers", {"field": where})
+        if not (-100000 <= x <= 100000) or not (-100000 <= y <= 100000):
+            raise MotionGraphicsError("INVALID_REQUEST", f"{where}.x and {where}.y must be within +/-100000", {"field": where})
+        return f"{x},{y}"
+    raise MotionGraphicsError("INVALID_REQUEST", f"{where} must be a string or an {{x,y}} object", {"field": where})
+
+
+def _font(value: Any, where: str) -> Dict[str, Any]:
+    obj = _obj(value, where, ("font_id", "font_file"), ())
+    if "font_id" in obj and "font_file" in obj:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where}: give font_id or font_file, not both", {"field": where})
+    if "font_id" in obj:
+        _string(obj["font_id"], f"{where}.font_id", max_length=64)
+    elif "font_file" in obj:
+        _string(obj["font_file"], f"{where}.font_file", max_length=4096)
+    else:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where}: give font_id or font_file", {"field": where})
+    return obj
+
+
+def _animation(value: Any, element_type: str, where: str) -> Animation:
+    spec = ELEMENT_TYPES[element_type]
+    if spec.get("animation") != "configurable":
+        raise MotionGraphicsError("UNSUPPORTED_OPERATION", f"{where}: element type {element_type!r} does not accept a configurable animation "
+                                   f"({spec.get('animation')} is built into the template and is not a request field)",
+                                   {"field": where, "element_type": element_type})
+    obj = _obj(value, where, ("kind", "parameters"), ("kind", "parameters"))
+    kind = obj["kind"]
+    if not isinstance(kind, str) or kind not in ANIMATION_KINDS:
+        if isinstance(kind, str) and kind in UNSUPPORTED_ANIMATIONS:
+            raise MotionGraphicsError("UNSUPPORTED_OPERATION", f"{where}.kind {kind!r} is not implemented: {UNSUPPORTED_ANIMATIONS[kind]}",
+                                       {"field": f"{where}.kind", "kind": kind})
+        raise MotionGraphicsError("UNSUPPORTED_OPERATION", f"{where}.kind must be one of {sorted(ANIMATION_KINDS)}: {kind!r}", {"field": f"{where}.kind"})
+    aspec = ANIMATION_KINDS[kind]["parameters"]
+    params_raw = _obj(obj["parameters"], f"{where}.parameters", tuple(aspec), tuple(k for k, v in aspec.items() if v.get("required")))
+    params: Dict[str, Any] = {}
+    for name, pspec in aspec.items():
+        if name not in params_raw:
+            if "default" in pspec:
+                params[name] = pspec["default"]
+            continue
+        raw = params_raw[name]
+        if pspec["type"] == _STR:
+            text = _string(raw, f"{where}.parameters.{name}", max_length=32)
+            if "enum" in pspec and text not in pspec["enum"]:
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where}.parameters.{name} must be one of {pspec['enum']}: {text!r}", {"field": f"{where}.parameters.{name}"})
+            params[name] = text
+        elif pspec["type"] == _NUM:
+            num = _finite_number(raw, f"{where}.parameters.{name}")
+            if ("min" in pspec and num < pspec["min"]) or ("max" in pspec and num > pspec["max"]):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where}.parameters.{name} must be within [{pspec.get('min')}, {pspec.get('max')}]: {num}", {"field": f"{where}.parameters.{name}"})
+            params[name] = num
+        else:  # pragma: no cover - no other animation parameter types exist today
+            raise MotionGraphicsError("INTERNAL_ERROR", f"unhandled animation parameter type {pspec['type']!r}")
+    if kind == "fade" and "duration" in params and (2 * params["duration"]) > MAX_DURATION:
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where}.parameters.duration is unreasonably large: {params['duration']}", {"field": f"{where}.parameters.duration"})
+    return Animation(kind, params)
+
+
+LANG_RE = re.compile(r"^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$")
+FIT_FIELDS: Dict[str, Dict[str, Any]] = {
+    "width": {"type": _INT, "required": True, "min": 16, "max": 7680,
+              "description": "the box width in px the template's text (with its inner padding) must stay within"},
+    "max_lines": {"type": _INT, "required": False, "min": 1, "max": 6, "default": 2, "description": "lines per text before it counts as overflow"},
+    "min_scale": {"type": _NUM, "required": False, "min": 0.3, "max": 1.0, "default": 0.6, "description": "the smallest size multiplier tried"},
+    "profile": {"type": _STR, "required": False, "enum": FIT_PROFILES, "description": "an opt-in regional line-breaking profile"},
+    "lang": {"type": _STR, "required": False, "description": "language tag of the text (BCP 47, e.g. en, ar, ja), passed to ffmpeg-skill/graphics --lang"},
+}
+
+
+def _fit(value: Any, etype: str, where: str) -> Dict[str, Any]:
+    if etype not in FIT_TEMPLATES:
+        raise MotionGraphicsError("UNSUPPORTED_OPERATION", f"{where}: text fit is offered for {sorted(FIT_TEMPLATES)} only, not {etype!r}",
+                                  {"field": where, "element_type": etype})
+    obj = _obj(value, where, tuple(FIT_FIELDS), ("width",))
+    out: Dict[str, Any] = {}
+    for name, spec in FIT_FIELDS.items():
+        if name not in obj:
+            if "default" in spec:
+                out[name] = spec["default"]
+            continue
+        raw, w = obj[name], f"{where}.{name}"
+        if spec["type"] == _INT:
+            if isinstance(raw, bool) or not isinstance(raw, int) or not (spec["min"] <= raw <= spec["max"]):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{w} must be an integer within [{spec['min']}, {spec['max']}]", {"field": w})
+            out[name] = raw
+        elif spec["type"] == _NUM:
+            num = _finite_number(raw, w)
+            if not (spec["min"] <= num <= spec["max"]):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{w} must be within [{spec['min']}, {spec['max']}]", {"field": w})
+            out[name] = num
+        else:
+            text = _string(raw, w, max_length=35)
+            if "enum" in spec and text not in spec["enum"]:
+                raise MotionGraphicsError("INVALID_REQUEST", f"{w} must be one of {list(spec['enum'])}: {text!r}", {"field": w})
+            if name == "lang" and not LANG_RE.match(text):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{w} must be a language tag such as en, ar or ja: {text!r}", {"field": w})
+            out[name] = text
+    return out
+
+
+def _element(value: Any, index: int, platform_set: bool = False, default_style: Optional[str] = None,
+             brand_kit: Optional[Dict[str, str]] = None, theme: Optional[Dict[str, Any]] = None) -> GraphicsElement:
+    where = f"elements[{index}]"
+    top_level = ("id", "type", "start", "end", "parameters", "animation", "style", "fit")
+    obj = _obj(value, where, top_level, ("id", "type", "start", "end", "parameters"))
+    element_id = _id(obj["id"], f"{where}.id")
+    etype = obj["type"]
+    if not isinstance(etype, str) or etype not in ELEMENT_TYPES:
+        if isinstance(etype, str) and etype in UNSUPPORTED_ELEMENT_TYPES:
+            raise MotionGraphicsError("UNSUPPORTED_OPERATION", f"{where}.type {etype!r} is not implemented: {UNSUPPORTED_ELEMENT_TYPES[etype]}",
+                                       {"field": f"{where}.type", "type": etype})
+        raise MotionGraphicsError("UNSUPPORTED_OPERATION", f"{where}.type must be one of {sorted(ELEMENT_TYPES)}: {etype!r}", {"field": f"{where}.type"})
+    start = _finite_number(obj["start"], f"{where}.start")
+    end = _finite_number(obj["end"], f"{where}.end")
+    if start < 0:
+        raise MotionGraphicsError("INVALID_TIME_RANGE", f"{where}.start must be >= 0: {start}", {"field": f"{where}.start"})
+    if end <= start:
+        raise MotionGraphicsError("INVALID_TIME_RANGE", f"{where}.end must be greater than {where}.start: end={end} start={start}", {"field": f"{where}.end"})
+    if end - start > MAX_DURATION:
+        raise MotionGraphicsError("INVALID_TIME_RANGE", f"{where}: duration exceeds {MAX_DURATION}s", {"field": f"{where}.end"})
+
+    tspec = ELEMENT_TYPES[etype]
+    pspec = tspec["parameters"]
+    praw = _obj(obj["parameters"], f"{where}.parameters", tuple(pspec), tuple(k for k, v in pspec.items() if v.get("required")))
+    # ADR-24: a named preset (and the document's brand kit) fills optional parameters the request left out; the values go
+    # through the same validation below as the caller's own
+    preset = style_name(obj["style"], f"{where}.style") if "style" in obj else default_style
+    style_info: Optional[Dict[str, Any]] = None
+    styled_animation: Optional[Dict[str, Any]] = None
+    if theme is not None:
+        # ADR-29: the theme's colours act as the kit, its margin / font / logo settings win over the preset
+        settings: Dict[str, Any] = {"margin": theme.get("margin"), "font": theme.get("font"), "parameters": {}}
+        if etype == "logo" and theme.get("logo"):
+            settings["parameters"] = {k: v for k, v in theme["logo"].items() if k in ("position", "margin", "scale_width", "opacity")}
+        extra, styled_animation, sources = style_values(etype, preset, theme["colors"], praw, "animation" in obj, platform_set,
+                                                        kit_label="theme", settings=settings)
+        praw = dict(praw, **extra)
+        style_info = {"preset": preset, "theme": theme.get("label"), "applied": dict(sorted(sources.items()))}
+    if theme is None and (preset is not None or brand_kit):
+        extra, styled_animation, sources = style_values(etype, preset, brand_kit, praw, "animation" in obj, platform_set)
+        praw = dict(praw, **extra)
+        skipped = []
+        if styled_animation is not None and styled_animation["parameters"]["duration"] > (end - start) / 2:
+            # a preset's fade that does not fit this element's window is left out (and said so), not an error the caller
+            # could only avoid by writing an animation of their own
+            styled_animation = None
+            sources.pop("animation", None)
+            skipped.append("animation")
+        style_info = applied_summary(preset, brand_kit, sources)
+        if skipped and style_info is not None:
+            style_info["skipped"] = skipped
+    if theme is not None and styled_animation is not None and styled_animation["parameters"]["duration"] > (end - start) / 2:
+        styled_animation = None
+        if style_info is not None:
+            style_info["applied"].pop("animation", None)
+            style_info["skipped"] = ["animation"]
+    parameters: Dict[str, Any] = {}
+    for name, spec in pspec.items():
+        if name not in praw:
+            # With document.options.platform set, an omitted margin is the destination's safe zone (ffmpeg-skill's own
+            # --platform behaviour, which only applies when no --margin is sent), not the 24px default -- so the default
+            # is not materialised and the executor sends no --margin for this element. A margin the request gives is sent and wins (but see
+            # the contract's `platforms.effect`: ffmpeg-skill/overlay cannot tell an explicit 24 from its own default).
+            if "default" in spec and not (platform_set and spec.get("platform_replaces_default")):
+                parameters[name] = spec["default"]
+            continue
+        raw = praw[name]
+        where_p = f"{where}.parameters.{name}"
+        if spec["type"] == _STR:
+            text = _string(raw, where_p, max_length=spec.get("max_length"))
+            if "enum" in spec and text not in spec["enum"]:
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where_p} must be one of {spec['enum']}: {text!r}", {"field": where_p})
+            parameters[name] = text
+        elif spec["type"] == _COLOR:
+            parameters[name] = _color(raw, where_p, spec.get("alpha", True), (element_id, etype))
+        elif spec["type"] == _POS:
+            parameters[name] = _position(raw, where_p)
+        elif spec["type"] == _FONT:
+            parameters[name] = _font(raw, where_p)
+        elif spec["type"] == _PATH:
+            parameters[name] = _string(raw, where_p, max_length=4096)
+        elif spec["type"] == _INT:
+            if isinstance(raw, bool) or not isinstance(raw, int):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where_p} must be an integer", {"field": where_p})
+            if ("min" in spec and raw < spec["min"]) or ("max" in spec and raw > spec["max"]):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where_p} must be within [{spec.get('min')}, {spec.get('max')}]: {raw}", {"field": where_p})
+            if spec.get("multiple_of") and raw % spec["multiple_of"]:
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where_p} must be a multiple of {spec['multiple_of']}: {raw}",
+                                           {"field": where_p, "multiple_of": spec["multiple_of"]})
+            parameters[name] = raw
+        elif spec["type"] == _NUM:
+            num = _finite_number(raw, where_p)
+            if ("min" in spec and num < spec["min"]) or ("max" in spec and num > spec["max"]):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where_p} must be within [{spec.get('min')}, {spec.get('max')}]: {num}", {"field": where_p})
+            parameters[name] = num
+        elif spec["type"] == _BOOL:
+            if not isinstance(raw, bool):
+                raise MotionGraphicsError("INVALID_REQUEST", f"{where_p} must be a boolean", {"field": where_p})
+            parameters[name] = raw
+        else:  # pragma: no cover
+            raise MotionGraphicsError("INTERNAL_ERROR", f"unhandled parameter type {spec['type']!r}")
+
+    at_least_one = tspec.get("at_least_one_of")
+    if at_least_one and not any(name in parameters for name in at_least_one):
+        raise MotionGraphicsError("INVALID_REQUEST", f"{where}.parameters: at least one of {list(at_least_one)} is required for a {etype!r} element",
+                                   {"field": f"{where}.parameters", "at_least_one_of": list(at_least_one)})
+
+    animation: Optional[Animation] = None
+    raw_animation = obj["animation"] if "animation" in obj else styled_animation
+    if raw_animation is not None:
+        animation = _animation(raw_animation, etype, f"{where}.animation")
+        if animation.kind == "fade" and animation.parameters["duration"] > (end - start) / 2:
+            raise MotionGraphicsError("INVALID_TIME_RANGE", f"{where}.animation: fade duration {animation.parameters['duration']}s does not fit within [{start}, {end}]",
+                                       {"field": f"{where}.animation.parameters.duration"})
+    fit = _fit(obj["fit"], etype, f"{where}.fit") if "fit" in obj else None
+    return GraphicsElement(element_id, etype, start, end, parameters, animation, style_info, fit)
+
+
+def parse_request(document: Any, theme: Optional[Dict[str, Any]] = None) -> GraphicsDocument:
+    """`theme` is the loaded active theme (themes.load_theme, done by the executor, which may read files); without it a document
+    that names themes is checked structurally and no theme is applied (`validate` touches no files)."""
+    _reject_forbidden(document, "document")
+    top = _obj(document, "document", ("schema", "video", "output", "elements", "options"), ("video", "output", "elements"))
+    if "schema" in top and top["schema"] != REQUEST_SCHEMA_ID:
+        raise MotionGraphicsError("INVALID_REQUEST", f"document.schema must be {REQUEST_SCHEMA_ID!r}: {top['schema']!r}", {"field": "schema"})
+
+    video = _obj(top["video"], "document.video", ("path",), ("path",))
+    video_path = _string(video["path"], "document.video.path", max_length=4096)
+
+    output = _obj(top["output"], "document.output", ("path", "overwrite"), ("path",))
+    output_path = _string(output["path"], "document.output.path", max_length=4096)
+    overwrite = output.get("overwrite", False)
+    if not isinstance(overwrite, bool):
+        raise MotionGraphicsError("INVALID_REQUEST", "document.output.overwrite must be a boolean", {"field": "document.output.overwrite"})
+
+    raw_elements = top["elements"]
+    if not isinstance(raw_elements, list) or not raw_elements:
+        raise MotionGraphicsError("INVALID_REQUEST", "document.elements must be a non-empty array", {"field": "elements"})
+    if len(raw_elements) > MAX_ELEMENTS:
+        raise MotionGraphicsError("INVALID_REQUEST", f"document.elements has more than {MAX_ELEMENTS} entries", {"field": "elements", "count": len(raw_elements)})
+    options_peek = top.get("options")
+    platform_set = isinstance(options_peek, dict) and options_peek.get("platform") is not None
+    default_style: Optional[str] = None
+    brand_kit: Optional[Dict[str, str]] = None
+    theme_options = None
+    if isinstance(options_peek, dict):
+        from .themes import parse_theme_options
+        theme_options = parse_theme_options(options_peek)
+        if theme_options is not None and (options_peek.get("style") is not None or options_peek.get("brand_kit") is not None):
+            raise MotionGraphicsError("INVALID_REQUEST", "document.options: a theme gives the colours and the base style; do not combine it with "
+                                      "options.style or options.brand_kit", {"field": "document.options.theme"})
+        if options_peek.get("style") is not None:
+            default_style = style_name(options_peek["style"], "document.options.style")
+        if options_peek.get("brand_kit") is not None:
+            brand_kit = parse_brand_kit(options_peek["brand_kit"])
+    if theme is not None:
+        default_style = theme.get("base_style")
+    elements = [_element(e, i, platform_set, default_style, brand_kit, theme) for i, e in enumerate(raw_elements)]
+    seen: Dict[str, int] = {}
+    for i, el in enumerate(elements):
+        if el.element_id in seen:
+            raise MotionGraphicsError("DEPENDENCY_ERROR", f"duplicate element id {el.element_id!r} (elements[{seen[el.element_id]}] and elements[{i}])",
+                                       {"field": "elements", "id": el.element_id})
+        seen[el.element_id] = i
+
+    options_raw = top.get("options", {})
+    options = _obj(options_raw, "document.options", ("reuse_intermediates", "crf", "preset", "audio_stream", "platform", "style", "brand_kit",
+                                                         "reserved_regions", "themes", "theme", "layer_export"), ())
+    reuse = options.get("reuse_intermediates", True)
+    if not isinstance(reuse, bool):
+        raise MotionGraphicsError("INVALID_REQUEST", "document.options.reuse_intermediates must be a boolean", {"field": "document.options.reuse_intermediates"})
+    crf = options.get("crf", 18)
+    if isinstance(crf, bool) or not isinstance(crf, int) or not (0 <= crf <= 51):
+        raise MotionGraphicsError("INVALID_REQUEST", "document.options.crf must be an integer within [0, 51]", {"field": "document.options.crf"})
+    preset = options.get("preset", "medium")
+    presets = ("ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow")
+    if preset not in presets:
+        raise MotionGraphicsError("INVALID_REQUEST", f"document.options.preset must be one of {presets}: {preset!r}", {"field": "document.options.preset"})
+    # Which audio stream of document.video.path to keep, 0-based (ffmpeg-skill/graphics and ffmpeg-skill/overlay
+    # --audio-stream, added in ffmpeg-skill 0.12.0). Applies to every graphics/overlay stage of the pipeline, not
+    # per-element -- there is only ever one source video, so there is only one meaningful choice of audio track for
+    # the whole document. Bounded generously (no real container carries anywhere near this many audio tracks) to
+    # catch an integer typo structurally; whether the *actual* input has that many tracks is not knowable here
+    # without probing it, so an out-of-range value for the real input surfaces as a real TOOL_ERROR from the
+    # delegate tool itself (ffmpeg-skill/{graphics,overlay} both `die` on it) rather than this Skill guessing.
+    audio_stream = options.get("audio_stream")
+    if audio_stream is not None and (isinstance(audio_stream, bool) or not isinstance(audio_stream, int) or not (0 <= audio_stream <= 63)):
+        raise MotionGraphicsError("INVALID_REQUEST", "document.options.audio_stream must be an integer within [0, 63]", {"field": "document.options.audio_stream"})
+
+    # Destination whose UI the graphics should stay out of (ffmpeg-skill --platform, graphics and overlay): every element's
+    # margin that the request does not give explicitly becomes that destination's safe zone. One value for the whole
+    # document, like audio_stream -- there is one output, so one destination. A closed vocabulary (PLATFORM_NAMES).
+    platform = options.get("platform")
+    if platform is not None and (not isinstance(platform, str) or platform not in PLATFORM_NAMES):
+        raise MotionGraphicsError("INVALID_REQUEST", f"document.options.platform must be one of {PLATFORM_NAMES}: {platform!r}", {"field": "document.options.platform"})
+
+    # YouTube end-screen elements and card teasers (ADR-28): structural check here, boxes once the frame size is known
+    reserved = parse_reserved_regions(options["reserved_regions"]) if options.get("reserved_regions") is not None else None
+
+    # every element drawn alone on a transparent picture, beside the programme (ADR-30): structural check here, the directory and the
+    # checkout's flags at run time
+    layer_export = None
+    if options.get("layer_export") is not None:
+        from .layerexport import parse_layer_export
+        layer_export = parse_layer_export(options["layer_export"], [el.element_id for el in elements])
+
+    return GraphicsDocument(video_path, output_path, overwrite, tuple(elements),
+                             {"reuse_intermediates": reuse, "crf": crf, "preset": preset, "audio_stream": audio_stream, "platform": platform,
+                              "style": default_style, "brand_kit": brand_kit, "reserved_regions": reserved, "themes": theme_options,
+                              "layer_export": layer_export})

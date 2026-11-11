@@ -1,0 +1,63 @@
+# audio-production-skill — guide for a future session
+
+Read this first; do not rely on conversation history. Current state and next tasks: `docs/STATE.md`.
+
+## What this repository is
+
+A deterministic **audio production execution Skill** of the kajisho5 video production ecosystem (README "What it is,
+and what it is not"). It executes a typed operation graph (GAIN, TRIM, CUT, SILENCE_REMOVE, FILLER_REMOVE, FADE_IN/OUT, NORMALIZE,
+MIX (with duck), CONCAT, MONO, STEREO, DOWNMIX, NOISE_REDUCTION, DYNAMICS, VOICE_CLEANUP) through **ffmpeg-skill**'s public contract (any version that declares the tools and flags it uses)
+and reports validated artifacts with provenance. It is not an agent, not a measurement skill, not ffmpeg-skill.
+
+## Boundaries that must hold
+
+- No shell, no `ffmpeg` call of its own, no filter strings, no request field may name a command / argv / executable
+  (`model.FORBIDDEN_KEYS`); one `subprocess.Popen` in `adapter.py`; allow-listed ffmpeg-skill scripts only.
+- No production defaults (`target_lufs`, `true_peak_db`, silence ranges, the filler lexicon are always explicit), no
+  silence detection, no speech recognition (FILLER_REMOVE cuts at caller-supplied word timings),
+  no decisions, no conference / speaker vocabulary in code or contract (tested).
+- Inputs are never modified; outputs stay inside `--workspace`; failed runs leave no partial output.
+- Everything the contract says is derived from `model.OPERATION_TYPES`, `executor.TOOL_FOR`, `adapter.FLAGS_USED`,
+  `errors.ERROR_TABLE`, `contract.CAPABILITY_IDS`; `audio-production contract --check` proves it.
+
+## Layout
+
+`src/audio_production/`: `model` (request schema, operation parameter schemas), `fillers` (FILLER_REMOVE matching /
+range arithmetic, pure), `security` (path policy), `graph`,
+`timeline`, `adapter` (ffmpeg-skill boundary), `executor`, `doctor`, `contract`, `contract_check`, `cli`, `errors`,
+`canonical`. `tests/`: unit, security, contract (with `tests/contract/contract.json` pinned), integration (real
+audio through the real ffmpeg-skill; nothing skipped). `docs/`: architecture, security, ffmpeg-skill (observed
+behaviours and gaps), contract (pinned blocks / drift), testing, decisions (ADRs), STATE.
+
+## Commands
+
+```text
+pip install -e . pytest pyflakes mypy
+export AUDIO_PRODUCTION_FFMPEG_SKILL_DIR=/path/to/ffmpeg-skill      # or clone it as ../ffmpeg-skill / vendor/ffmpeg-skill
+python -m pytest -q                                                 # ~90 s with real ffmpeg
+python -m pyflakes src tests && python -m mypy src/audio_production --ignore-missing-imports
+audio-production doctor --json
+audio-production contract --check tests/contract/contract.json --json
+```
+
+## Rules for changes
+
+- A contract change inside the pinned blocks (docs/contract.md) is breaking for video-production-agent's pin:
+  bump `VERSION` (`src/audio_production/__init__.py` and `pyproject.toml`), regenerate `tests/contract/contract.json`,
+  and note in the PR that the agent must re-pin. Additive keys are fine within a version.
+- Never claim an operation the code cannot run: gaps go to `model.UNSUPPORTED_OPERATIONS` with the reason.
+- New ffmpeg-skill features: verify the real behaviour first (docs/ffmpeg-skill.md records measurements), then
+  detect the capability from the contract (`FLAGS_USED` if required, `OPTIONAL_FLAGS_USED` + `takes_flag()` if the
+  older behaviour still works). Never gate on the ffmpeg-skill version number and never add an upper bound (ADR-15).
+- CI runs every cell against ffmpeg-skill commit `336e0c4` (0.12.2) and against `main` in
+  `.github/workflows/tests.yml`; runners ship FFmpeg 6 (Ubuntu) and 8 (macOS, Windows), which behave differently
+  for AAC trim boundaries (docs/ffmpeg-skill.md).
+- Commit messages and PR bodies follow the existing ones; PRs are squash-merged; the branch cannot be deleted
+  through the git proxy (delete it in the GitHub UI).
+- `.github/workflows/release.yml` (ADR-14) tags and releases automatically on push to `main`, resolving the next
+  version from PR labels unless `pyproject.toml`'s current version is already ahead of the latest tag (a manual
+  bump per the rule above is always respected, never overwritten). Label a PR `major`/`breaking`,
+  `minor`/`feature`/`enhancement`, or `patch`/`fix`/`bug`/`chore`/`documentation` (`.github/workflows/autolabel.yml`
+  usually does this from the title/branch/files automatically); unlabeled defaults to patch. On a Dependabot PR a
+  `major`/`minor`-level label counts only when a person applied it (ADR-22). Don't hand-edit
+  `CHANGELOG.md` — the release workflow generates it from `git log` every run.

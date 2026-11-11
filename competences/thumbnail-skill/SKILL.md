@@ -1,0 +1,50 @@
+---
+name: thumbnail-skill
+description: Deterministic thumbnail rendering execution Skill for the AI Video Production Ecosystem. Use it when a caller (normally video-production-agent) has already decided exactly what a thumbnail should show - which still image or which explicit video timestamp, what text, what layout - and needs it rendered safely to PNG/JPEG with provenance. Do NOT use it to choose what a thumbnail should show, pick a "best" video frame, detect faces, generate a title, judge design quality, or run arbitrary ffmpeg/image commands (it refuses them); those decisions belong to the caller.
+---
+
+# thumbnail-skill
+
+Machine interface: `thumbnail run - --json` with a `{"tool": "thumbnail/<name>", "params": {...}}`
+document on stdin; exactly one response document on stdout. `thumbnail skill --json` prints the
+contract, `thumbnail doctor --json` the environment (fonts, ffmpeg-skill, path policy).
+
+Tools: `thumbnail/validate` (structural check only), `thumbnail/render` (canvas + assets + elements
+-> PNG/JPEG), `thumbnail/extract_frame` (one video timestamp -> one frame, nothing else),
+`thumbnail/render_batch` (one template per `output.preset` plus a CSV or inline rows -> one thumbnail
+per row and target; `{{column}}` placeholders; `text_fit` shrinks a name down to `min_font_size`,
+never cuts it; nothing is written until every row is checked), `thumbnail/render_variants`
+(`thumbnail render req.json --variants N`: N documented variants, each checked at 320 px wide for text
+height and, through qc-skill, contrast; a failing variant is flagged and kept), `thumbnail/render_layers`
+(`thumbnail render req.json --layers DIR`: every composed layer as a PNG with alpha plus `layers.json`,
+verified to rebuild the thumbnail pixel for pixel), `thumbnail/choose_frame` (ranks a
+detection-skill `detections@1` face document's frames by eyes open, sharpness, exposure, angle and
+size; closed eyes rank last; detects nothing itself), `thumbnail/place_text` (moves one text
+element to the first position clear of every face; refuses rather than cover one), and the
+optional `thumbnail/generate_background` (one AI background image from a caller-written prompt and
+seed, FLUX.2 [klein] 4B, only when `thumbnail doctor --json` -> `checks.background_providers` says
+`available`; otherwise it is refused with `TOOL_ERROR` / `provider_unavailable`, and nothing else
+changes). Use its output as an ordinary `image` asset; report its `provenance` (engine, licence).
+
+Rules for a calling agent:
+1. Decide everything about content before calling this skill: which still image, or which exact
+   video timestamp (`asset.timestamp`, seconds); what the text says (with literal `\n` for line
+   breaks — this skill never wraps or reflows text); where every element sits (`position`, `size`,
+   `z_index`). This skill renders exactly what it is given and searches for nothing.
+2. Reference fonts by `font_id` from the registry (`thumbnail skill --json` -> `fonts.font_ids`, or
+   `thumbnail doctor --json` for what actually resolves on this machine). A request never carries a
+   font path; an unresolvable `font_id` fails `MISSING_INPUT`, never a silent substitution.
+3. Never send `command`, `argv`, `shell`, `filter`/`filter_complex`/`vf`/`af`, `executable`, `env`,
+   or HTML/CSS/JS: the request is rejected with `INVALID_REQUEST` wherever such a key appears.
+4. Keep outputs inside the workspace (`--workspace` / `options.workspace`), never at an input path;
+   set `overwrite: true` deliberately. Restrict inputs with `options.allowed_input_roots` when the
+   caller's own inputs come from an untrusted or shared location.
+5. Read `output`, `sha256`, `width`/`height`, `reused` and `provenance` from the response; the exit
+   code is 0 only when `ok` is true. For a platform target, set `output.preset` (`youtube`,
+   `youtube-shorts`, `tiktok`, `instagram-reels`, `instagram-feed`, `x`; limits in `thumbnail skill
+   --json` -> `platform_presets`): it supplies the canvas size unless you give both `width` and
+   `height`, and an output over the preset's limits fails `VALIDATION_ERROR` (`preset_limit_exceeded`). A `video_frame` asset needs ffmpeg-skill reachable (env var
+   `THUMBNAIL_SKILL_FFMPEG_SKILL_DIR` or `--ffmpeg-skill`); a still-image-only document never needs it.
+
+See README.md for the ThumbnailDocument schema, element/font/output tables, error codes, security
+boundary and the responsibility split with video-production-agent and the other media skills.

@@ -1,0 +1,308 @@
+---
+name: subtitle-skill
+description: Deterministic subtitle validation, SRT/WebVTT generation, video caption burn-in, machine translation of subtitle documents (offline Argos Translate by default, optional OPUS-MT on CTranslate2, a local Ollama LLM, DeepL, or a caller translation memory; timecodes kept, line length and reading speed re-checked for the target language), and multi-language soft-subtitle mux. Given an already-decided, typed subtitle document (cue text, timing, optional speaker/style), validate its timeline, generate an SRT or WebVTT file, translate it, or burn/mux it into a video by delegating to ffmpeg-skill's caption tool. Use this skill only after another agent has already decided what the subtitle cues should say and how they should be split -- it performs no transcription, no diarization, no cue-splitting judgement, and no "does this look right" visual check.
+---
+
+# subtitle-skill
+
+This document is for an agent deciding whether and how to call
+subtitle-skill. It is not a substitute for reading `README.md`
+(architecture, data model, validation rules, security) or
+`contract --json` (the machine-readable operation/format/error list) —
+read both before integrating.
+
+## When to use this skill
+
+Use subtitle-skill when you already have subtitle **cues** — text with
+start/end timestamps, decided by you or an upstream step — and need to:
+
+- validate that timeline (catch overlaps, bad timestamps, unreadable
+  cues) before shipping it,
+- turn it into an SRT or WebVTT file,
+- burn it into a video,
+- machine-translate it into another language with the same timecodes
+  (`translate`),
+- mux several languages into one video as switchable subtitle tracks
+  (`mux`).
+
+Do **not** use subtitle-skill to:
+
+- transcribe audio (that's `transcription-skill`),
+- decide how to split a long sentence into cues, whether to show a
+  speaker label, or word subtitle text — that judgement is yours; hand
+  subtitle-skill the finished `SubtitleCue`s, not a `TranscriptSegment`,
+- summarize or rewrite subtitle text (`translate` hands each cue to the
+  chosen engine and reports what does not fit; it never shortens or
+  rewords a translation),
+- decide *whether* a render "looks good" — subtitle-skill's render
+  verification is limited to what a machine can check (file exists, has
+  a video stream, duration preserved); it does not run or interpret
+  ffmpeg-skill's `look` (visual contact sheet). If you need to confirm
+  the captions are legible/well-placed, run `ffmpeg-skill/look` on the
+  output yourself and inspect it — that is your judgement call, not
+  subtitle-skill's.
+
+**Never delegate the "did this render correctly" decision to
+subtitle-skill.** A successful `render` response means: the request was
+valid, ffmpeg-skill's `caption` tool exited with `status: "completed"`,
+and the output file exists with a video stream and unchanged duration.
+It does **not** mean the captions are positioned, sized, or timed the
+way you wanted — that is a visual judgement outside this skill's scope.
+
+## Building a SubtitleDocument
+
+```json
+{
+  "id": "doc-1",
+  "language": "en",
+  "cues": [
+    {"id": "c1", "start": 0.0, "end": 2.5, "text": "Hello and welcome"},
+    {"id": "c2", "start": 2.5, "end": 5.0, "text": "to the show.", "speaker": "Host"}
+  ]
+}
+```
+
+- `start`/`end` are seconds, `start < end`, both finite and `>= 0`.
+- `id` must be unique per document — subtitle-skill rejects duplicates.
+- `speaker` is rendered as a plain `"Speaker: "` text prefix on the
+  cue's first line — it is not a caption-styling decision, just a fixed
+  convention (see README §5).
+- `style` is an allowlisted, per-cue object (`align`, `position`,
+  `line`, `size`, `bold`, `italic`, `color`) for `generate`'s SRT/WebVTT
+  output. For `render`'s `mode: "burn"`, only `color`/`bold`/`size` are
+  additionally forwarded to ffmpeg-skill's `caption` tool, as its own
+  `--color`/`--bold`/`--size` flags — see "SubtitleStyle → caption.py"
+  below for the exact mapping (including `size`'s percent-to-points
+  conversion) and why `align`/`position`/`line`/`italic` have no
+  caption.py equivalent and are never forwarded. Because caption.py's
+  styling is one whole-burn setting, not per-cue, every cue that sets
+  `color`/`bold`/`size` must agree on the value — a document that
+  genuinely wants different values on different cues is rejected
+  (`INVALID_INPUT`) for `render`, not silently resolved by keeping one
+  cue's request and dropping the rest. `mode: "mux"` forwards none of
+  it — caption.py's own docs say styling has no effect there, so setting
+  `color`/`bold`/`size` with `mode: "mux"` is rejected up front
+  (`UNSUPPORTED_FORMAT`) rather than silently accepted and ignored. If
+  you need `align`/`position`/`line`/font/outline/animation control on a
+  burned-in video, call ffmpeg-skill's `caption` tool yourself with those
+  flags instead of going through subtitle-skill's `render`.
+
+### `SubtitleStyle` → caption.py (render, `mode: "burn"` only)
+
+| field | caption.py flag | conversion |
+|---|---|---|
+| `color` | `--color` | forwarded verbatim (caption.py validates the hex format itself) |
+| `bold` | `--bold` | `True` → flag present; `False`/`None` → omitted |
+| `size` (0..100 percent) | `--size` | `round(size / 100 × 288)` — caption.py's `--size` is in ASS points relative to its own 288-line nominal baseline |
+| `align` / `position` / `line` / `italic` | *(none)* | no clean caption.py equivalent — left unmapped, not guessed at; see README "SubtitleStyle → caption.py" for the full per-field reasoning |
+
+## Fatal vs. warning: read `observation`, don't assume success means "clean"
+
+A successful response can still carry a non-empty `observation` array —
+these are warnings, not failures, and subtitle-skill never auto-fixes
+them (no cue is deleted, merged, or shifted):
+
+| code | meaning |
+|---|---|
+| `CUE_OVERLAP` | two cues' time ranges overlap |
+| `TOO_MANY_LINES` / `LINE_TOO_LONG` | exceeds `constraints.max_lines` / `max_chars_per_line` |
+| `CUE_TOO_SHORT` / `CUE_TOO_LONG` | outside `constraints.min_duration` / `max_duration` |
+| `READING_SPEED_TOO_HIGH` | more text than `constraints.reading_speed_cps` allows for the cue's duration |
+| `KINSOKU_LINE_START` / `KINSOKU_LINE_END` | (ja/zh/ko only) a line break leaves a character that may not begin a line (e.g. `。、」）ー ゃ っ`) at a line start, or one that may not end a line (e.g. `「『（`) at a line end |
+| `RUBY_AS_TEXT` | (`generate` to `srt` / `ebu-tt-d`) the format has no ruby, so the cue's reading is written in brackets after its base (`字幕（じまく）`) |
+| `CAPTION_OVERLAP_UNAVOIDABLE` | (`render` with `placement` only) a face or region overlaps both the bottom and the top caption box while the cue is on screen; the cue stays at the bottom |
+
+**Locale profiles (ja / zh / ko).** When `subtitle.language`'s primary
+subtag is `ja`, `zh` or `ko` (`ja-JP`, `zh-Hans`, `ko-KR`, ...), line length
+and reading speed are counted in full-width units by Unicode East Asian
+Width (a half-width Latin letter is 0.5 in ja/ko, 1 in zh) and the defaults
+become ja 13 chars/line and 4 cps, zh 16 and 9, ko 16 and 12 (Netflix
+Timed Text Style Guides; sources in `docs/adr/ADR-001-locale-profiles.md`).
+Kinsoku is checked at every existing line break. A `LINE_TOO_LONG` or
+`KINSOKU_*` observation on such a cue may carry `suggested_text`: a
+kinsoku-compliant re-break that fits your limits. It is a suggestion; the
+cue text is never changed. Every other language behaves exactly as before.
+
+Fatal problems (`VALIDATION_ERROR`, `INVALID_TIME_RANGE`, ...) raise
+before any file is written — there is no partial output to clean up.
+
+If you want subtitle-skill to enforce your own house style (e.g. max 32
+chars/line), pass `constraints` in the request — do not treat the
+built-in defaults as "the correct" values; they exist only so a caller
+can omit `constraints` entirely.
+
+## Ruby, vertical text and regional profiles
+
+- **Ruby** (furigana) is cue content: `"ruby": [{"base": "字幕", "text": "じまく"}]`,
+  each `base` found in the cue text in order. TTML writes IMSC ruby, WebVTT
+  `<ruby>`, `render` draws the reading over its base; SRT and EBU-TT-D have no
+  ruby and get `字幕（じまく）` with a `RUBY_AS_TEXT` observation.
+- **Vertical text**: `style.vertical: true` → TTML `tts:writingMode="tbrl"`
+  (a column region at the right edge), WebVTT `vertical:rl`. Not burned in
+  (`UNSUPPORTED_FORMAT`) and not SRT.
+- **`regional_profile`** (opt-in, `generate` / `translate` / `render`;
+  `docs/adr/ADR-008-regional-profiles.md`). Without it the international
+  defaults apply: white text, `Speaker: ` prefixes, the locale's line limits.
+  `ja-broadcast` (Japanese documents only): speakers by colour in order of
+  first appearance (white, yellow, cyan, green) with no name drawn, 15
+  full-width characters x 2 lines unless your `constraints` say otherwise.
+  Colours are applied only where the output carries them (TTML, EBU-TT-D,
+  a burn); SRT, WebVTT and soft tracks keep the names instead. The response's
+  `regional_profile` gives the speaker → colour map. `contract --json`
+  `parameters.regional_profiles` lists every profile.
+
+## `generate` vs. `render`
+
+- **`generate`**: no video I/O. Validates the document, writes an SRT,
+  WebVTT or TTML file. Use this when you only need the subtitle file (e.g. to
+  hand to another tool, or to review before committing to a burn-in).
+  - `format: "ttml"` writes IMSC 1.1 Text Profile; `format: "ebu-tt-d"`
+    writes EBU-TT-D (EBU Tech 3380). Ask for these when a broadcaster or
+    distributor wants TTML. WebVTT cue settings (`line`, `position`, `size`,
+    `align`) become TTML regions, and `bold`/`italic`/`color` named styles
+    (TTML, unlike SRT and WebVTT, can carry colour). The written document is
+    checked against its profile first; the response's `conformance` says
+    which profile it conforms to. See `docs/adr/ADR-007-ttml-output.md`.
+- **`render`**: requires `video_input`; `format` must be `"srt"`.
+  Validates, generates the SRT, then delegates the actual burn-in to
+  ffmpeg-skill's `caption` tool. Requesting `render` with `format: "vtt"`
+  fails immediately with `UNSUPPORTED_FORMAT` — do not retry with a
+  different format expecting it to work; ffmpeg-skill has no WebVTT
+  support to fall back to. `render` measures the real video duration
+  itself before rendering and rejects a cue past it — you do not need to
+  (and cannot rely on) passing a correct `video_duration` hint for this;
+  it exists only as an optional, non-authoritative early check.
+  - `mode` (optional, default `"burn"`): `"burn"` renders subtitles into
+    the picture; `"mux"` copies the video/audio streams untouched and
+    adds the SRT as a separate, player-toggleable subtitle stream
+    instead. Pick `"mux"` when the caller wants a soft/removable
+    subtitle track (e.g. building a multi-language set by rendering once
+    per language into the same growing container) rather than a
+    permanently burned-in one.
+  - `audio_stream` (optional, 0-based integer): which audio track of a
+    multi-track input (dubbed languages, M&E stems) to keep, for either
+    mode. An out-of-range value is rejected as `INVALID_INPUT` — this
+    skill does not guess which track you meant.
+  - `subtitle.language` is forwarded as the new subtitle stream's
+    language tag when `mode: "mux"` (a no-op for `"burn"`, which has no
+    subtitle stream to tag). It is forwarded exactly as given, not
+    normalized — a `.mp4`/`.mov` output's `mov_text` codec only honors a
+    3-letter ISO 639-2 code there (confirmed against real ffmpeg, not
+    assumed); a plain 2-letter BCP47 tag like `"ja"`/`"en"` can be
+    silently dropped from that container's stream tags with no error.
+    Use `.mkv`/`.webm` output when the exact tag value must survive.
+  - `placement` (optional; `docs/adr/ADR-006-caption-placement.md`): keeps
+    captions off faces. `faces` is a workspace path to a detection-skill
+    `detections@1` document of kind `face` for this video; `reframe`
+    (optional) a `reframe@1` document when the video is the crop it chose,
+    so face boxes are mapped into the crop; `avoid` a list of fixed regions
+    `{name, box: [x, y, w, h] as fractions of the frame, start?, end?}` (a
+    sign-language window, a lower third); `min_hold` (seconds, default 1.0),
+    `max_lines` (height of the caption box, default 2), `min_score` (ignore
+    weaker face boxes). A cue moves from the bottom to the top caption box,
+    as a whole, when a face sampled while it is on screen (or a region active
+    then) overlaps the bottom box and nothing overlaps the top one. A short
+    run of bottom cues between two moved cues, on screen for less than
+    `min_hold`, moves with them. The response's `placement` lists every move
+    with the box that caused it (`moves[].cause`), and `top_cues`. A burn is
+    written as ASS with `{\an8}` on the moved cues and burned with
+    `caption --ass`; `mode: "mux"` puts `{\an8}` in the soft track.
+
+  - `caption_profile: "shorts"` (optional, `mode: "burn"`, vertical video
+    only; `docs/adr/ADR-009-shorts-captions.md`): every cue needs
+    `words: [{text, start, end}]` (word timings from a transcription). The
+    cues are re-cut into one or two words each (a clause-ending word ends a
+    cue), drawn bold at 5.5 % of the frame height inside the safe zone
+    shared by TikTok, YouTube Shorts and Instagram Reels (top 10 %, bottom
+    22 %, left 5 %, right 14 %), smaller when two long words would not fit.
+    With `placement` a chunk moves to the top of the safe zone while a face
+    is under it. The response's `caption_profile.cues` lists the cues drawn.
+
+  - `fonts_dir` (optional, `mode: "burn"` only; `docs/adr/ADR-010-fonts-dir.md`):
+    a directory inside the workspace holding font files (`.ttf`, `.otf`,
+    `.ttc`). Set it when the machine has no installed font for the
+    subtitle's script and you cannot install one: copy a font that covers
+    the text into the workspace and give its directory. The family that has
+    the most of the subtitle's characters is read from those files and
+    named to ffmpeg-skill together with the directory. The response's
+    `fonts_dir` gives `{path, family, files}`. A directory with no font for
+    the text is `INVALID_INPUT`; a `FONT_GLYPHS_MISSING` observation lists
+    characters the family lacks. An absolute path, `..` or a path outside
+    the workspace is `PATH_NOT_ALLOWED`. An ffmpeg-skill whose caption tool
+    takes no fonts directory is `DEPENDENCY_ERROR`.
+
+## `translate` and `mux`
+
+- **`translate`**: `subtitle`, `target_language`, `format` (`srt`/`vtt`/`ttml`/`ebu-tt-d`),
+  `output_path`, optional `engine`, `glossary`, `translation_memory`,
+  `constraints`. Cue ids and start/end times are copied; each cue is one
+  segment; the text is re-broken for the target language and validated
+  with the target's limits (`constraints` are the *target's*). Read the
+  response's `subtitle` (the translated document) to feed `mux` or
+  `render`.
+  - `engine: "argos"` (default) is offline and needs `argostranslate` plus
+    an already-installed language package; subtitle-skill never
+    downloads one. Missing → `DEPENDENCY_ERROR`, not retryable until the
+    environment changes.
+    The licence of the Argos ja→en weights is not stated anywhere
+    (ADR-004 addendum): for commercial ja→en work pass `engine: "opus-mt"`.
+  - `engine: "opus-mt"` is offline (Helsinki-NLP OPUS-MT on CTranslate2,
+    Apache-2.0 weights) and needs `ctranslate2` + `sentencepiece` and a
+    model the user converted into `$SUBTITLE_SKILL_OPUS_MT_DIR/opus-mt-<src>-<tgt>`.
+    ja→en in practice; never downloads.
+  - `engine: "ollama"` asks a local Ollama server (Qwen3 `qwen3:8b` by
+    default; `SUBTITLE_SKILL_OLLAMA_MODEL` / `SUBTITLE_SKILL_OLLAMA_URL`),
+    one request per cue at temperature 0; the model must already be
+    pulled. An LLM may paraphrase: check the observations.
+  - `engine: "deepl"` needs `DEEPL_AUTH_KEY` in the environment. Never put
+    a key in the request (`api_key` is refused anywhere).
+  - `engine: "memory"` looks up exact source → target pairs you pass in
+    `translation_memory`: use it to apply a translation you (or a human)
+    already made, and still get timing, layout and glossary checks.
+    A segment with no entry → `MISSING_INPUT` listing the segments.
+  - `GLOSSARY_TERM_MISSING` / `READING_SPEED_TOO_HIGH` / `LINE_TOO_LONG`
+    observations are yours to act on (re-translate, shorten, re-time).
+- **`mux`**: `video_input`, `output_path` (`.mkv` recommended; `.mp4`/
+  `.mov` use mov_text with ISO 639-2 tags and many players show only the
+  first track), `tracks: [{subtitle, title?}]`, optional
+  `default_language`, `audio_stream`. One track per language; titles on
+  all tracks or none. Timing passes through unchanged. Needs ffmpeg-skill
+  1.16+ for more than one track (`doctor --json` lists `mux` only when
+  ffmpeg-skill is usable at all).
+
+## ffmpeg-skill dependency
+
+`render` only works when an ffmpeg-skill install with a working `caption`
+tool is reachable. Call `doctor --json` first if you are not sure:
+`"render"` only appears in `supported_operations` when ffmpeg-skill was
+actually found and its required capabilities
+(`ffmpeg`, `ffprobe`, `encoder:libx264`, `encoder:aac`, `filter:subtitles`)
+are confirmed available. If `render` is missing from that list, do not
+call it and expect it to work — read `problems` for why, and either fix
+the environment (install ffmpeg-skill / ffmpeg) or fall back to
+`generate` and hand the SRT to whatever can burn it in.
+
+## Unsupported operation / format
+
+Only `generate`, `render`, `translate` and `mux` are implemented; only
+those appear in `contract --json`'s `operations`. If you need `convert`, `validate`
+(standalone), `offset`, or `merge`, they do not exist yet — do not guess
+at a request shape for them; they return `UNSUPPORTED_OPERATION`.
+
+## Failure handling
+
+Every failure is a JSON envelope: `{"status": "error", "error": {"code",
+"message", "retryable", "details"?}}`. `code` is one of the values in
+`contract --json`'s `errors.codes`. Check `retryable` before deciding
+whether to retry as-is — `VALIDATION_ERROR`/`INVALID_TIME_RANGE`/
+`PATH_NOT_ALLOWED`/etc. will fail identically on retry (fix the request);
+a `DEPENDENCY_ERROR` talking to ffmpeg-skill may be transient. An
+`INVALID_INPUT` from `render` whose message says `no installed font
+covers ... text` and whose `details` is `{"field": "fonts_dir"}` means
+the machine has no font for the subtitle's script: put a font file that
+covers it in a workspace directory and send the request again with
+`fonts_dir` (or install a font). Do not retry it unchanged. Never
+retry a failed request by loosening subtitle-skill's own validation —
+if a cue is genuinely invalid (negative start, duplicate id, ...), that
+is a bug in whatever built the `SubtitleDocument`, not something to paper
+over here.

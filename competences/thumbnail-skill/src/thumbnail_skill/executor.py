@@ -1,0 +1,721 @@
+"""Executor: params -> validated ThumbnailDocument -> resolved assets/fonts -> render plan -> Pillow
+render -> validated artifact -> response document. Also the standalone `thumbnail/extract_frame`
+path, which is exactly ffmpeg-skill/look's `--at` behaviour and nothing more: one caller-given
+timestamp in, one frame out, no scene detection, no scoring.
+
+Identity and reuse: the cache key is computed from canonical JSON of the validated document, the
+resolved *content* identity of every asset (a still image's own sha256; a video frame's *source
+video* sha256 plus the requested timestamp, not the decoded frame's bytes, so a cache hit never has
+to decode video) and every font actually used (its resolved file's sha256), plus this skill's version
+and the Pillow version that would draw it. A cache hit is re-validated (file exists, opens as the
+declared format, size and dimensions match) before being reused; a broken cache entry is never
+reused, it is rebuilt."""
+from __future__ import annotations
+
+import json
+import shutil
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import PIL
+from PIL import Image, UnidentifiedImageError
+
+from . import RESPONSE_SCHEMA_VERSION, SKILL_ID, VERSION
+from .adapter import FfmpegSkill
+from .canonical import sha256_file, stable_hash
+from .errors import ThumbnailError
+from .fonts import ResolvedFont, resolve_font
+from .model import OUTPUT_FORMATS, OutputSpec, RenderRequest, ThumbnailAsset, ThumbnailDocument, check_preset, parse_render_request
+from .renderer import render_document
+from .security import PathPolicy
+
+RESPONSE_SCHEMA_ID = f"{SKILL_ID}/response@{RESPONSE_SCHEMA_VERSION}"
+CACHE_DIR_NAME = ".thumbnail-skill/cache"
+TMP_DIR_NAME = ".thumbnail-skill/tmp"
+MANIFEST_SCHEMA = f"{SKILL_ID}/cache-manifest@1"
+ENGINE_NAME = "Pillow"
+
+Image.MAX_IMAGE_PIXELS = 64_000_000   # refuse a decompression-bomb-scale source image (INVALID_INPUT, not a crash)
+
+
+def _engine_version() -> str:
+    return str(getattr(PIL, "__version__", "unknown"))
+
+
+def _open_image(path: Path, where: str) -> "Image.Image":
+    try:
+        img = Image.open(path)
+        img.load()
+    except FileNotFoundError:
+        raise ThumbnailError("INVALID_INPUT", f"{where}: file not found: {path}", {"reason": "not_found", "path": str(path)})
+    except UnidentifiedImageError:
+        raise ThumbnailError("INVALID_INPUT", f"{where}: not a readable image: {path}", {"reason": "unreadable_image", "path": str(path)})
+    except Image.DecompressionBombError as e:
+        raise ThumbnailError("INVALID_INPUT", f"{where}: image exceeds the maximum accepted pixel count: {e}", {"reason": "decompression_bomb", "path": str(path)})
+    except OSError as e:
+        raise ThumbnailError("INVALID_INPUT", f"{where}: cannot read image: {e}", {"reason": "unreadable_image", "path": str(path)})
+    return img
+
+
+def _finalize_for_save(canvas: "Image.Image", fmt: str, background_rgb: Tuple[int, int, int]) -> "Image.Image":
+    """RGBA canvas -> the pixel mode the target format needs. JPEG has no alpha channel, so the
+    canvas is flattened onto an opaque copy of its own background colour (correct compositing, not a
+    bare channel drop) before conversion; PNG keeps the alpha channel as drawn."""
+    if fmt == "png":
+        return canvas
+    base = Image.new("RGBA", canvas.size, (*background_rgb, 255))
+    base.alpha_composite(canvas)
+    return base.convert("RGB")
+
+
+class Executor:
+    def __init__(self, policy: PathPolicy, ffmpeg_skill_dir: Optional[str] = None, timeout: float = 120.0):
+        self.policy = policy
+        self.ffmpeg_skill_dir = ffmpeg_skill_dir
+        self.timeout = timeout
+        self._skill: Optional[FfmpegSkill] = None
+        self.warnings: List[str] = []
+
+    def _ffmpeg_skill(self) -> FfmpegSkill:
+        if self._skill is None:
+            self._skill = FfmpegSkill.locate(self.ffmpeg_skill_dir, self.timeout)
+            info = self._skill.info()
+            if not info.supported:
+                raise ThumbnailError("TOOL_ERROR", "ffmpeg-skill at " + str(info.directory) + " is not usable: " + "; ".join(info.problems),
+                                     {"reason": "ffmpeg_skill_incompatible", "problems": info.problems}, retryable=False)
+        return self._skill
+
+    def _ffmpeg_skill_version(self) -> Optional[str]:
+        """The ffmpeg-skill version actually engaged for this request, or None when no video_frame
+        asset needed it. Included in identity so an ffmpeg-skill upgrade that changes what `look`
+        decodes for the same timestamp busts the cache instead of silently reusing a stale frame."""
+        return self._skill.info().version if self._skill is not None else None
+
+    # ---- envelope
+    def _envelope(self, ok: bool, status: str, body: Dict[str, Any]) -> Dict[str, Any]:
+        doc: Dict[str, Any] = {"schema": RESPONSE_SCHEMA_ID, "skill": {"id": SKILL_ID, "version": VERSION}, "ok": ok, "status": status}
+        doc.update(body)
+        doc.setdefault("warnings", list(self.warnings))
+        return doc
+
+    def response(self, tool: str, params: Any) -> Dict[str, Any]:
+        """Always returns one response document; never raises."""
+        try:
+            if tool == "thumbnail/validate":
+                return self._envelope(True, "ok", {"validation": self._validate(params)})
+            if tool == "thumbnail/render":
+                return self._envelope(True, "ok", self._render(params))
+            if tool == "thumbnail/extract_frame":
+                return self._envelope(True, "ok", self._extract_frame(params))
+            if tool == "thumbnail/render_batch":
+                return self._envelope(True, "ok", self._render_batch(params))
+            if tool == "thumbnail/render_layers":
+                return self._envelope(True, "ok", self._render_layers(params))
+            if tool == "thumbnail/render_variants":
+                return self._envelope(True, "ok", self._render_variants(params))
+            if tool == "thumbnail/choose_frame":
+                return self._envelope(True, "ok", self._choose_frame(params))
+            if tool == "thumbnail/place_text":
+                return self._envelope(True, "ok", self._place_text(params))
+            if tool == "thumbnail/generate_background":
+                return self._envelope(True, "ok", self._generate_background(params))
+            raise ThumbnailError("UNSUPPORTED_OPERATION", f"unknown tool {tool!r}", {"tool": tool, "supported": TOOLS})
+        except ThumbnailError as e:
+            return self._envelope(False, "cancelled" if e.code == "CANCELLED" else "error", {"error": e.to_dict()})
+        except Exception as e:  # a bug in this skill: still one document, never a traceback on stdout
+            err = ThumbnailError("INTERNAL_ERROR", f"{type(e).__name__}: {e}")
+            return self._envelope(False, "error", {"error": err.to_dict()})
+
+    # ---- thumbnail/validate: structural only, no filesystem, no fonts, no ffmpeg
+    def _validate(self, params: Any) -> Dict[str, Any]:
+        """Accepts either a bare `{"document": ...}` or the same shape `thumbnail/render` takes
+        (document + optional output + optional options): whichever file a caller already has,
+        `validate` checks it structurally without ever touching a file, a font or ffmpeg-skill."""
+        if not isinstance(params, dict):
+            raise ThumbnailError("INVALID_REQUEST", "params must be a JSON object")
+        body = params if "document" in params else {"document": params}
+        req = parse_render_request(body)
+        doc = req.document
+        return {"ok": True, "document_id": doc.document_id, "canvas": doc.canvas.to_dict(),
+                "assets": len(doc.assets), "elements": len(doc.elements),
+                "element_types": sorted({e.type for e in doc.elements}), "asset_kinds": sorted({a.kind for a in doc.assets})}
+
+    # ---- asset / font resolution
+    def _resolve_asset_identity(self, asset: ThumbnailAsset) -> Dict[str, Any]:
+        resolved = self.policy.resolve_input(asset.path, f"asset {asset.asset_id!r}")
+        if asset.kind == "image":
+            # a cheap open+verify is enough to prove "this is a real image" for identity purposes;
+            # the real decode for compositing happens once, lazily, only on a cache miss
+            img = _open_image(resolved, f"asset {asset.asset_id!r}")
+            img.close()
+            return {"asset_id": asset.asset_id, "kind": "image", "path": str(resolved), "sha256": sha256_file(str(resolved))}
+        skill = self._ffmpeg_skill()
+        meta = skill.probe(str(resolved), self.timeout)
+        if not meta.get("video"):
+            raise ThumbnailError("INVALID_INPUT", f"asset {asset.asset_id!r} has no video stream", {"asset_id": asset.asset_id, "reason": "no_video_stream"})
+        duration = float(meta.get("duration") or 0.0)
+        if duration <= 0:
+            # a video with no known duration is a fact we cannot verify a timestamp against: treat it
+            # as an unusable input rather than silently skipping the beyond-duration check below
+            # (matching audio-production-skill's own SOURCE_TRACK rule: duration <= 0 is INVALID_INPUT)
+            raise ThumbnailError("INVALID_INPUT", f"asset {asset.asset_id!r}: source video has no known duration; cannot verify the timestamp is in range",
+                                 {"asset_id": asset.asset_id, "reason": "no_duration"})
+        if asset.timestamp is not None and asset.timestamp > duration:
+            raise ThumbnailError("INVALID_TIME_RANGE", f"asset {asset.asset_id!r}: timestamp {asset.timestamp}s is beyond the source duration ({duration:.3f}s)",
+                                 {"asset_id": asset.asset_id, "timestamp": asset.timestamp, "duration": duration})
+        return {"asset_id": asset.asset_id, "kind": "video_frame", "path": str(resolved), "sha256": sha256_file(str(resolved)),
+                "timestamp": asset.timestamp, "source_duration": duration}
+
+    def _resolve_font_identities(self, document: ThumbnailDocument) -> Dict[str, ResolvedFont]:
+        font_ids = sorted({e.text.font_id for e in document.elements if e.text is not None})
+        return {fid: resolve_font(fid) for fid in font_ids}
+
+    # ---- identity / cache
+    def _identity(self, kind: str, doc_for_identity: Dict[str, Any]) -> str:
+        return stable_hash({"kind": kind, "skill": SKILL_ID, "skill_version": VERSION, "engine": ENGINE_NAME, "engine_version": _engine_version(), **doc_for_identity})
+
+    def _cache_paths(self, identity: str, fmt: str) -> Tuple[Path, Path]:
+        cache_dir = self.policy.resolve_work_dir(CACHE_DIR_NAME)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        ext = OUTPUT_FORMATS[fmt]["extensions"][0]
+        return cache_dir / f"{identity}{ext}", cache_dir / f"{identity}.json"
+
+    def _try_reuse(self, identity: str, fmt: str) -> Optional[Dict[str, Any]]:
+        cache_file, manifest_file = self._cache_paths(identity, fmt)
+        if not (cache_file.is_file() and manifest_file.is_file()):
+            return None
+        try:
+            manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError, RecursionError):
+            return None
+        if manifest.get("schema") != MANIFEST_SCHEMA or manifest.get("identity") != identity:
+            return None
+        try:
+            if cache_file.stat().st_size != manifest.get("size") or sha256_file(str(cache_file)) != manifest.get("sha256"):
+                return None
+            img = Image.open(cache_file)
+            img.verify()
+        except (OSError, ValueError, UnidentifiedImageError):
+            return None
+        return manifest
+
+    def _store_cache(self, identity: str, fmt: str, artifact_path: Path, extra: Dict[str, Any]) -> Dict[str, Any]:
+        cache_file, manifest_file = self._cache_paths(identity, fmt)
+        shutil.copyfile(artifact_path, cache_file)
+        manifest = {"schema": MANIFEST_SCHEMA, "identity": identity, "size": cache_file.stat().st_size, "sha256": sha256_file(str(cache_file)), **extra}
+        manifest_file.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+        return manifest
+
+    def _place_output(self, source: Path, out: OutputSpec) -> Path:
+        target = self.policy.resolve_write_path(out.path, "output")
+        if target.exists() and not out.overwrite:
+            raise ThumbnailError("OUTPUT_ERROR", f"output already exists (set overwrite: true to replace it): {target}", {"reason": "exists", "path": str(target)})
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        return target
+
+    def _tmp_path(self, fmt: str) -> Path:
+        tmp_dir = self.policy.resolve_work_dir(TMP_DIR_NAME)
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        return tmp_dir / f"{uuid.uuid4().hex}{OUTPUT_FORMATS[fmt]['extensions'][0]}"
+
+    def _apply_policy_overrides(self, options: Dict[str, Any]) -> None:
+        """A request's `options.workspace` / `options.allowed_input_roots` may override the policy the
+        CLI built from --workspace / --allowed-input; either one alone keeps the other as it was."""
+        workspace = options.get("workspace")
+        roots = options.get("allowed_input_roots")
+        if workspace is None and roots is None:
+            return
+        new_workspace = workspace or str(self.policy.workspace)
+        new_roots = roots if roots is not None else ([str(r) for r in self.policy.allowed_input_roots] if self.policy.allowed_input_roots else None)
+        self.policy = PathPolicy(new_workspace, new_roots)
+
+    # ---- thumbnail/render
+    def _render(self, params: Any) -> Dict[str, Any]:
+        req: RenderRequest = parse_render_request(params)
+        if not req.output.path:
+            raise ThumbnailError("INVALID_REQUEST", "'output' is required for thumbnail/render", {"field": "output"})
+        document, out = req.document, req.output
+        reuse = bool(req.options.get("reuse", True))
+        self.timeout = float(req.options.get("timeout") or self.timeout)
+        self._apply_policy_overrides(req.options)
+        if req.options.get("ffmpeg_skill"):
+            self.ffmpeg_skill_dir = req.options["ffmpeg_skill"]
+
+        asset_identities = {a.asset_id: self._resolve_asset_identity(a) for a in document.assets}
+        fonts_used = self._resolve_font_identities(document)
+        identity_doc = {"document": document.to_dict(), "output_format": out.format, "jpeg_quality": out.jpeg_quality if out.format == "jpeg" else None,
+                        "assets": {aid: {k: v for k, v in ident.items() if k != "path"} for aid, ident in asset_identities.items()},
+                        "fonts": {fid: rf.sha256 for fid, rf in fonts_used.items()}, "ffmpeg_skill_version": self._ffmpeg_skill_version()}
+        identity = self._identity("render", identity_doc)
+
+        target = self.policy.resolve_write_path(out.path, "output")   # raise early (traversal, workspace) before any work
+        if target.exists() and not out.overwrite:
+            raise ThumbnailError("OUTPUT_ERROR", f"output already exists (set overwrite: true to replace it): {target}", {"reason": "exists", "path": str(target)})
+
+        reused = False
+        manifest = self._try_reuse(identity, out.format) if reuse else None
+        if manifest is not None:
+            cache_file, _ = self._cache_paths(identity, out.format)
+            width, height = document.canvas.width, document.canvas.height
+            out_sha256, out_size = manifest["sha256"], manifest["size"]
+            preset_result = check_preset(out.preset, width, height, out.format, out_size)   # before anything is placed
+            final = self._place_output(cache_file, out)
+            reused = True
+        else:
+            images: Dict[str, "Image.Image"] = {}
+            frame_provenance: Dict[str, Any] = {}
+            try:
+                self._open_assets(document, asset_identities, identity, images, frame_provenance)
+                canvas = render_document(document, images, fonts_used)
+                bg = tuple(int(document.canvas.background.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4))
+                final_img = _finalize_for_save(canvas, out.format, bg)
+                tmp_out = self._tmp_path(out.format)
+                save_kwargs: Dict[str, Any] = {}
+                if out.format == "jpeg":
+                    save_kwargs = {"quality": out.jpeg_quality, "optimize": True}
+                final_img.save(tmp_out, format=OUTPUT_FORMATS[out.format]["pillow_format"], **save_kwargs)
+            finally:
+                for img in images.values():
+                    try:
+                        img.close()
+                    except Exception:
+                        pass
+
+            width, height, out_sha256, out_size = self._validate_output(tmp_out, document.canvas.width, document.canvas.height, out.format)
+            preset_result = self._check_preset_or_discard(tmp_out, out, width, height, out_size)
+            self._store_cache(identity, out.format, tmp_out, {"width": width, "height": height, "format": out.format,
+                                                               "assets": asset_identities, "fonts": {fid: rf.to_dict() for fid, rf in fonts_used.items()},
+                                                               "frames": frame_provenance})
+            final = self._place_output(tmp_out, out)
+            try:
+                tmp_out.unlink()
+            except OSError:
+                pass
+
+        provenance = {"skill": SKILL_ID, "skill_version": VERSION, "operation": "thumbnail/render", "engine": ENGINE_NAME, "engine_version": _engine_version(),
+                      "document_id": document.document_id, "identity": identity, "reused": reused,
+                      "assets": [{k: v for k, v in ident.items()} for ident in asset_identities.values()],
+                      "fonts": [rf.to_dict() for rf in fonts_used.values()], "output_hash": f"sha256:{out_sha256}"}
+        body = {"output": str(final), "format": out.format, "width": width, "height": height, "size": out_size,
+                "sha256": f"sha256:{out_sha256}", "reused": reused, "operations": ["thumbnail/render"], "provenance": provenance}
+        return self._with_preset(body, preset_result)
+
+    def _open_assets(self, document: ThumbnailDocument, asset_identities: Dict[str, Dict[str, Any]], identity: str,
+                     images: Dict[str, "Image.Image"], frame_provenance: Dict[str, Any]) -> None:
+        """Every asset as an opened Pillow image (into `images`): a still image from its resolved path, a video frame
+        through ffmpeg-skill/look. The caller closes them."""
+        for asset in document.assets:
+            ident = asset_identities[asset.asset_id]
+            if asset.kind == "image":
+                images[asset.asset_id] = _open_image(Path(ident["path"]), f"asset {asset.asset_id!r}")
+            else:
+                skill = self._ffmpeg_skill()
+                tmp_dir = self.policy.resolve_work_dir(TMP_DIR_NAME)
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                frame_path = skill.extract_frame(ident["path"], asset.timestamp, tmp_dir, f"frame_{asset.asset_id}_{identity[:12]}", self.timeout)
+                frame_img = _open_image(frame_path, f"asset {asset.asset_id!r}")
+                images[asset.asset_id] = frame_img
+                frame_provenance[asset.asset_id] = {"extracted_path": str(frame_path), "sha256": sha256_file(str(frame_path)),
+                                                    "width": frame_img.width, "height": frame_img.height, "tool": "ffmpeg-skill/look"}
+
+    @staticmethod
+    def _with_preset(body: Dict[str, Any], preset_result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Additive: `preset` (response and provenance) appears only when the request named one."""
+        if preset_result is not None:
+            body["preset"] = preset_result
+            body["provenance"]["preset"] = preset_result["name"]
+        return body
+
+    def _check_preset_or_discard(self, tmp_out: Path, out: OutputSpec, width: int, height: int, size: int) -> Optional[Dict[str, Any]]:
+        """ADR-9: the written artifact against `output.preset`, before it is cached or placed; a file
+        that exceeds the preset is removed and never reaches the output path."""
+        try:
+            return check_preset(out.preset, width, height, out.format, size)
+        except ThumbnailError:
+            try:
+                tmp_out.unlink()
+            except OSError:
+                pass
+            raise
+
+    def _validate_output(self, path: Path, expected_w: int, expected_h: int, fmt: str) -> Tuple[int, int, str, int]:
+        if not path.is_file():
+            raise ThumbnailError("OUTPUT_ERROR", "render reported success but wrote no file", {"reason": "missing_output", "path": str(path)})
+        size = path.stat().st_size
+        if size <= 0:
+            raise ThumbnailError("OUTPUT_ERROR", "output is empty", {"reason": "empty_output", "path": str(path)})
+        try:
+            img = Image.open(path)
+            img.load()
+        except (OSError, UnidentifiedImageError) as e:
+            raise ThumbnailError("VALIDATION_ERROR", f"output is not readable as an image: {e}", {"reason": "corrupt_output", "path": str(path)})
+        want_pillow_format = OUTPUT_FORMATS[fmt]["pillow_format"]
+        if img.format != want_pillow_format:
+            raise ThumbnailError("VALIDATION_ERROR", f"output format {img.format!r} is not {want_pillow_format!r}", {"reason": "format_mismatch", "path": str(path)})
+        if (img.width, img.height) != (expected_w, expected_h):
+            raise ThumbnailError("VALIDATION_ERROR", f"output size {img.width}x{img.height} does not match the canvas ({expected_w}x{expected_h})",
+                                 {"reason": "size_mismatch", "path": str(path), "expected": {"width": expected_w, "height": expected_h}, "got": {"width": img.width, "height": img.height}})
+        digest = sha256_file(str(path))
+        img.close()
+        return img.width, img.height, digest, size
+
+    # ---- thumbnail/render_batch (ADR-14)
+    def _render_batch(self, params: Any) -> Dict[str, Any]:
+        """One thumbnail per (row, target): every row is planned and checked first (nothing is written if any
+        row is refused), then each is rendered through `_render`, so each file passes the same output check
+        and `output.preset` check as a single render."""
+        from .batch import parse_batch, plan_batch
+        from .model import parse_options
+        raw_options = params.get("options") if isinstance(params, dict) else None
+        if isinstance(raw_options, dict):
+            self._apply_policy_overrides(parse_options(raw_options))   # inputs and outputs resolve under the request's own policy
+        req = parse_batch(params, lambda path, what: self.policy.resolve_input(path, what))
+        plans = plan_batch(req, lambda path, what: self.policy.resolve_input(path, what), lambda rel: self.policy.resolve_write_path(rel, "output"))
+        items: List[Dict[str, Any]] = []
+        for plan in plans:
+            body = dict(plan["params"])
+            if raw_options is not None:
+                body["options"] = raw_options
+            try:
+                res = self._render(body)
+            except ThumbnailError as e:
+                e.message = f"row {plan['row']} ({plan['preset']}): {e.message}"
+                e.details = {**e.details, "row": plan["row"], "preset": plan["preset"], "written": [i["output"] for i in items]}
+                raise
+            items.append({"row": plan["row"], "preset": plan["preset"], "output": res["output"], "format": res["format"], "width": res["width"],
+                          "height": res["height"], "size": res["size"], "sha256": res["sha256"], "reused": res["reused"], "preset_check": res.get("preset"),
+                          "fitted": plan["fitted"], "identity": res["provenance"]["identity"]})
+        provenance = {"skill": SKILL_ID, "skill_version": VERSION, "operation": "thumbnail/render_batch", "engine": ENGINE_NAME, "engine_version": _engine_version(),
+                      "source": req["source"], "rows": len(req["rows"]), "targets": [t["preset"] for t in req["targets"]],
+                      "outputs": [{"row": i["row"], "preset": i["preset"], "output_hash": i["sha256"], "identity": i["identity"]} for i in items]}
+        return {"items": items, "count": len(items), "rows": len(req["rows"]), "targets": [t["preset"] for t in req["targets"]],
+                "operations": ["thumbnail/render_batch"], "provenance": provenance}
+
+    # ---- thumbnail/render_layers (ADR-17)
+    def _render_layers(self, params: Any) -> Dict[str, Any]:
+        """The thumbnail through `_render`, then the same document drawn again with every composite recorded: one PNG
+        with alpha per layer and a manifest, verified to rebuild the thumbnail pixel for pixel from the files on disk."""
+        from .layers import MANIFEST_NAME, build_layers, write_layers
+        from .model import _bool
+        from .renderer import LayerRecorder
+        if not isinstance(params, dict):
+            raise ThumbnailError("INVALID_REQUEST", "params must be a JSON object")
+        base = {k: v for k, v in params.items() if k != "layers"}
+        req = parse_render_request(base)
+        if not req.output.path:
+            raise ThumbnailError("INVALID_REQUEST", "'output' is required for thumbnail/render_layers", {"field": "output"})
+        from .model import _obj, parse_options
+        ld = _obj(params.get("layers"), "layers", ("directory", "overwrite"), ("directory",))
+        if not isinstance(ld["directory"], str) or not ld["directory"]:
+            raise ThumbnailError("INVALID_REQUEST", "layers.directory must be a non-empty string", {"field": "layers.directory"})
+        overwrite = _bool(ld.get("overwrite", req.output.overwrite), "layers.overwrite")
+        if isinstance(params.get("options"), dict):
+            self._apply_policy_overrides(parse_options(params["options"]))
+        layer_dir = self.policy.resolve_write_path(ld["directory"], "layers.directory", allow_dir=True)
+        if layer_dir.exists() and any(layer_dir.iterdir()) and not overwrite:
+            raise ThumbnailError("OUTPUT_ERROR", f"layers.directory is not empty (set layers.overwrite: true to replace its layers): {layer_dir}",
+                                 {"reason": "exists", "path": str(layer_dir)})
+        if overwrite and layer_dir.is_dir():
+            for old in list(layer_dir.glob("[0-9][0-9]-*.png")) + [layer_dir / MANIFEST_NAME]:
+                if old.is_file():
+                    old.unlink()
+
+        res = self._render(base)
+        document = req.document
+        asset_identities = {a.asset_id: self._resolve_asset_identity(a) for a in document.assets}
+        fonts_used = self._resolve_font_identities(document)
+        images: Dict[str, "Image.Image"] = {}
+        recorder = LayerRecorder()
+        try:
+            self._open_assets(document, asset_identities, res["provenance"]["identity"], images, {})
+            canvas = render_document(document, images, fonts_used, recorder)
+        finally:
+            for img in images.values():
+                try:
+                    img.close()
+                except Exception:
+                    pass
+        assert recorder.base is not None
+        size = (document.canvas.width, document.canvas.height)
+        if req.output.format == "png":
+            with Image.open(res["output"]) as written:
+                reference = written.convert("RGBA")
+            if reference.tobytes() != canvas.tobytes():
+                raise ThumbnailError("VALIDATION_ERROR", "the recorded render differs from the written thumbnail", {"reason": "layers_mismatch"})
+            note = "the written PNG thumbnail"
+        else:
+            reference = canvas
+            note = "the lossless composite the JPEG thumbnail was encoded from (JPEG itself is lossy)"
+        built = build_layers(size, recorder.base, recorder)
+        manifest = write_layers(layer_dir, built, size, reference, {"path": res["output"], "format": res["format"], "sha256": res["sha256"]}, note)
+        res["layers"] = {"directory": str(layer_dir), "manifest": str(layer_dir / MANIFEST_NAME), "count": sum(1 for e in manifest["layers"] if e["file"]),
+                         "layers": manifest["layers"], "verified": manifest["verified"]}
+        res["operations"] = ["thumbnail/render", "thumbnail/render_layers"]
+        res["provenance"]["layers_manifest_sha256"] = f"sha256:{sha256_file(str(layer_dir / MANIFEST_NAME))}"
+        return res
+
+    # ---- thumbnail/render_variants (ADR-16)
+    def _render_variants(self, params: Any) -> Dict[str, Any]:
+        """N documented variants of one thumbnail, each an ordinary `_render`, each checked at phone size. Every variant
+        is planned and parsed before the first is written; a variant that fails the small-size check is reported."""
+        from .model import parse_options
+        from .qcskill import QcSkill
+        from .variants import build_variant, clipped_box, ink_height, parse_variants
+        if not isinstance(params, dict):
+            raise ThumbnailError("INVALID_REQUEST", "params must be a JSON object")
+        base = {k: v for k, v in params.items() if k != "variants"}
+        req = parse_render_request(base)
+        if not req.output.path:
+            raise ThumbnailError("INVALID_REQUEST", "'output' is required for thumbnail/render_variants", {"field": "output"})
+        if isinstance(params.get("options"), dict):
+            self._apply_policy_overrides(parse_options(params["options"]))
+        raw_doc = params["document"]
+        spec = parse_variants(params.get("variants"), req.document, None)
+        out_path = Path(req.output.path)
+        ext = out_path.suffix
+        plans = []
+        for k in range(1, spec["count"] + 1):
+            doc_k, choices = build_variant(raw_doc, spec, k)
+            out_k = dict(params["output"], path=str(out_path.with_name(f"{out_path.stem}-v{k}{ext}")))
+            body = {**base, "document": doc_k, "output": out_k}
+            try:
+                parsed = parse_render_request(body)
+            except ThumbnailError as e:
+                e.message = f"variant {k} ({choices}): {e.message}"
+                e.details = {**e.details, "variant": k, "choices": choices}
+                raise
+            target = self.policy.resolve_write_path(out_k["path"], "output")
+            if target.exists() and not req.output.overwrite:
+                raise ThumbnailError("OUTPUT_ERROR", f"output already exists (set overwrite: true to replace it): {target}", {"reason": "exists", "path": str(target), "variant": k})
+            plans.append((k, choices, body, parsed.document))
+
+        qc: Optional[QcSkill] = None
+        qc_problem: Optional[str] = None
+        try:
+            qc = QcSkill.locate(spec["qc_skill"], self.timeout)
+        except ThumbnailError as e:
+            qc_problem = e.message
+            self.warnings.append(f"contrast not measured: {e.message} (the text height check still runs)")
+        W = req.document.canvas.width
+        variants: List[Dict[str, Any]] = []
+        for k, choices, body, document in plans:
+            res = self._render(body)
+            canvas = (document.canvas.width, document.canvas.height)
+            texts = [e for e in document.elements if e.text is not None]
+            fonts = {e.element_id: resolve_font(e.text.font_id) for e in texts}   # type: ignore[union-attr]
+            boxes = {e.element_id: clipped_box(e.text, fonts[e.element_id], canvas) for e in texts}   # type: ignore[arg-type]
+            measured: Dict[str, Any] = {}
+            qc_info = None
+            regions = [eid for eid in boxes if boxes[eid] is not None]
+            if qc is not None and regions:
+                try:
+                    values, qc_info = qc.text_regions(Path(res["output"]), [boxes[eid] for eid in regions], self.policy.resolve_work_dir(TMP_DIR_NAME))  # type: ignore[misc]
+                    measured = dict(zip(regions, values))
+                except ThumbnailError as e:
+                    qc_problem = e.message
+                    self.warnings.append(f"variant {k}: contrast not measured: {e.message}")
+            checks = []
+            for e in texts:
+                content = e.text
+                assert content is not None
+                ink = ink_height(content, fonts[e.element_id], canvas)
+                at_phone = round(ink * spec["phone_width"] / canvas[0], 1)
+                m = measured.get(e.element_id)
+                contrast = m.get("contrast_ratio") if isinstance(m, dict) and m.get("measured") else None
+                findings = []
+                if at_phone < spec["min_text_height_px"]:
+                    findings.append({"code": "text_too_small", "expected": f">= {spec['min_text_height_px']:g} px", "got": at_phone})
+                if contrast is not None and contrast < spec["min_contrast_ratio"]:
+                    findings.append({"code": "low_contrast", "expected": f">= {spec['min_contrast_ratio']:g}", "got": contrast})
+                if contrast is None:
+                    why = (m or {}).get("reason") if isinstance(m, dict) else None
+                    findings.append({"code": "contrast_unmeasured", "reason": why or ("the text lies off the canvas" if boxes[e.element_id] is None else qc_problem or "not measured")})
+                checks.append({"element_id": e.element_id, "text_height_px": ink, "text_height_px_at_phone": at_phone, "contrast_ratio": contrast,
+                               "contrast_source": "qc-skill video.text_regions" if contrast is not None else None, "box": list(boxes[e.element_id]) if boxes[e.element_id] else None,
+                               "findings": findings})
+            failing = [f for c in checks for f in c["findings"] if f["code"] != "contrast_unmeasured"]
+            status = "fail" if failing else ("unknown" if any(f["code"] == "contrast_unmeasured" for c in checks for f in c["findings"]) else "pass")
+            description = f"layout {choices['layout']}, palette {choices['palette']}, frame {choices['frame']}"
+            variants.append({"variant": k, "output": res["output"], "format": res["format"], "width": res["width"], "height": res["height"], "size": res["size"],
+                             "sha256": res["sha256"], "reused": res["reused"], "preset_check": res.get("preset"), "choices": choices, "description": description,
+                             "small_size": {"status": status, "ok": status != "fail", "phone_width": spec["phone_width"], "scale": round(spec["phone_width"] / canvas[0], 6),
+                                            "min_text_height_px": spec["min_text_height_px"], "min_contrast_ratio": spec["min_contrast_ratio"], "texts": checks,
+                                            "qc_skill": qc_info},
+                             "identity": res["provenance"]["identity"]})
+        flagged = [v["variant"] for v in variants if v["small_size"]["status"] == "fail"]
+        provenance = {"skill": SKILL_ID, "skill_version": VERSION, "operation": "thumbnail/render_variants", "engine": ENGINE_NAME, "engine_version": _engine_version(),
+                      "document_id": req.document.document_id, "canvas_width": W, "qc_skill": qc.describe() if qc else None,
+                      "outputs": [{"variant": v["variant"], "output_hash": v["sha256"], "identity": v["identity"], "choices": v["choices"]} for v in variants]}
+        return {"variants": variants, "count": len(variants), "flagged": flagged, "text_element": spec["text_element"],
+                "axes": {"layouts": [x["name"] for x in spec["layouts"]], "palettes": [x["name"] for x in spec["palettes"]], "frames": [x["name"] for x in spec["frames"]]},
+                "rule": "variant k takes entry (k-1) mod n of each axis; entry 0 of each axis is the document as given, so variant 1 is the original",
+                "operations": ["thumbnail/render_variants"], "provenance": provenance}
+
+    # ---- thumbnail/choose_frame, thumbnail/place_text (ADR-15): arithmetic over measured facts, no file written
+    def _options_policy(self, params: Any) -> None:
+        from .model import parse_options
+        raw = params.get("options") if isinstance(params, dict) else None
+        if raw is not None:
+            self._apply_policy_overrides(parse_options(raw))
+
+    def _choose_frame(self, params: Any) -> Dict[str, Any]:
+        from .frames import choose_frame
+        self._options_policy(params)
+        body = choose_frame(params, lambda path, what: self.policy.resolve_input(path, what))
+        self.warnings.extend(body.pop("warnings", []))
+        body["operations"] = ["thumbnail/choose_frame"]
+        body["provenance"] = {"skill": SKILL_ID, "skill_version": VERSION, "operation": "thumbnail/choose_frame", "inputs": body["source"]}
+        return body
+
+    def _place_text(self, params: Any) -> Dict[str, Any]:
+        from .frames import place_text
+        self._options_policy(params)
+
+        def open_size(path: str) -> Tuple[int, int]:
+            img = _open_image(self.policy.resolve_input(path, "image asset"), "image asset")
+            size = img.size
+            img.close()
+            return size
+
+        body = place_text(params, open_size)
+        body["operations"] = ["thumbnail/place_text"]
+        body["provenance"] = {"skill": SKILL_ID, "skill_version": VERSION, "operation": "thumbnail/place_text"}
+        return body
+
+    # ---- thumbnail/extract_frame
+    def _extract_frame(self, params: Any) -> Dict[str, Any]:
+        if not isinstance(params, dict):
+            raise ThumbnailError("INVALID_REQUEST", "params must be a JSON object")
+        from .model import _obj, parse_options, parse_output  # structural helpers, reused rather than duplicated
+        src = _obj(params.get("source"), "source", ("path", "timestamp"), ("path", "timestamp"))
+        if not isinstance(src["path"], str) or not src["path"]:
+            raise ThumbnailError("INVALID_REQUEST", "source.path must be a non-empty string", {"field": "source.path"})
+        raw_ts = src["timestamp"]
+        if isinstance(raw_ts, bool) or not isinstance(raw_ts, (int, float)) or not (raw_ts == raw_ts and abs(raw_ts) != float("inf")):
+            raise ThumbnailError("INVALID_TIME_RANGE", "source.timestamp must be a finite number", {"field": "source.timestamp"})
+        if raw_ts < 0:
+            raise ThumbnailError("INVALID_TIME_RANGE", f"source.timestamp must not be negative, got {raw_ts}", {"field": "source.timestamp", "timestamp": raw_ts})
+        ts = float(raw_ts)
+        if "output" not in params:
+            raise ThumbnailError("INVALID_REQUEST", "'output' is required for thumbnail/extract_frame", {"field": "output"})
+        out = parse_output(params["output"])
+        options = parse_options(params.get("options"))
+        reuse = bool(options.get("reuse", True))
+        self.timeout = float(options.get("timeout") or self.timeout)
+        self._apply_policy_overrides(options)
+        if options.get("ffmpeg_skill"):
+            self.ffmpeg_skill_dir = options["ffmpeg_skill"]
+
+        resolved = self.policy.resolve_input(src["path"], "source")
+        skill = self._ffmpeg_skill()
+        meta = skill.probe(str(resolved), self.timeout)
+        if not meta.get("video"):
+            raise ThumbnailError("INVALID_INPUT", "source has no video stream", {"reason": "no_video_stream"})
+        duration = float(meta.get("duration") or 0.0)
+        if duration <= 0:
+            raise ThumbnailError("INVALID_INPUT", "source video has no known duration; cannot verify the timestamp is in range", {"reason": "no_duration"})
+        if ts > duration:
+            raise ThumbnailError("INVALID_TIME_RANGE", f"timestamp {ts}s is beyond the source duration ({duration:.3f}s)", {"timestamp": ts, "duration": duration})
+
+        source_sha = sha256_file(str(resolved))
+        identity = self._identity("extract_frame", {"source_sha256": source_sha, "timestamp": float(ts), "output_format": out.format,
+                                                      "jpeg_quality": out.jpeg_quality if out.format == "jpeg" else None,
+                                                      "ffmpeg_skill_version": self._ffmpeg_skill_version()})
+        target = self.policy.resolve_write_path(out.path, "output")
+        if target.exists() and not out.overwrite:
+            raise ThumbnailError("OUTPUT_ERROR", f"output already exists (set overwrite: true to replace it): {target}", {"reason": "exists", "path": str(target)})
+
+        manifest = self._try_reuse(identity, out.format) if reuse else None
+        if manifest is not None:
+            cache_file, _ = self._cache_paths(identity, out.format)
+            width, height, out_sha256, out_size = manifest["width"], manifest["height"], manifest["sha256"], manifest["size"]
+            preset_result = check_preset(out.preset, width, height, out.format, out_size)
+            final = self._place_output(cache_file, out)
+            reused = True
+        else:
+            tmp_dir = self.policy.resolve_work_dir(TMP_DIR_NAME)
+            tmp_dir.mkdir(parents=True, exist_ok=True)
+            frame_path = skill.extract_frame(str(resolved), float(ts), tmp_dir, f"frame_{identity[:12]}", self.timeout)
+            img = _open_image(frame_path, "extracted frame")
+            if out.format == "png":
+                final_img = img.convert("RGBA") if img.mode not in ("RGB", "RGBA") else img
+            else:
+                final_img = img.convert("RGB")
+            tmp_out = self._tmp_path(out.format)
+            save_kwargs = {"quality": out.jpeg_quality, "optimize": True} if out.format == "jpeg" else {}
+            final_img.save(tmp_out, format=OUTPUT_FORMATS[out.format]["pillow_format"], **save_kwargs)
+            width, height = img.width, img.height
+            img.close()
+            _, _, out_sha256, out_size = self._validate_output(tmp_out, width, height, out.format)
+            preset_result = self._check_preset_or_discard(tmp_out, out, width, height, out_size)
+            self._store_cache(identity, out.format, tmp_out, {"width": width, "height": height, "format": out.format, "source_sha256": source_sha, "timestamp": float(ts)})
+            final = self._place_output(tmp_out, out)
+            try:
+                tmp_out.unlink()
+            except OSError:
+                pass
+            reused = False
+
+        provenance = {"skill": SKILL_ID, "skill_version": VERSION, "operation": "thumbnail/extract_frame", "engine": "ffmpeg-skill/look",
+                      "identity": identity, "reused": reused, "source": {"path": str(resolved), "sha256": f"sha256:{source_sha}", "timestamp": float(ts), "duration": duration},
+                      "output_hash": f"sha256:{out_sha256}"}
+        body = {"output": str(final), "format": out.format, "width": width, "height": height, "size": out_size,
+                "sha256": f"sha256:{out_sha256}", "reused": reused, "operations": ["thumbnail/extract_frame"], "provenance": provenance}
+        return self._with_preset(body, preset_result)
+
+    # ---- thumbnail/generate_background (optional AI provider, ADR-12)
+    def _generate_background(self, params: Any) -> Dict[str, Any]:
+        """One background image from a named provider, a caller-written prompt and an explicit seed. Never part of
+        render: the result is an ordinary image file the caller may then use as an `image` asset. Not cached and
+        declared non-deterministic: the same seed on another device or library version may give other pixels."""
+        if not isinstance(params, dict):
+            raise ThumbnailError("INVALID_REQUEST", "params must be a JSON object")
+        from .background import get_provider, parse_background, unavailable
+        from .canonical import stable_hash as _stable_hash
+        from .model import _obj, _reject_forbidden, parse_options, parse_output
+        _reject_forbidden(params, "params")
+        d = _obj(params, "params", ("background", "output", "options"), ("background", "output"))
+        bg = parse_background(d["background"])
+        out = parse_output(d["output"])
+        options = parse_options(d.get("options"))
+        self._apply_policy_overrides(options)
+        target = self.policy.resolve_write_path(out.path, "output")
+        if target.exists() and not out.overwrite:
+            raise ThumbnailError("OUTPUT_ERROR", f"output already exists (set overwrite: true to replace it): {target}", {"reason": "exists", "path": str(target)})
+
+        provider = get_provider(bg["provider"])
+        status = provider.status()
+        if status["status"] != "available":
+            raise unavailable(provider.provider_id, status)
+        img = provider.generate(bg["prompt"], bg["width"], bg["height"], bg["seed"], bg["steps"], bg["guidance_scale"])
+        if not isinstance(img, Image.Image) or img.size != (bg["width"], bg["height"]):
+            got = list(img.size) if isinstance(img, Image.Image) else type(img).__name__
+            raise ThumbnailError("VALIDATION_ERROR", f"provider {provider.provider_id!r} did not return a {bg['width']}x{bg['height']} image (got {got})",
+                                 {"reason": "provider_output_invalid", "provider": provider.provider_id, "got": got})
+        final_img = img.convert("RGB")
+        tmp_out = self._tmp_path(out.format)
+        save_kwargs = {"quality": out.jpeg_quality, "optimize": True} if out.format == "jpeg" else {}
+        final_img.save(tmp_out, format=OUTPUT_FORMATS[out.format]["pillow_format"], **save_kwargs)
+        width, height, out_sha256, out_size = self._validate_output(tmp_out, bg["width"], bg["height"], out.format)
+        preset_result = self._check_preset_or_discard(tmp_out, out, width, height, out_size)
+        final = self._place_output(tmp_out, out)
+        try:
+            tmp_out.unlink()
+        except OSError:
+            pass
+        provenance = {"skill": SKILL_ID, "skill_version": VERSION, "operation": "thumbnail/generate_background", "generated": True,
+                      "provider": provider.provider_id, "engine": provider.engine, "engine_version": provider.engine_version(),
+                      "model": provider.model, "licence": provider.licence, "licence_url": provider.licence_url, "model_card": provider.model_card,
+                      "prompt": bg["prompt"], "prompt_sha256": f"sha256:{_stable_hash(bg['prompt'])}", "seed": bg["seed"], "steps": bg["steps"],
+                      "guidance_scale": bg["guidance_scale"], "width": width, "height": height, "reused": False, "deterministic": False,
+                      "output_hash": f"sha256:{out_sha256}"}
+        body = {"output": str(final), "format": out.format, "width": width, "height": height, "size": out_size,
+                "sha256": f"sha256:{out_sha256}", "reused": False, "operations": ["thumbnail/generate_background"], "provenance": provenance}
+        return self._with_preset(body, preset_result)
+
+
+TOOLS = ("thumbnail/validate", "thumbnail/render", "thumbnail/extract_frame", "thumbnail/render_batch", "thumbnail/render_variants", "thumbnail/render_layers", "thumbnail/choose_frame", "thumbnail/place_text", "thumbnail/generate_background")
+
+__all__ = ["Executor", "RESPONSE_SCHEMA_ID", "TOOLS", "ENGINE_NAME"]

@@ -1,0 +1,48 @@
+{
+  "name": "imagemagick-skill",
+  "version": "0.8.1",
+  "description": "Agent Skill that gives coding agents (Claude Code, Cursor, Codex) a local ImageMagick image editor that never overwrites originals: probe, convert, resize, thumbnail, EXIF/GPS strip, trim, check. Formerly image-skill.",
+  "bin": {
+    "imagemagick-skill": "bin/install.js"
+  },
+  "files": [
+    "bin/install.js",
+    "scripts/*.py",
+    "scripts/presets.json",
+    "mcp/server.py",
+    "docs/contract.md",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "python3 -m unittest discover -s tests -v",
+    "contract": "python3 scripts/_contract.py contract --json",
+    "doctor": "python3 scripts/_contract.py doctor",
+    "docs:contract": "python3 .github/scripts/contract_md.py --write",
+    "demo": "python3 demos/build.py",
+    "check:readme": "python3 .github/scripts/check_readme.py"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "MIT",
+  "author": "kajisho5",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kajisho5/imagemagick-skill.git"
+  },
+  "homepage": "https://github.com/kajisho5/imagemagick-skill#readme",
+  "bugs": "https://github.com/kajisho5/imagemagick-skill/issues",
+  "keywords": [
+    "imagemagick",
+    "image",
+    "image-processing",
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "codex",
+    "skill",
+    "agent"
+  ]
+}

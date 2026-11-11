@@ -1,0 +1,10 @@
+# le texte en fins de ligne Unix sur tous les systèmes (une copie Windows reste identique au dépôt : les mises à jour passent)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+*.wav binary
+*.gif binary
+bin/derush-vision binary
+outils/lanceur-mac binary

@@ -1,0 +1,43 @@
+{
+  "name": "blender-skill",
+  "version": "0.31.0",
+  "description": "Agent Skill that gives coding agents (Claude Code, Cursor, Codex) a local 3D asset pipeline: inspect, convert, optimize, render, bake and validate glb/gltf/fbx/obj/stl/usd/usdz/ply/abc/.blend files via headless Blender. No API keys, no cloud, no pip dependencies.",
+  "keywords": [
+    "blender",
+    "3d",
+    "gltf",
+    "fbx",
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "codex",
+    "mcp",
+    "skill"
+  ],
+  "license": "MIT",
+  "author": "kajisho5",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kajisho5/blender-skill.git"
+  },
+  "homepage": "https://github.com/kajisho5/blender-skill#readme",
+  "bugs": "https://github.com/kajisho5/blender-skill/issues",
+  "bin": {
+    "blender-skill": "bin/install.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "mcp/",
+    "references/",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "python3 tests/test_all.py"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

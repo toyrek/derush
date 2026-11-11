@@ -1,0 +1,108 @@
+# Changelog
+
+## v0.2.19 — 2026-11-11
+
+- fix(release): Dependabot labels cannot raise the release level (#45) (03e1b70)
+
+## v0.2.18 — 2026-11-11
+
+- ci: stop running tests twice per pull request commit (#44) (c14359c)
+
+## v0.2.17 — 2026-11-07
+
+- Export each element alone on a transparent layer, with a manifest (roadmap step 8) (#43) (a03a4dd)
+
+## v0.2.16 — 2026-11-06
+
+- Add brand themes: colours, font, logo and spacing from one file, switchable, contrast checked (roadmap step 11) (#42) (78b49ff)
+
+## v0.2.15 — 2026-11-06
+
+- Report graphics under YouTube end-screen elements and card teasers (roadmap step 10) (#41) (9565d71)
+
+## v0.2.14 — 2026-11-06
+
+- Fit lower-third and title text to a box, and build lower thirds from a CSV (roadmap step 9) (#40) (8ce905a)
+
+## v0.2.13 — 2026-11-06
+
+- Record why layer export cannot be built yet (roadmap step 8) (#39) (ff3fce4)
+
+## v0.2.12 — 2026-11-06
+
+- Add the rendered_layer element: a pre-rendered alpha clip with IN / LOOP / OUT (roadmap step 7) (#38) (22a3ba0)
+
+## v0.2.11 — 2026-11-06
+
+- Add named style presets and a brand kit (roadmap step 6) (#37) (200a45b)
+
+## v0.2.10 — 2026-11-06
+
+- docs(roadmap): field review steps (2026-11-05) (#36) (6aef950)
+
+## v0.2.9 — 2026-11-05
+
+- docs(roadmap): bring status and wiring up to date (2026-11-05 review) (#35) (b9f800d)
+
+## v0.2.8 — 2026-10-31
+
+- fix: accept ffmpeg-skill 3.0.0 (contract_version 2.0); Python 3.9 CI on the last 2.x (#34) (0646a29)
+
+## v0.2.7 — 2026-10-31
+
+- shape element: a solid rectangle via ffmpeg-skill background + overlay --video, two calls in one stage (roadmap step 4) (#33) (cf4990d)
+
+## v0.2.6 — 2026-10-31
+
+- Single-source the version: importlib.metadata fallback and a release-bump self-check (roadmap step 1) (#32) (db2a066)
+
+## v0.2.5 — 2026-10-30
+
+- ci: pin third-party actions by commit SHA (#31) (d634588)
+
+## v0.2.4 — 2026-10-30
+
+- fix: convert template colour names to RRGGBB, refuse @alpha on them, say so in the contract (ADR-20) (#30) (d2c2fc5)
+
+## v0.2.3 — 2026-10-30
+
+- fix: distinct provides ids, contract_version and ffmpeg-skill dependency in the contract (#29) (4438320)
+
+## v0.2.2 — 2026-10-30
+
+- fix: report the release version, single-sourced from pyproject.toml (#28) (891f0b8)
+
+## v0.2.1 — 2026-10-30
+
+- Add ECOSYSTEM_ROADMAP.md: gaps, wiring and PR-sized steps from the 2026-10-30 ecosystem audit (#27) (94983f4)
+
+## v0.2.0 — 2026-10-29
+
+- Implement sticker, hook and meme elements and options.platform; correct the shape and template claims (#26) (b927791)
+
+## v0.1.2 — 2026-10-25
+
+- Add the Sponsor badge and .github/FUNDING.yml (#25) (18feee5)
+
+## v0.1.1 — 2026-10-23
+
+- ci: bump GitHub Actions, and resolve release versions with release-drafter v7 dry-run (#24) (c6b42da)
+
+## v0.1.0 — 2026-10-23
+
+- Add release automation, PR autolabeling, Dependabot, CodeQL, PR template, SECURITY.md (#14) (f4f02c6)
+- ci: keep CI green on Ubuntu 26.04 (Python 3.9, ffmpeg 8.0) (#20) (415d1d9)
+- docs(readme): fresnel-style header with a Liquid Glass app icon (#17) (0ec7d2d)
+- fix: work with any ffmpeg-skill version (capability detection, no version window) (#18) (27b8815)
+- Reconcile FLAGS_USED["graphics"/"overlay"] with what executor.py actually emits (#13) (94ba430)
+- Add video_overlay (PiP/chroma-key), audio_stream, and dropped_non_av_streams surfacing (#11) (32e762e)
+- Refresh CLAUDE.md after closing the bug/chapter/progress/countdown arc; add a security regression test (#9) (a9e8d38)
+- Implement countdown element type (#8) (01614c7)
+- Implement progress (bottom fill bar) element type (#7) (1aeb95a)
+- Implement chapter (corner chip) element type (#6) (1e3229c)
+- Refresh CLAUDE.md after merging PR #2/#3/#4 (#5) (76d6d52)
+- Implement bug (persistent corner text watermark) element type (#4) (5d7faed)
+- Add CLAUDE.md: durable repository-local state for future maintainer sessions (#3) (556118f)
+- Add provides: publish Capability ids for cross-repository discovery (#2) (f41ca9e)
+- Implement motion-graphics-skill: deterministic motion-graphics rendering execution (#1) (b86a224)
+- Initial commit (8e53b4d)

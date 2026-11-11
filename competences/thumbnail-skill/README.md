@@ -1,0 +1,457 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/app-icon-dark.png">
+    <img src="brand/app-icon.png" width="128" alt="thumbnail-skill app icon">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/logo/thumbnail-skill-wordmark-white.svg">
+    <img src="brand/logo/thumbnail-skill-wordmark-black.svg" height="48" alt="thumbnail-skill">
+  </picture>
+</p>
+
+<p align="center"><b>Deterministic thumbnail rendering: a typed ThumbnailDocument in, a validated PNG/JPEG out.</b><br>
+It does not decide what a thumbnail should show; it renders exactly the canvas, image(s) and text the caller specifies, and nothing else.</p>
+
+<p align="center">
+  <a href="#install"><b>Install</b></a> ·
+  <a href="#cli">CLI</a> ·
+  <a href="#thumbnaildocument">ThumbnailDocument</a> ·
+  <a href="SKILL.md">SKILL.md</a> ·
+  <a href="#documentation">Docs</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/kajisho5/thumbnail-skill/actions/workflows/tests.yml"><img src="https://github.com/kajisho5/thumbnail-skill/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
+  <img src="https://img.shields.io/badge/python-3.9%2B-blue" alt="Python 3.9+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License"></a>
+</p>
+
+Deterministic thumbnail rendering as an independent, reusable Skill: a typed **ThumbnailDocument**
+in, a validated **PNG/JPEG** artifact out.
+
+**thumbnail-skill does not decide what a thumbnail should show.** It does not pick a "best" video
+frame, detect faces or objects, run OCR, generate a title, judge design quality, predict
+click-through rate, or decide whether to publish. It renders exactly the canvas, image(s) and text
+the caller specifies, and nothing else.
+
+```
+Still image, or an explicit video timestamp + text + layout (all caller-decided)
+    ↓
+thumbnail-skill                (this repository)
+    ↓
+Validated PNG/JPEG + provenance
+    ↓
+video-production-agent         (decides what to show, how to lay it out: a separate repository)
+```
+
+## Install
+
+```bash
+pip install "thumbnail-skill @ git+https://github.com/kajisho5/thumbnail-skill"
+# or from a checkout
+pip install -e .
+```
+
+Requirements: Python 3.9+, [Pillow](https://python-pillow.org/) (13.0.0+ on Python 3.11+, the newest
+release that still installs on 3.9/3.10 below that, see ADR-10 in docs/decisions.md; the rendering engine — pure
+Python + libraries it vendors; no ffmpeg dependency for still images or text). A `video_frame`
+asset additionally needs an [ffmpeg-skill](https://github.com/kajisho5/ffmpeg-skill) checkout
+reachable (env var `THUMBNAIL_SKILL_FFMPEG_SKILL_DIR`, or `--ffmpeg-skill`); still-image-only
+documents never need it. Any ffmpeg-skill version works: there is no version window, the flags this
+skill uses are detected from the installed checkout (see [docs/ffmpeg-skill.md](docs/ffmpeg-skill.md)).
+`thumbnail doctor --json` reports exactly what is available.
+
+Optional: `pip install -e '.[flux2]'` (torch, diffusers>=0.37.0, transformers>=4.51.0) plus a local
+snapshot of FLUX.2 [klein] 4B enables `thumbnail/generate_background` ([below](#optional-ai-background)).
+Without it nothing changes.
+
+## Architecture
+
+| layer | owns | does not do |
+|-------|------|-------------|
+| **video-production-agent** | what a thumbnail should show, which frame/timestamp, layout, copy | render pixels |
+| **thumbnail-skill** (this repo) | rendering a typed ThumbnailDocument to a validated PNG/JPEG | choose content, judge design, run ffmpeg |
+| **ffmpeg-skill** | decoding the one video frame this skill was told to use (`probe`, `look --at`) | scene detection, "best frame" search |
+| **Pillow** (in-process) | raster compositing: paste, crop, resize, draw text | anything ffmpeg-skill doesn't already refuse |
+
+Pipeline: `request → ThumbnailDocument validation → asset/font resolution → render plan (identity,
+reuse check) → Pillow compositing (or a cache hit) → output validation → structured response with
+provenance`. thumbnail-skill never builds an ffmpeg filter string and never runs a shell; the only
+subprocess it starts is ffmpeg-skill's own CLI, with typed argv, exactly the way
+[audio-production-skill](https://github.com/kajisho5/audio-production-skill) delegates to it.
+
+## CLI
+
+```bash
+thumbnail doctor --json                        # fonts, ffmpeg-skill, path policy, output formats
+thumbnail validate request.json --json         # structural check only; no file system, no font, no ffmpeg-skill
+thumbnail render request.json --json           # canvas + assets + elements -> PNG/JPEG
+thumbnail render request.json --layers layers/ --json
+                                                # also every composed layer as a PNG with alpha + layers.json
+thumbnail render request.json --variants 3 --json
+                                                # 3 documented variants (<stem>-v1..v3), each checked at phone size
+thumbnail extract-frame request.json --json    # one video timestamp -> one frame, nothing else
+thumbnail render-batch request.json --json     # one template per platform target + a CSV -> one thumbnail per row and target
+thumbnail choose-frame request.json --json     # rank sampled frames by measured facts (detection-skill faces)
+thumbnail place-text request.json --json       # move one text element clear of the faces in the frame
+thumbnail generate-background request.json --json
+                                                # optional: one AI background image from a configured provider (ADR-12)
+thumbnail skill --json                         # the machine-readable contract (source of truth)
+echo '{"tool":"thumbnail/render","params":{...}}' | thumbnail run -
+                                                # process-boundary transport: one JSON request in, one JSON response out
+```
+
+Exit codes: `0` success; otherwise `errors.EXIT_CODES[error.code]` (see the table below). With
+`--json`, stdout carries exactly one JSON document on success or failure alike; without it, a short
+human line goes to stdout and errors to stderr.
+
+## ThumbnailDocument
+
+```json
+{
+  "document": {
+    "document_id": "ep42_thumb",
+    "canvas": {"width": 1280, "height": 720, "background": "#000000"},
+    "assets": [
+      {"asset_id": "bg",   "kind": "video_frame", "path": "episode42.mp4", "timestamp": 812.5},
+      {"asset_id": "logo", "kind": "image", "path": "brand/logo.png"}
+    ],
+    "elements": [
+      {"element_id": "bg_layer", "type": "image", "z_index": 0,
+       "image": {"asset_id": "bg", "position": {"x": 0, "y": 0}, "size": {"width": 1280, "height": 720}, "fit": "cover"}},
+      {"element_id": "logo_layer", "type": "image", "z_index": 5,
+       "image": {"asset_id": "logo", "position": {"x": 1060, "y": 20}, "size": {"width": 200, "height": 200}, "fit": "contain", "opacity": 0.9}},
+      {"element_id": "title", "type": "text", "z_index": 10,
+       "text": {"text": "第38回学会\n特別講演のお知らせ", "font_id": "cjk", "font_size": 64, "color": "#FFFFFF",
+                "position": {"x": 40, "y": 560}, "align": {"horizontal": "left", "vertical": "top"},
+                "background": {"color": "#000000AA", "padding": 16},
+                "stroke": {"color": "#000000", "width": 3}, "shadow": {"color": "#00000080", "offset_x": 3, "offset_y": 3}}}
+    ],
+    "metadata": {"episode": 42}
+  },
+  "output": {"path": "episode42_thumb.png", "format": "png", "overwrite": false},
+  "options": {"allowed_input_roots": ["/jobs/42/media"], "workspace": "/jobs/42/work", "reuse": true, "timeout": 120}
+}
+```
+
+| Concept | Fields | Notes |
+|---|---|---|
+| `ThumbnailCanvas` | `width`, `height` (16..7680), `background` (`#RRGGBB`/`#RRGGBBAA`) | the output is always exactly this size; no hard-coded 1280x720. With `output.preset`, omit both to use the preset's size; explicit values win |
+| `ThumbnailAsset` | `asset_id`, `kind` (`image` \| `video_frame`), `path`, `timestamp` (video_frame only) | `timestamp` is the caller's decision; this skill fetches exactly that frame, never a "better" one |
+| `ThumbnailElement` (image) | `asset_id`, `position {x,y}`, `size {width,height}`, `fit` (`cover`\|`contain`\|`fill`\|`none`), `crop {x,y,width,height}`, `opacity`, `rotation` (`0`\|`90`\|`180`\|`270`) | source-pixel crop is applied before fit/scale |
+| `ThumbnailElement` (text) | `text`, `font_id`, `font_size` (6..400), `color`, `position`, `align {horizontal,vertical}`, `line_spacing`, `opacity`, `background {color,padding}`, `stroke {color,width}`, `shadow {color,offset_x,offset_y}` | line breaks are literal `\n` in `text`; there is no automatic word-wrap or layout — that is a caller decision |
+| stacking | `z_index` on every element, ties broken by document order | no implicit ordering |
+
+Unknown fields anywhere are rejected (`INVALID_REQUEST`); `command`, `argv`, `shell`, `exec`,
+`executable`, `script`, `filter`, `filter_complex`, `vf`, `af`, `ffmpeg`, `env`, `cwd`, `eval`,
+`html`, `css`, `javascript` are rejected by name wherever they appear, including inside the
+free-form `metadata` object.
+
+## Fonts
+
+A request never carries a font path — only a registered `font_id`. `fonts.py` lists, per `font_id`,
+the well-known per-OS locations a real font of that role lives at; the first one that exists on this
+machine is used (detected, like ffmpeg-skill detects encoders — never assumed). `thumbnail doctor
+--json` reports which `font_id`s resolved on this machine, to which exact file, and that file's
+sha256; a `font_id` with no resolvable file fails `MISSING_INPUT` — this skill never substitutes a
+different typeface and calls it success.
+
+| font_id | role |
+|---|---|
+| `sans` | default UI sans-serif |
+| `sans-bold` | emphasis / headline sans-serif |
+| `serif` | serif text |
+| `mono` | monospaced text |
+| `cjk` | Japanese / Chinese / Korean text |
+
+Adding a font means adding a registry entry (a reviewed change), not a runtime decision by a caller.
+
+## Video frame source
+
+`kind: "video_frame"` fetches exactly the frame at `timestamp` (seconds) via
+`ffmpeg-skill/look --at <timestamp> --no-timecode`. There is no scene detection, no frame scoring,
+no "most representative frame" search anywhere in this skill — if that is ever needed, it belongs
+in a separate analysis/inference layer that hands this skill a concrete timestamp. A timestamp
+beyond the source's own duration is `INVALID_TIME_RANGE`; a negative or non-finite one is rejected
+before ffmpeg-skill is ever invoked. A timestamp that is technically within the reported duration but
+lands after the last frame actually decodable from the source (a container's `duration` commonly
+extends about one frame interval past the last frame's own timestamp, so the very end of any video
+has a small window like this) is also `INVALID_TIME_RANGE`, not retryable: retrying the identical
+timestamp will fail identically every time, so pick an earlier one instead. ffmpeg-skill itself
+fails loudly on this case (`ffmpeg-skill/look` reports `{"status": "failed", "error": {"kind":
+"output"}}` rather than claiming success with nothing written); this skill recognizes that specific
+failure and reclassifies it as `INVALID_TIME_RANGE` instead of a retryable `TOOL_ERROR` — see ADR-5
+in docs/decisions.md and docs/ffmpeg-skill.md.
+
+## Output formats
+
+PNG (lossless, keeps the alpha channel) and JPEG (`jpeg_quality` 1..100; flattened onto the canvas's
+own background colour before encoding, since JPEG has no alpha channel). Only formats actually
+implemented are advertised by `thumbnail skill --json` and `thumbnail doctor --json`. Every output
+is re-opened and checked before being reported successful: real image, declared format, exact
+canvas dimensions, non-empty, sha256 recorded.
+
+## Platform presets
+
+`output.preset` names a platform's thumbnail/cover target: `youtube` (1280x720), `youtube-shorts`,
+`tiktok`, `instagram-reels` (1080x1920), `instagram-feed` (1080x1080), `x` (1600x900). A preset
+supplies the canvas size when the document gives none (explicit `canvas.width`/`height` win), and
+the written file is then checked against the preset's dimensions, aspect ratio, format and byte size
+before it is cached or placed; anything over a limit fails `VALIDATION_ERROR` (`details.reason:
+"preset_limit_exceeded"`, every violation listed) and no output is written.
+
+```json
+"output": {"path": "ep42_youtube.jpg", "format": "jpeg", "preset": "youtube"}
+```
+
+Limits come from each platform's own documentation, cited per preset in `thumbnail skill --json`
+(`platform_presets`) and in ADR-9 ([docs/decisions.md](docs/decisions.md)); figures no official page
+states are marked `unverified` and set conservatively. Full table: [docs/model.md](docs/model.md).
+
+## Security
+
+- No shell, ever (`subprocess.Popen` with an argv list, `shell=False`, in the adapter to
+  ffmpeg-skill only).
+- No arbitrary executable: the only process this skill starts is `python3 <ffmpeg-skill>/scripts/
+  {probe,look}.py <typed argv> --json`, resolved from a checkout directory, never from a
+  request-supplied path.
+- No arbitrary ffmpeg filter, no `filter_complex`/`vf`/`af`, no raw argv: video decoding is exactly
+  ffmpeg-skill's own `--at <timestamp> --no-timecode`; nothing from the request reaches that argv
+  except a validated, formatted timestamp and resolved absolute paths.
+- No JavaScript, HTML or CSS execution or interpretation anywhere: text is drawn as data
+  (`PIL.ImageDraw.text`), never evaluated; those field names are refused outright.
+- Every input path is resolved (symlinks followed) and, when `allowed_input_roots` is declared,
+  checked for containment by resolved path components — never by string prefix
+  (`/w/media` does not authorise `/w/media_evil`); a `..` component that resolves outside a root, or
+  a symlink/junction that does, is `PATH_NOT_ALLOWED`. Without `allowed_input_roots`, any readable
+  regular file is accepted (unrestricted mode), matching transcription-skill's default.
+- Every output, the reuse cache and the temp directory resolve inside `workspace`; an output may
+  never be an input, may not exist unless `overwrite: true`, and its file name is checked against
+  reserved Windows device names, invalid characters, and option-like (`-...`) names.
+- A decompression-bomb-scale source image is refused (`INVALID_INPUT`) rather than exhausting memory.
+
+## Deterministic execution and reuse
+
+Given the same document, the same asset/font *content* (by sha256, not by path), the same
+skill/Pillow version and — when a `video_frame` asset is involved — the same ffmpeg-skill version,
+`thumbnail/render` and `thumbnail/extract_frame` reuse a cached artifact instead of re-rendering; a
+`video_frame` asset's identity is its **source video's** sha256 plus the requested timestamp, not the
+decoded frame's bytes, so a cache hit never has to decode video. Any of those inputs changing —
+different image bytes, a different font, a different document (layout, z-order, text, ...), a
+different timestamp, a different source video, an ffmpeg-skill or Pillow upgrade — changes the
+identity and busts the cache; a source video whose duration cannot be established at all is refused
+outright (`INVALID_INPUT`) rather than silently skipping the beyond-duration check. A cache entry is
+re-validated (exists, opens as the declared format, size and dimensions match) before being reused; a
+corrupted entry is rebuilt, never returned as `reused: true`. No randomness anywhere in the render
+path. Two renders of the same document on the same machine produce byte-identical output; across
+machines, only the resolved font file, the Pillow version and (for `video_frame`) the ffmpeg-skill
+version need to match for the same guarantee (all are recorded in `provenance`, matching
+ffmpeg-skill's own `content_equivalent` convention for environment-dependent encoders).
+
+## Error codes
+
+| Code | Meaning |
+|---|---|
+| `INVALID_REQUEST` | document shape, unknown/forbidden field, bad type or bound |
+| `INVALID_INPUT` | a source file is missing, unreadable, or not a valid image |
+| `PATH_NOT_ALLOWED` | input outside allowed roots, output outside workspace, traversal, symlink escape |
+| `UNSUPPORTED_OPERATION` | unknown tool name, or an unimplemented option (e.g. arbitrary-angle rotation) |
+| `UNSUPPORTED_FORMAT` | output format not in the contract |
+| `MISSING_INPUT` | an element references an `asset_id`/`font_id` that is not declared or not registered |
+| `INVALID_TIME_RANGE` | a `video_frame` timestamp is negative, non-finite, beyond the source's duration, or lands after the last decodable frame (not retryable) |
+| `DEPENDENCY_ERROR` | duplicate id or another structural inconsistency |
+| `TOOL_ERROR` | ffmpeg-skill failed, timed out, or is unavailable |
+| `OUTPUT_ERROR` | output could not be written, is empty, collides with an input, or already exists |
+| `VALIDATION_ERROR` | output written but failed post-render validation, including an `output.preset` limit (`preset_limit_exceeded`) |
+| `CANCELLED` | interrupted by signal |
+| `INTERNAL_ERROR` | a bug in this skill |
+
+## Batch thumbnails from a CSV
+
+`thumbnail/render_batch` (ADR-14; roadmap step 5) renders one thumbnail per row of a table and per
+platform target: every session of a conference, every episode of a series. Each target is one
+ThumbnailDocument template for one `output.preset`. 16:9 and 9:16 are two targets, each with its own
+layout. `{{column}}` placeholders are filled from the row (`row` and `preset` are built in).
+
+```json
+{"tool": "thumbnail/render_batch", "params": {
+  "csv": {"path": "sessions.csv"},
+  "targets": [
+    {"preset": "youtube",
+     "document": {"document_id": "talk-{{session}}", "canvas": {"background": "#14213D"},
+                  "assets": [{"asset_id": "photo", "kind": "image", "path": "{{photo}}"}],
+                  "elements": [
+                    {"element_id": "photo_el", "type": "image", "image": {"asset_id": "photo", "position": {"x": 840, "y": 140}, "size": {"width": 400, "height": 400}}},
+                    {"element_id": "title", "type": "text", "text": {"text": "{{title}}", "font_id": "sans-bold", "font_size": 72, "color": "#FFFFFF", "position": {"x": 40, "y": 600}}}]},
+     "text_fit": {"title": {"max_width": 1200, "max_height": 110, "min_font_size": 24}}},
+    {"preset": "youtube-shorts", "document": {"...": "the 9:16 layout"}}],
+  "output": {"directory": "thumbs", "name": "{{session}}-{{preset}}", "format": "png"}}}
+```
+
+- **CSV:** header row, UTF-8 by default (a byte-order mark is fine). For a CSV saved by Japanese Excel
+  as plain "CSV" (Shift_JIS), set `"encoding": "cp932"`; it is never guessed. `"delimiter"` may be
+  `;` or a tab. Inline `rows` (objects of strings) can replace the file. At most 1000 rows.
+- **Names that do not fit** are shrunk one point at a time, down to `min_font_size`, until the
+  element's painted box (text, stroke, shadow, background) fits `max_width` x `max_height` and stays
+  on the canvas. They are never cut or wrapped. A name that does not fit even at the minimum is
+  refused (`VALIDATION_ERROR`, `text_does_not_fit`). The response's `fitted` gives the size used.
+- **Nothing is written** until every row and target has been checked: placeholders, fonts, text fit,
+  input files, and safe and unique output names. Each file is then an ordinary `thumbnail/render`,
+  with its output check and `output.preset` check.
+
+## Layered output
+
+`thumbnail render request.json --layers DIR` (tool `thumbnail/render_layers`, ADR-17; roadmap step 8)
+writes the thumbnail and also every layer it was composed from into `DIR`:
+`00-background.png`, then one PNG with alpha per image element and per text element (a text's
+background band is its own layer), each cropped to its visible pixels. It also writes `layers.json`
+with each layer's order, role, element id, position and size. To rebuild the thumbnail, start from
+layer 0 and alpha-composite each further layer at its position, in order. The tool does exactly that
+from the files on disk before it answers, and refuses (`layers_mismatch`) unless the result equals
+the thumbnail pixel for pixel (for a JPEG thumbnail: the lossless composite it was encoded from).
+A designer can then replace just the text layer.
+
+## A/B variants and the small-size check
+
+`thumbnail render request.json --variants N` (tool `thumbnail/render_variants`, ADR-16; roadmap step 7)
+writes N variants of one thumbnail, `<stem>-v1` .. `<stem>-vN`, for a platform A/B test. Variant k
+takes the k-th entry, round robin, of three axes: the title's layout, its palette (colour, band,
+outline) and, optionally, the frame an image element shows. Variant 1 is always the document as
+given. Every choice is listed in the response. An optional `variants` object in the request sets
+the axes (`layouts`, `palettes`, `frame_element` + `frames`), `text_element`, `phone_width` (320),
+`min_text_height_px` (12) and `min_contrast_ratio` (4.5).
+
+Each variant is checked at the size it is seen on a phone. For every text element the response gives
+its glyph ink height scaled to 320 px wide and its contrast ratio, measured by qc-skill's text
+legibility (`video.text_regions`, WCAG 2.x). A variant below a minimum is reported
+(`small_size.status: fail`, `text_too_small` / `low_contrast`, listed in `flagged`) and still
+written. Nothing is dropped and nothing picks a winner. Without qc-skill (`--qc-skill`,
+`THUMBNAIL_SKILL_QC_SKILL_DIR`, or `vendor/qc-skill`), contrast is reported as not measured.
+
+## Frame choice and face-aware text
+
+Two tools (ADR-15; roadmap step 6) that detect nothing themselves and write no file:
+
+- `thumbnail/choose_frame` ranks the sampled frames of a detection-skill face document
+  (`detection faces --attributes` -> `detection-skill/detections@1`) by eyes open, sharpness, exposure,
+  frontal angle and face size. The formula is in `thumbnail skill --json` -> `frame_choice`, and
+  every part is listed. A frame whose main face has its eyes closed comes after every frame where
+  they are open. Frame sharpness and exposure come from the caller's `measures [{t, sharpness,
+  mean_luma}]`; without them, sharpness is detection-skill's face sharpness and exposure is listed
+  as `missing`. With `video` (its sha256 must match the detections), the chosen frame comes back as
+  a `video_frame` asset.
+- `thumbnail/place_text` maps the face boxes onto the canvas through the image element that shows
+  the frame. It moves one text element to the first candidate position whose painted box stays on
+  the canvas and clear of every face, and returns the updated document for `thumbnail/render`. When
+  no position is clear it refuses (`no_position_clear_of_faces`) rather than cover a face.
+
+```json
+{"tool": "thumbnail/place_text", "params": {"document": {"...": "..."}, "text_element": "title", "image_element": "frame_el",
+  "faces": [[500, 160, 220, 260]], "frame_size": {"width": 1920, "height": 1080}, "margin": 16}}
+```
+
+## Optional AI background
+
+`thumbnail/generate_background` (ADR-12 in [docs/decisions.md](docs/decisions.md); roadmap step 3)
+generates **one background image** from a caller-written prompt and an explicit seed with a named,
+locally installed provider, and writes it as a validated PNG/JPEG with provenance. It never decides
+what to show and never composes: the result is an ordinary `image` asset for `thumbnail/render`, so
+composition stays deterministic and the ThumbnailDocument model is unchanged.
+
+```json
+{"tool": "thumbnail/generate_background", "params": {
+  "background": {"provider": "flux2-klein-4b", "prompt": "a calm studio backdrop, soft light",
+                 "width": 1280, "height": 720, "seed": 7, "steps": 4, "guidance_scale": 1.0},
+  "output": {"path": "bg.png", "format": "png", "preset": "youtube"}}}
+```
+
+| Provider | Engine | Licence | Turned on by | Needs |
+|---|---|---|---|---|
+| `flux2-klein-4b` | FLUX.2 [klein] 4B ([model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B)) | Apache-2.0 | `THUMBNAIL_FLUX2_KLEIN_4B_DIR` = a local snapshot of `black-forest-labs/FLUX.2-klein-4B` | `pip install -e '.[flux2]'`; about 13 GB of VRAM (model card) |
+
+- **Without a provider nothing changes.** `render`, `extract_frame` and `validate` never touch it;
+  `doctor` reports `not_configured` without changing its status; `generate_background` is refused
+  with `TOOL_ERROR` (`details.reason: provider_unavailable`, not retryable), never a crash.
+- **Configured but unable to run** (no `model_index.json`, torch/diffusers/transformers missing, a
+  diffusers without `Flux2KleinPipeline`): `doctor` is `degraded` with a warning naming what is
+  missing, and `generate_background` is refused the same way.
+- **No download, no network.** Weights load with `local_files_only=True`; obtaining the snapshot is
+  the operator's step. The 9B [klein] variant (non-commercial licence) is not offered.
+- **Not deterministic.** The same seed on another GPU or library version may give other pixels, so
+  the tool is declared `deterministic: false` and is never cached. Width and height are 256..2048,
+  multiples of 16; `steps` defaults to 4 and `guidance_scale` to 1.0 (the model card's example).
+- **Provenance** records `generated: true`, provider, engine and its version, model, licence and
+  licence URL, model card, prompt (and its sha256), seed, steps, guidance scale and the output hash.
+
+## Provenance
+
+Every successful `render`/`extract_frame` response carries `provenance`: skill id/version, the
+rendering engine and its version, the render/extraction identity hash, `reused`, every asset's
+resolved path + sha256 (+ timestamp and source duration for `video_frame`), every font actually
+used (`font_id`, path, sha256), the output's own sha256, and — when `output.preset` was set — the
+preset's name.
+
+## Cross-repository Capability ids
+
+`skill --json` (alias `contract --json`) also publishes `provides`: `render` as Capability
+id `thumbnail.render`, `extract_frame` as `thumbnail.extract_frame`, `render_batch` as
+`thumbnail.render_batch`, `render_variants` as `thumbnail.render_variants`, `render_layers` as `thumbnail.render_layers`, the optional
+`generate_background` as `thumbnail.generate_background` — the identifiers a
+registry (see `kajisho5/AI-video-production-OS`) can resolve to this Skill without
+hardcoding it. `validate` has no Capability id — it produces no output artifact, only a
+structural check. Additive; no behavior change to any tool.
+
+## Where this skill ends and others begin
+
+| Repository | Question it answers | Example |
+|---|---|---|
+| **media-analysis-skill** | What exists in the media? (measurement) | `duration = 312.4`, `silence = [...]` |
+| **transcription-skill** | What is being said, and when? | `"本日の講演を始めます"  start 12.3  end 15.8` |
+| **subtitle-skill** | How is speech shown as on-screen subtitles? | line breaks, styling, SRT/ASS, burn-in |
+| **thumbnail-skill** (here) | Render a decided thumbnail specification | one canvas, positioned image/text layers, PNG/JPEG |
+| **video-editing-skill** | Cut, arrange and assemble a video timeline | trims, transitions, sequencing |
+| **motion-graphics-skill** | In-video graphics / motion rendering | lower thirds, animated titles inside the video itself |
+| **qc-skill** | Inspect a finished artifact | does the delivered file meet spec? |
+| **video-production-agent** | What should be done, with what content? (inference, decisions, planning) | "use frame at 13:32.5", "title reads X", "put the logo top-right" |
+
+Apart from the optional, caller-prompted background generator above (ADR-12), thumbnail-skill
+deliberately contains none of: AI reasoning, automatic frame selection, face/object
+detection, OCR, semantic analysis, automatic title/layout/design generation, click-through
+prediction, A/B testing, publish decisions, video editing, color grading, subtitle rendering, cloud
+upload, a plugin loader, arbitrary shell/ffmpeg/JavaScript/HTML/CSS execution.
+
+## Documentation
+
+- [SKILL.md](SKILL.md): how a coding agent should use the skill
+- [docs/architecture.md](docs/architecture.md): modules, data flow, boundaries
+- [docs/model.md](docs/model.md): the full ThumbnailDocument / Canvas / Element / Asset schema
+- [docs/security.md](docs/security.md): execution boundary, path policy, validation
+- [docs/testing.md](docs/testing.md): unit, security, integration/real-media tests; fixtures
+- [docs/ffmpeg-skill.md](docs/ffmpeg-skill.md): the ffmpeg-skill contract this skill relies on, tools/flags used, observed behaviour, known gaps
+- [docs/decisions.md](docs/decisions.md): why things are built the way they are (ADR log)
+- [SECURITY.md](SECURITY.md): how to report a vulnerability
+- [CHANGELOG.md](CHANGELOG.md): per-version changes (generated; see Releases below)
+
+## Releases
+
+Versioning, tagging, `CHANGELOG.md`, GitHub Releases and (when a `PYPI_API_TOKEN` repository
+secret is configured) publishing are fully automated by
+[`.github/workflows/release.yml`](.github/workflows/release.yml) on every push to `main`. It
+resolves the next version from the labels ([`major`/`feature`/`fix`/`security`/`documentation`/
+`chore`](.github/release-drafter.yml), applied automatically by
+[`.github/workflows/release-drafter.yml`](.github/workflows/release-drafter.yml)) on PRs merged
+since the last tag; a PR with none of these labels still ships, counted as a patch. Manually
+setting `version` in `pyproject.toml` ahead of the last tag is respected as-is instead of being
+recomputed. There is no separate manual "cut a release" step, and no manually-created tag should
+be pushed -- both would just be overwritten or ignored by the next automated run.
+
+## Support
+
+If this skill saves you time, you can help keep it maintained through [GitHub Sponsors](https://github.com/sponsors/kajisho5). Issues and pull requests are just as welcome.
+
+## License
+
+MIT

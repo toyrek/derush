@@ -1,0 +1,226 @@
+"""Machine-readable Skill / Capability / Tool contract (`motion-graphics skill --json`, alias `contract --json`).
+Derived from the same tables the code runs on (model.ELEMENT_TYPES, model.ANIMATION_KINDS, errors.ERROR_TABLE);
+nothing is hand-maintained beside the implementation, so contract and doctor can never claim support that render
+does not actually have (STEP 9)."""
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+from . import CONTRACT_SCHEMA_VERSION, DOCTOR_SCHEMA_VERSION, PACKAGE_NAME, REQUEST_SCHEMA_VERSION, RESPONSE_SCHEMA_VERSION, SKILL_ID, VERSION
+from .colors import NAMED_COLORS
+from .adapter import (FLAG_ALTERNATIVES, FLAGS_USED, GENERATOR_OPTIONAL_FLAGS, GENERATOR_TOOLS, KNOWN_CONTRACT_VERSION, KNOWN_CONTRACT_VERSIONS, OPTIONAL_FLAGS, REQUIRED_FLAGS,
+                      LAYER_TOOLS, TEMPLATE_FLAGS, TOOLS_USED)
+from .errors import ERROR_CODES, ERROR_TABLE, EXIT_CODES
+from .executor import DURATION_TOLERANCE, IMAGE_EXTENSIONS, WORK_DIR_NAME
+from .fonts import ALLOWED_FONT_EXTENSIONS, DEFAULT_FONT_ID, FONT_REGISTRY
+from .styles import contract_section as style_presets_section
+from .regions import contract_section as reserved_regions_section
+from .themes import contract_section as themes_section
+from .layerexport import contract_section as layer_export_section
+from .textfit import contract_section as text_fit_section
+from .model import (ANIMATION_KINDS, ELEMENT_TYPES, FIT_FIELDS, FORBIDDEN_KEYS, ID_RE, MAX_DURATION, MAX_ELEMENTS, PLATFORM_NAMES, POSITION_NAMES,
+                    REQUEST_SCHEMA_ID, UNSUPPORTED_ANIMATIONS, UNSUPPORTED_ELEMENT_TYPES)
+
+CONTRACT_SCHEMA_ID = f"{SKILL_ID}/contract@{CONTRACT_SCHEMA_VERSION}"
+
+# Cross-repository Capability ids, matching the ids assigned to this Skill in
+# kajisho5/AI-video-production-OS's `docs/CAPABILITY_MATRIX.md` (as of this writing, on that
+# repository's not-yet-merged `claude/ai-video-production-os-arch-*` architecture branch --
+# not its main branch -- verified directly against that file's content and against the field
+# shape `registry/contract.py` there actually validates, not merely against its own docs).
+# `image_overlay` keeps that matrix's `motion_graphics.overlay` ("free-form text, image/logo
+# overlay"); `text_overlay` shared it until 2026-10-30 and now has its own
+# `motion_graphics.text_overlay`, because a registry keys capabilities by id and one id per
+# entry is what the OS registry needs (ADR-10). `title` and `lower_third` each get their own
+# built-in-template id. `bug`/`chapter`/`progress`/`countdown`/
+# `video_overlay` have no id there at all -- that matrix predates these element types'
+# implementation here -- so the `motion_graphics.<name>` ids below for them are this repository's
+# own provisional choices, not a verified match; reconcile them if the OS side ever assigns
+# different ids once merged. `video_overlay` gets its own id rather than folding into
+# `motion_graphics.overlay`: a video-on-video picture-in-picture/chroma-key layer is a materially
+# different capability, not the same "free-form text, image/logo overlay" one (ADR-15). `sticker`/`hook`/`meme`
+# (ADR-19) are likewise this repository's own provisional ids, one per template.
+CAPABILITY_IDS: Dict[str, str] = {
+    "title": "motion_graphics.title_card", "lower_third": "motion_graphics.lower_third",
+    "text_overlay": "motion_graphics.text_overlay", "image_overlay": "motion_graphics.overlay",
+    "bug": "motion_graphics.bug", "chapter": "motion_graphics.chapter", "progress": "motion_graphics.progress",
+    "countdown": "motion_graphics.countdown", "video_overlay": "motion_graphics.video_overlay",
+    "sticker": "motion_graphics.sticker", "hook": "motion_graphics.hook", "meme": "motion_graphics.meme",
+    "shape": "motion_graphics.shape", "rendered_layer": "motion_graphics.rendered_layer", "logo": "motion_graphics.logo",
+}
+
+
+def capability_provides() -> List[Dict[str, str]]:
+    return [{"id": CAPABILITY_IDS[etype], "lifecycle": "EXPERIMENTAL", "tool_id": f"{SKILL_ID}/run", "element_type": etype}
+            for etype in sorted(ELEMENT_TYPES)]
+
+
+# The AI Video Production OS registry's `dependencies`: ffmpeg-skill, as a range of its contract_version (the one
+# versions this adapter knows: 1.0 up to ffmpeg-skill 2.x, 2.0 for 3.x, ADR-23; ADR-18: compatibility is decided by the
+# flags present, not by version).
+FFMPEG_SKILL_CONTRACT_RANGE = f">={KNOWN_CONTRACT_VERSION} <{int(KNOWN_CONTRACT_VERSIONS[-1].split('.')[0]) + 1}.0"
+
+
+def dependencies() -> List[Dict[str, Any]]:
+    return [{"skill_id": "ffmpeg-skill", "version_range": FFMPEG_SKILL_CONTRACT_RANGE, "range_of": "contract_version", "required": True,
+             "tools": [f"ffmpeg-skill/{t}" for t in TOOLS_USED + tuple(GENERATOR_TOOLS) + LAYER_TOOLS]}]
+
+
+def _param_schema(ps: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in ps.items() if k in ("type", "required", "min", "max", "enum", "default", "description", "max_length", "alpha", "multiple_of")}
+
+
+def element_type_specs() -> List[Dict[str, Any]]:
+    out = []
+    for etype, spec in ELEMENT_TYPES.items():
+        entry = {
+            "type": etype, "description": spec["description"], "tool": f"ffmpeg-skill/{spec['tool']}",
+            "animation": spec["animation"], "parameters": {k: _param_schema(v) for k, v in spec["parameters"].items()},
+            "required_capabilities": spec["required_capabilities"], "deterministic": "content_equivalent",
+        }
+        if spec.get("at_least_one_of"):
+            entry["constraints"] = [{"at_least_one_of": list(spec["at_least_one_of"])}]
+        if spec.get("generator"):
+            # ADR-22: the second ffmpeg-skill call of this element's stage (it generates the layer `tool` composites)
+            entry["generator"] = f"ffmpeg-skill/{spec['generator']}"
+        out.append(entry)
+    return out
+
+
+def animation_specs() -> List[Dict[str, Any]]:
+    return [{"kind": k, "description": v["description"], "parameters": {n: _param_schema(p) for n, p in v["parameters"].items()},
+             "applies_to": [t for t, s in ELEMENT_TYPES.items() if s.get("animation") == "configurable"]} for k, v in ANIMATION_KINDS.items()]
+
+
+def skill_contract() -> Dict[str, Any]:
+    tools = [{"tool_id": f"{SKILL_ID}/run", "skill_id": SKILL_ID, "version": VERSION, "role": "execution",
+              "description": "Render a typed Graphics Document (titles, lower thirds, text overlays, image/logo overlays, video-on-video "
+                              "picture-in-picture/chroma-key overlays, solid-colour rectangles, with fade animation) onto a video and write a validated "
+                              "artifact with provenance",
+              "inputs": ["request document (stdin)"], "input_type": REQUEST_SCHEMA_ID, "produces_output": True, "writes_media": True, "deterministic": True,
+              "idempotency_hint": "content_equivalent; non-final intermediates reused by deterministic operation id",
+              "element_types": sorted(ELEMENT_TYPES), "supports": {"dry_run": True, "timeout": True, "cancel": True, "validate": True},
+              "verification": "every artifact is probed (video stream, resolution, duration, sha256); the final output is always re-validated even when intermediates were reused",
+              "provenance": "OBSERVED", "mutates_input": False,
+              "delegates_to": [f"ffmpeg-skill/{t}" for t in TOOLS_USED + tuple(GENERATOR_TOOLS) + LAYER_TOOLS]}]
+    return {
+        "schema": CONTRACT_SCHEMA_ID, "skill_id": SKILL_ID, "id": SKILL_ID, "name": PACKAGE_NAME, "package": PACKAGE_NAME, "version": VERSION,
+        "contract_version": CONTRACT_SCHEMA_VERSION, "kind": "execution", "role": "motion graphics rendering (execution); not design, not decision",
+        "description": "Deterministic motion-graphics rendering execution: title cards, lower thirds, free-form text overlays, image/logo overlays, "
+                       "video-on-video picture-in-picture/chroma-key overlays, and solid-colour rectangles (shape), with built-in template animation (title/lower-third fade and slide) "
+                       "or a configurable linear fade (text/image overlays only); typed Graphics Document in, a validated video artifact with "
+                       "provenance out. Not an AI agent: it never chooses what to show, when to show it, or how it should look.",
+        "repository": "https://github.com/kajisho5/motion-graphics-skill",
+        "not_provided": ["AI reasoning", "design decisions", "production plans", "template or content selection", "arbitrary ffmpeg filters",
+                         "shapes other than a solid rectangle (rounded corners, borders, rotation, gradients; ADR-22)",
+                         "position/scale animation (see unsupported_animations)",
+                         "video editing (video-editing-skill)", "color grading (color-grading-skill)", "subtitle generation (subtitle-skill)",
+                         "shell execution", "network access"],
+        "tools": tools,
+        "provides": capability_provides(),
+        "dependencies": dependencies(),
+        "element_types": element_type_specs(),
+        "unsupported_element_types": [{"type": t, "status": "not_implemented", "reason": r} for t, r in UNSUPPORTED_ELEMENT_TYPES.items()],
+        "animations": animation_specs(),
+        "unsupported_animations": [{"kind": k, "status": "not_implemented", "reason": r} for k, r in UNSUPPORTED_ANIMATIONS.items()],
+        "platforms": {"names": list(PLATFORM_NAMES), "request_field": "options.platform",
+                      "applies_to": "every graphics and overlay stage of the document (one destination per document)",
+                      "effect": "an element margin the request does not give explicitly becomes that destination's safe zone (ffmpeg-skill --platform, "
+                                "per edge: e.g. a top-left logo clears TikTok's status bar); a margin the request gives wins -- except that ffmpeg-skill/overlay "
+                                "treats a margin equal to its own default (24) as not given, so the safe zone still applies to an explicit 24; "
+                                "explicit {x,y} positions are unaffected",
+                      "requires": "an ffmpeg-skill checkout whose graphics/overlay tools have --platform; otherwise the request is refused before rendering (TOOL_ERROR)"},
+        # ADR-20: what a `color` parameter takes. The template elements' colours go to ffmpeg-skill/graphics, which takes
+        # opaque RRGGBB only: names are converted from this table before the call, and their schemas say alpha: false.
+        "colors": {"named": dict(NAMED_COLORS),
+                   "forms": "a name from `named` (any case) or bare RRGGBB hex (no '#' or '0x'), optionally followed by @A with A in [0, 1]",
+                   "names": "FFmpeg's own colour-name table (libavutil parseutils, `ffmpeg -colors`), fixed in this skill: a name is the same "
+                            "RRGGBB on every element type; a name not in it is INVALID_REQUEST",
+                   "alpha": "accepted by a color parameter unless its schema says alpha: false; there, @A is refused before anything renders "
+                            "(UNSUPPORTED_OPERATION, details.reason color_alpha_not_supported, details.element_id) -- never sent, never dropped",
+                   "delegates": {"ffmpeg-skill/graphics": "RRGGBB only (a name is sent as its RRGGBB; no @alpha, no opacity flag)",
+                                 "ffmpeg-skill/overlay": "name, 0xRRGGBB (a bare RRGGBB gets the 0x prefix) and @alpha, as ffmpeg reads them",
+                                 "ffmpeg-skill/background": "shape.color as 0xRRGGBB (a name is converted first); no @alpha: the shape's "
+                                                            "transparency is its opacity parameter (ADR-22)"}},
+        # ADR-24: named presets, typed bundles of the parameters the element types already have
+        "style_presets": style_presets_section(),
+        # ADR-27: lower_third / title text shrunk and broken to a box
+        "text_fit": text_fit_section({k: _param_schema(v) for k, v in FIT_FIELDS.items()}),
+        # ADR-28: YouTube end-screen elements and card teasers as reserved regions
+        "reserved_regions": reserved_regions_section(),
+        # ADR-29: brand themes -- colours, font, logo and spacing from one file, switchable
+        "themes": themes_section(),
+        # ADR-30: every element also written alone on a transparent picture, one file each, with a manifest
+        "layer_export": layer_export_section(),
+        "positions": {"named": list(POSITION_NAMES), "explicit": "{x: integer, y: integer} pixels; negative counts from the far edge (ffmpeg-skill/overlay semantics)"},
+        "fonts": {"registry": {fid: spec["family"] for fid, spec in FONT_REGISTRY.items()}, "default_font_id": DEFAULT_FONT_ID,
+                  "custom_font_file": {"allowed_extensions": list(ALLOWED_FONT_EXTENSIONS), "path_policy": True, "provenance": "font_file_hash (sha256)"},
+                  "fallback_policy": "an unknown font_id or a missing font_file is MISSING_INPUT / INVALID_INPUT; this skill never substitutes a different font and reports success"},
+        "output_formats": {"container": "same extension as document.output.path (ffmpeg-skill picks the codec for it)", "video_codec": "libx264", "audio_codec": "aac (passthrough of the source track's presence, not its codec)"},
+        "limits": {"max_elements": MAX_ELEMENTS, "max_element_duration_seconds": MAX_DURATION},
+        "timeline": {"unit": "seconds (float)", "ranges": "half-open-by-convention [start, end), start >= 0, end > start, both finite (no NaN/Infinity)",
+                     "element_ids": "unique within a document (id_pattern below), duplicates are DEPENDENCY_ERROR",
+                     "rendering_order": "elements are rendered in (start, id) order regardless of the order they were listed in the request (docs/decisions.md); each element's own start/end are rendered exactly as given",
+                     "duration_tolerance_seconds": DURATION_TOLERANCE},
+        "execution": {"mode": "local", "canonical_invocation": ["motion-graphics", "run", "-", "--json"], "stdin": REQUEST_SCHEMA_ID,
+                      "stdout": f"exactly one {SKILL_ID}/response@{RESPONSE_SCHEMA_VERSION} document", "stderr": "diagnostics only",
+                      "executables": ["python3 <ffmpeg-skill>/scripts/{probe,graphics,overlay}.py (argv lists)",
+                                      "python3 <ffmpeg-skill>/scripts/background.py (argv list; shape elements, ADR-22, and the transparent canvas of a layer export, ADR-30)",
+                                      "python3 <ffmpeg-skill>/scripts/color.py --retag (argv list; the layer export canvas's colour tags, ADR-30)"],
+                      "executable_resolution": "ffmpeg-skill directory: --ffmpeg-skill, MOTION_GRAPHICS_FFMPEG_SKILL_DIR, VIDEO_AGENT_FFMPEG_SKILL_DIR, ~/.claude/skills/ffmpeg-skill, ./vendor/ffmpeg-skill, ../ffmpeg-skill; ffmpeg/ffprobe: PATH lookup by ffmpeg-skill",
+                      "shell": False, "arbitrary_executables": False, "arbitrary_filters": False, "network": False, "input_mutation": False, "ai": False},
+        "ffmpeg_skill": {"contract_version": KNOWN_CONTRACT_VERSION,
+                         # kept as an object (consumers check its shape); both bounds are null: no version is refused by number
+                         "version_window": {"min": None, "max_exclusive": None},
+                         "compatibility": "capability detection, no version window: a checkout of any version is used when every required flag is "
+                                          "present in its contract (or --help); doctor reports what was detected (docs/decisions.md ADR-18)",
+                         "tools_used": list(TOOLS_USED), "flags_used": {k: list(v) for k, v in FLAGS_USED.items()},
+                         "required_flags": {k: list(v) for k, v in REQUIRED_FLAGS.items()},
+                         "flag_alternatives": {t: {g: list(a) for g, a in groups.items()} for t, groups in FLAG_ALTERNATIVES.items()},
+                         "optional_flags": {k: list(v) for k, v in OPTIONAL_FLAGS.items()},
+                         # graphics templates newer than the oldest verified checkout (0.12.5): element types built on them are
+                         # reported unsupported by doctor, and refused before rendering, when the checkout lacks the template or flags
+                         "template_requirements": {t: {"graphics_flags": list(f)} for t, f in TEMPLATE_FLAGS.items()},
+                         # ADR-22: tools called for one element type only; detected like a template, never needed to locate a checkout
+                         "generator_tools": {t: {"flags": list(f), "optional_flags": list(GENERATOR_OPTIONAL_FLAGS.get(t, ())),
+                                                 "for": sorted(e for e, s in ELEMENT_TYPES.items() if s.get("generator") == t)}
+                                             for t, f in GENERATOR_TOOLS.items()}},
+        "request": {"schema": REQUEST_SCHEMA_ID, "id_pattern": ID_RE.pattern, "forbidden_fields": sorted(FORBIDDEN_KEYS),
+                    "shape": {"schema": REQUEST_SCHEMA_ID, "video": {"path": "file"}, "output": {"path": "file", "overwrite?": False},
+                              "elements": [{"id": "id", "type": "|".join(sorted(ELEMENT_TYPES)), "start": 0, "end": 1,
+                                            "parameters": {"...": "see element_types[].parameters"}, "animation?": {"kind": "fade", "parameters": {"duration": 0.5}}}],
+                              "options?": {"reuse_intermediates?": True, "crf?": 18, "preset?": "medium", "audio_stream?": 0, "platform?": "tiktok",
+                                           "style?": "news", "reserved_regions?": {"end_screen?": {"duration?": 20}, "cards?": [{"time": 30}], "on_overlap?": "report"},
+                                           "themes?": {"brand_a": "themes/brand_a.json"}, "theme?": "brand_a", "brand_kit?": {"primary?": "RRGGBB", "secondary?": "RRGGBB", "background?": "RRGGBB", "text?": "RRGGBB"},
+                                           "layer_export?": {"directory": "layers", "alpha_codec?": "prores4444", "alpha_mode?": "straight"}},
+                              "elements[].style?": "a style_presets name",
+                              "elements[].fit?": {"width": 600, "max_lines?": 2, "min_scale?": 0.6, "profile?": "ja-kinsoku", "lang?": "ja"}}},
+        "response": {"schema": f"{SKILL_ID}/response@{RESPONSE_SCHEMA_VERSION}",
+                     # keys a run / plan response carries only when the request asks for them (success.run / success.plan list the
+                     # keys every response has)
+                     "conditional": {"reserved_regions": {"in": ["run", "plan"], "when": "options.reserved_regions is given",
+                                                          "shape": "see reserved_regions.result"},
+                                     "layer_export": {"in": ["run", "plan"], "when": "options.layer_export is given",
+                                                      "shape": "see layer_export.result"}},
+                     "success": {
+                         "run": {"ok": True, "status": "ok", "dry_run": False, "output": "{path, sha256, size, duration, width, height}",
+                                 "timeline": "[{id, type, start, end}]", "operations": "[StageResult]", "reused": "bool", "engine": {}, "provenance": {},
+                                 "warnings": "[str] (e.g. a stage's dropped_non_av_streams surfaced as a warning; empty when there is nothing to report)"},
+                         "plan": {"ok": True, "status": "ok", "dry_run": True, "plan": "{document_id, video, output: {path}, timeline: [element + planned tool/asset/font]}",
+                                  "warnings": "[str] (e.g. one per reserved-region overlap; empty when there is nothing to report)",
+                                  "note": "produced by `plan`, or `run --dry-run`; writes no media; has no output/operations/provenance keys"},
+                         "validate": {"ok": True, "status": "ok", "dry_run": True, "validation": "{ok: true, elements: [GraphicsElement, in render order]}",
+                                      "note": "produced by `validate` only; structural check alone, no file-system access, no output/operations/plan keys"},
+                     },
+                     "failure": {"ok": False, "status": "error|cancelled", "error": {"code": "one of errors.codes", "message": "str", "retryable": "bool", "details": {}},
+                                 "note": "the same failure shape for every command (validate/plan/run alike)"}},
+        "provenance": {"per_operation": ["operation_id", "type", "tool", "status", "parameters", "input_hashes", "output_hash", "seconds", "tool_commands_observed",
+                                        "dropped_non_av_streams (present, true, only when ffmpeg-skill's own subtitle/data-stream preservation fell back for that stage)",
+                                        "derived (shape only: the generated clip -- tool, operation_id, status, output_hash, parameters; ADR-22)"],
+                       "per_output": ["document_id", "video (path, sha256, duration, width, height)", "assets (sha256 per element)", "fonts (font_id or font_file_hash per element)", "operations (chain)", "output_hash"],
+                       "identity": "sha256 over canonical JSON of {type, parameters (asset/font paths replaced by their sha256), start, end, animation, previous stage identity, tool_versions}; no timestamps, no UUIDs, no absolute paths"},
+        "work_dir": f"<workspace>/{WORK_DIR_NAME}/<document_id>/ (non-final intermediates only; the requested output is always written directly and re-validated)",
+        "image_formats": {"allowed_extensions": list(IMAGE_EXTENSIONS)},
+        "schema_versions": {"contract": str(CONTRACT_SCHEMA_VERSION), "request": str(REQUEST_SCHEMA_VERSION), "response": str(RESPONSE_SCHEMA_VERSION), "doctor": str(DOCTOR_SCHEMA_VERSION)},
+        "errors": {"codes": list(ERROR_CODES), "exit_codes": dict(EXIT_CODES), "retryable": {c: ERROR_TABLE[c][1] for c in ERROR_CODES}, "success_exit_code": 0},
+    }

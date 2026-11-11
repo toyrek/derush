@@ -1,0 +1,76 @@
+---
+name: motion-graphics
+description: Deterministic motion-graphics rendering execution Skill for the AI Video Production Ecosystem. Use it when a caller (normally video-production-agent) has already decided what graphic to show, when to show it, and roughly how it should look, and needs it rendered safely: title cards, lower thirds, free-form text overlays, image/logo overlays, video-on-video picture-in-picture/chroma-key overlays, persistent corner "bug" watermarks, chapter chips, a bottom progress bar, and a countdown, with built-in template animation (title/lower-third/bug/chapter/countdown fade, slide, or pulse) or a configurable linear fade (text/image overlays only). Do NOT use it to decide what graphic to show, when, or how it should look (video-production-agent), to edit video (video-editing-skill), to grade color (color-grading-skill), to generate or translate subtitles (subtitle-skill), to measure or QC media (qc-skill, media-analysis-skill), or to run arbitrary ffmpeg commands or filters (it refuses them).
+---
+
+# motion-graphics-skill
+
+Deterministic motion-graphics rendering execution for the AI Video Production Ecosystem, built on top of
+[ffmpeg-skill](https://github.com/kajisho5/ffmpeg-skill). See `README.md` and `docs/` for the full contract,
+graphics model, security boundary, and testing notes.
+
+## Ask for this, not that
+
+Ask this Skill to render: an exact `title`/`lower_third`/`text_overlay`/`image_overlay`/`video_overlay`/`bug`/
+`chapter`/`progress`/`countdown`/`sticker`/`hook`/`meme`/`shape` element, with exact `start`/`end` seconds and exact parameter values already
+decided. Every field is typed and range-checked; there is no free-text "make it look nice" input.
+
+Do not ask it to: choose what text or image to show, choose when something should appear, choose colors/fonts/
+layout for aesthetic reasons, animate anything beyond a linear `fade` (no slide/move/scale — see
+`unsupported_animations` in the contract), draw anything but a solid rectangle (`shape`: no rounded corners, border, rotation
+or gradient), or accept a
+raw ffmpeg filter/command/argv/shell/env — those field names are rejected wherever they appear in the request,
+recursively (`INVALID_REQUEST`). All of that is `video-production-agent`'s job, not this Skill's.
+
+## Workflow
+
+```bash
+pip install -e .
+motion-graphics doctor --json --ffmpeg-skill /path/to/ffmpeg-skill   # 1. confirm the environment once
+motion-graphics validate request.json --json                          # 2. structural check, no file access
+motion-graphics plan request.json --json --workspace .                # 3. optional: resolve/probe, write nothing
+motion-graphics run request.json --json --workspace .                 # 4. render
+```
+
+1. **`doctor`** once per environment (or when a render fails with `TOOL_ERROR`) — read `checks.element_types` to
+   confirm the element types this request needs are `supported`, not `unsupported`/`unknown`.
+2. **`validate`** a programmatically-built request before render if there's any doubt it's well-formed — it never
+   touches the file system, so it's cheap to call speculatively.
+3. **`plan`** (or `run --dry-run`) when the caller wants to catch a missing asset/font/out-of-range timeline
+   before spending a real render on it. It resolves and probes inputs but writes no media.
+4. **`run`** to actually render. Read `output.sha256`/`output.path` for the artifact and `provenance` for the full
+   chain (source video, per-element asset/font identities, operation chain, output hash).
+   With `options.layer_export` the run also writes each element alone on transparent (`response.layer_export`: one file per
+   element and a manifest); check `layer_export.verified` (ffmpeg-skill read every layer's alpha back) before handing them on.
+
+Full request/response shapes: `motion-graphics contract --json` (`request.shape`, `response.success.{run,plan,validate}`).
+
+## On failure
+
+Every failure is `{"ok": false, "error": {"code", "message", "retryable", "details"}}` with a fixed exit code
+(`contract --json` → `errors.exit_codes`). Branch on `error.code`/`error.retryable`, never on `error.message`:
+
+- `error.retryable: true` (`TOOL_ERROR`, `CANCELLED`) — safe to retry as-is; the request was fine, the engine or
+  environment had a transient problem.
+- `TOOL_ERROR` with `retryable: false` and `details.reason` `ffmpeg_skill_lacks_template` / `ffmpeg_skill_lacks_platform_flag` /
+  `ffmpeg_skill_lacks_platform` — the located ffmpeg-skill is too old for what was asked (a `sticker`/`hook`/`meme` element, or
+  `options.platform`); nothing was rendered. Update ffmpeg-skill or ask for something it can do; `doctor` lists the element types it cannot.
+  `ffmpeg_skill_lacks_flag` / `ffmpeg_skill_lacks_alpha_codec` on `options.layer_export` is the same: that checkout cannot draw on a
+  transparent canvas (or not in that alpha codec); drop the option or update ffmpeg-skill (`doctor`: `checks.layer_export`).
+- Anything else — the request itself needs to change before retrying. In particular:
+  - `UNSUPPORTED_OPERATION` on an element `type` or an `animation.kind` — it is not implemented (check
+    `unsupported_element_types` / `unsupported_animations` in the contract for why and what to use instead); do
+    not retry the same request, and do not approximate it with a different element type without deciding that
+    explicitly upstream.
+  - `MISSING_INPUT` (unknown `font_id`) / `INVALID_INPUT` (missing/unreadable asset or video) / `PATH_NOT_ALLOWED`
+    (asset or output outside the allowed workspace/roots) — fix the reference or the path, this Skill never
+    substitutes a different font or asset and calls it success.
+  - `INVALID_TIME_RANGE` — an element's `start`/`end` (or `animation.duration`) doesn't fit the element's own
+    window or the video's real, probed duration.
+  - `VALIDATION_ERROR` — the render completed but the output failed its own post-render check (resolution,
+    duration, video stream); treat as a real failure, not a transient one, even though media was written.
+
+## What this Skill is not
+
+It does not reason about content, pick templates, decide timing, or judge whether a design "looks good". Those
+are `video-production-agent`'s job. This Skill only renders a typed, already-decided Graphics Document.

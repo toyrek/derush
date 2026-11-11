@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="derush-jeton" content="%%JETON%%">
+<title>Dérush par IABAI</title>
+<link rel="icon" href="/icone.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-lire" viewBox="0 0 24 24"><path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l10.6-6.8a.8.8 0 0 0 0-1.4L9.2 4.5A.8.8 0 0 0 8 5.2z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></symbol>
+  <symbol id="i-debut" viewBox="0 0 24 24"><path d="M18 6.5v11l-8.5-5.5z"/><path d="M6.5 6v12"/></symbol>
+  <symbol id="i-img-moins" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-img-plus" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-prec" viewBox="0 0 24 24"><path d="M11.5 6l-6 6 6 6"/><path d="M19 6l-6 6 6 6"/></symbol>
+  <symbol id="i-suiv" viewBox="0 0 24 24"><path d="M12.5 6l6 6-6 6"/><path d="M5 6l6 6-6 6"/></symbol>
+  <symbol id="i-ciseaux" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.6"/><circle cx="6.5" cy="17" r="2.6"/><path d="M8.7 8.4L20 17.5"/><path d="M8.7 15.6L20 6.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-case" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" stroke-dasharray="3.2 2.4"/></symbol>
+  <symbol id="i-drapeau" viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 4.5h11.5l-2.2 4 2.2 4H6"/></symbol>
+  <symbol id="i-poubelle" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/></symbol>
+  <symbol id="i-annuler" viewBox="0 0 24 24"><path d="M9 9l-4 4 4 4"/><path d="M5 13h9.5a4.5 4.5 0 0 0 0-9H12"/></symbol>
+  <symbol id="i-retablir" viewBox="0 0 24 24"><path d="M15 9l4 4-4 4"/><path d="M19 13H9.5a4.5 4.5 0 0 1 0-9H12"/></symbol>
+  <symbol id="i-tout" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-ia" viewBox="0 0 24 24"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></symbol>
+  <symbol id="i-reglages" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M21.2 12h-2.4M5.2 12H2.8M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2L5.5 5.5"/></symbol>
+  <symbol id="i-retour" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-dossier" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4"/></symbol>
+  <symbol id="i-onde" viewBox="0 0 24 24"><path d="M3 12h1.5M7 9v6M11 5v14M15 8v8M19 10v4M21 12h.5"/></symbol>
+  <symbol id="i-texte" viewBox="0 0 24 24"><path d="M5 6h14M5 11h14M5 16h9"/></symbol>
+  <symbol id="i-voix" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3"/></symbol>
+  <symbol id="i-cadre" viewBox="0 0 24 24"><path d="M7 3v14h14"/><path d="M3 7h14v14"/></symbol>
+  <symbol id="i-bulle" viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.8 2.8L16.2 9.5"/></symbol>
+  <symbol id="i-coche" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-attention" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.4"/></symbol>
+  <symbol id="i-fermer" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-points" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></symbol>
+  <symbol id="i-aide" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1.1.8-1.1 1.5v.4M12 16.8v.4"/></symbol>
+  <symbol id="i-calques" viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/></symbol>
+  <symbol id="i-importer" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M5 19.5h14"/></symbol>
+  <symbol id="i-finder" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3.5"/><path d="M12.5 4c-1.5 3-2 6-1.5 9h2.5c-.5 2.5 0 5 1 7M8.5 9v1.2M15.5 9v1.2M8 15.5c2.6 1.8 5.4 1.8 8 0"/></symbol>
+  <symbol id="i-quitter" viewBox="0 0 24 24"><path d="M12 4v8"/><path d="M7.2 6.6a7 7 0 1 0 9.6 0"/></symbol>
+  <symbol id="i-grille" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-loupe" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></symbol>
+  <symbol id="i-moins" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-lame" viewBox="0 0 24 24"><path d="M12 3v18" stroke-dasharray="2.4 2.2"/><circle cx="7" cy="7" r="2.4"/><circle cx="7" cy="17" r="2.4"/><path d="M8.9 8.5L12 11M8.9 15.5L12 13"/></symbol>
+  <symbol id="i-etoile" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></symbol>
+  <symbol id="i-trombone" viewBox="0 0 24 24"><path d="M15.5 7.5l-6.3 6.3a1.9 1.9 0 0 0 2.7 2.7l7-7a3.8 3.8 0 0 0-5.4-5.4l-7.2 7.2a5.7 5.7 0 0 0 8.1 8.1l5.8-5.8"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+  <symbol id="i-baguette" viewBox="0 0 24 24"><path d="M4.5 19.5L15 9"/><path d="M17.5 3.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/><path d="M19 13.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6zM9.5 3.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.3 0 2-.8 2-1.8 0-1.2-1-1.6-1-2.7 0-1 .8-1.7 1.8-1.7H17a3.5 3.5 0 0 0 3.5-3.5c0-4-3.8-7.3-8.5-7.3z"/><circle cx="7.8" cy="11.5" r="1"/><circle cx="10" cy="7.6" r="1"/><circle cx="14.4" cy="7.2" r="1"/></symbol>
+  <symbol id="i-telephone" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.6"/><path d="M10.5 18.5h3"/></symbol>
+  <symbol id="i-eclair" viewBox="0 0 24 24"><path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/></symbol>
+  <symbol id="i-titre" viewBox="0 0 24 24"><path d="M5 6.5V5h14v1.5M12 5v14M9 19h6"/></symbol>
+  <symbol id="i-vague" viewBox="0 0 24 24"><path d="M3 12c2-4.5 4-4.5 6 0s4 4.5 6 0 4-4.5 6 0"/><path d="M3 17.5c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity=".5"/></symbol>
+  <symbol id="i-rendu" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="M10.2 9.2v5.6l4.8-2.8z"/></symbol>
+  <symbol id="i-etincelle" viewBox="0 0 24 24"><path d="M12 2.5c.5 4.6 2.4 6.5 7 7-4.6.5-6.5 2.400-7 7-.5-4.600-2.400-6.500-7-7 4.600-.5 6.500-2.400 7-7z"/><path d="M18.6 14.800c.25 2 1.050 2.800 3.050 3.050-2 .25-2.800 1.050-3.050 3.050-.25-2-1.050-2.800-3.050-3.050 2-.25 2.800-1.050 3.050-3.050z"/></symbol>
+  <symbol id="i-oeil" viewBox="0 0 24 24"><path d="M2.5 12S6 5.500 12 5.500 21.500 12 21.500 12 18 18.500 12 18.500 2.500 12 2.500 12z"/><circle cx="12" cy="12" r="2.800"/></symbol>
+  <symbol id="i-crayon" viewBox="0 0 24 24"><path d="M4 20l1-4.500L16.500 4a2.100 2.100 0 0 1 3 3L8 18.500z"/><path d="M14.500 6l3 3"/></symbol>
+  <symbol id="i-outil" viewBox="0 0 24 24"><path d="M14.500 6.500a4 4 0 0 0-5.300 5.300L4 17v3h3l5.200-5.200a4 4 0 0 0 5.300-5.300L15 12l-2.500-.5L12 9z"/></symbol>
+  <symbol id="i-envoi" viewBox="0 0 24 24"><path d="M12 19V5.500M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.500" y="6.500" width="11" height="11" rx="2.500"/></symbol>
+  <symbol id="i-croix-rond" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M4 17.5l5-4.5 3.5 3 3-2.5 4.5 4"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V6.5l10-2.3V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.600 2.400 3.800 5.200 3.800 8.500s-1.200 6.100-3.800 8.500c-2.600-2.400-3.800-5.200-3.800-8.500S9.400 5.900 12 3.500z"/></symbol>
+  <symbol id="i-dialogue" viewBox="0 0 24 24"><path d="M4 4.5h10.5A1.500 1.500 0 0 1 16 6v6a1.500 1.500 0 0 1-1.500 1.500H9l-3.500 2.800v-2.800H4A1.500 1.500 0 0 1 2.500 12V6A1.500 1.500 0 0 1 4 4.500z"/><path d="M18.500 8.500H20A1.500 1.500 0 0 1 21.500 10v6a1.500 1.500 0 0 1-1.500 1.500h-1v2.800l-3.500-2.800H11"/></symbol>
+  <symbol id="i-nuage" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z"/></symbol>
+  <symbol id="i-filtre" viewBox="0 0 24 24"><path d="M4 5h16l-6.200 7.600V19l-3.600 1.600v-8z"/></symbol>
+  <symbol id="i-codex" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3.5"/><path d="M7.5 10l3 2.5-3 2.5M12.5 15.5h4"/></symbol>
+  <symbol id="i-mallette" viewBox="0 0 24 24"><rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17"/></symbol>
+  <symbol id="i-relais" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="2.5"/><circle cx="18.5" cy="6" r="2.5"/><circle cx="18.5" cy="18" r="2.5"/><path d="M8 11l8-4M8 13l8 4"/></symbol>
+  <symbol id="i-cc" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10.5 10.2a2.3 2.3 0 1 0 0 3.6M17 10.2a2.3 2.3 0 1 0 0 3.6"/></symbol>
+  <symbol id="i-prise" viewBox="0 0 24 24"><path d="M9 3.5v4M15 3.5v4M6.5 7.5h11v3a5.5 5.5 0 0 1-11 0z"/><path d="M12 16v4.5"/></symbol>
+  <symbol id="i-publier" viewBox="0 0 24 24"><path d="M20.5 3.5L3.5 10.5l7 2.5 2.5 7z"/><path d="M10.5 13l4.5-4.5"/></symbol>
+  <symbol id="i-maj" viewBox="0 0 24 24"><path d="M19.5 8.5A8 8 0 0 0 5 7.5M4.5 15.5A8 8 0 0 0 19 16.5"/><path d="M19.5 3.5v5h-5M4.5 20.5v-5h5"/></symbol>
+  <symbol id="i-lien" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10M19.5 4.5L11 13"/><path d="M17.5 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V8A1.5 1.5 0 0 1 6 6.5h4"/></symbol>
+  <symbol id="i-copier" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 5v8A1.5 1.5 0 0 0 6 14.5h.5"/></symbol>
+  <symbol id="i-fenetre" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15M3.5 12h17"/></symbol>
+
+  <!-- illustrations (trois gestes : déposer, couper, demander) -->
+  <symbol id="ill-rushes" viewBox="0 0 160 120">
+    <g class="ill-flotte"><rect x="24" y="46" width="78" height="50" rx="9" fill="#2c2c33" stroke="#4a4a55" stroke-width="2" transform="rotate(-9 63 71)"/><rect x="42" y="34" width="78" height="50" rx="9" fill="#3a2326" stroke="#ff6961" stroke-width="2" transform="rotate(5 81 59)"/>
+    <rect x="58" y="26" width="78" height="50" rx="9" fill="#ff453a"/><path d="M90 40.500v21l17-10.500z" fill="#fff"/></g>
+    <g class="ill-tombe"><path d="M30 8v20M22 20.500l8 8 8-8" fill="none" stroke="#ffb340" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <path d="M20 108h120" stroke="#3a3a44" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/>
+  </symbol>
+  <symbol id="ill-coupe" viewBox="0 0 160 120">
+    <rect x="14" y="62" width="60" height="30" rx="7" fill="#ff453a"/><rect x="86" y="62" width="60" height="30" rx="7" fill="#3a2326" stroke="#ff6961" stroke-width="2" class="ill-ecarte"/>
+    <path d="M22 77h8M36 71v12M44 74v6M52 69v16M60 75v4" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+    <g class="ill-ciseaux" fill="none" stroke="#ffb340" stroke-width="4" stroke-linecap="round"><circle cx="66" cy="22" r="8"/><circle cx="94" cy="22" r="8"/><path d="M71 28.500l16 27M89 28.500l-16 27"/></g>
+    <path d="M80 56v44" stroke="#fff" stroke-width="2.500" stroke-dasharray="3 5" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="ill-claude" viewBox="0 0 160 120">
+    <rect x="20" y="52" width="120" height="46" rx="9" fill="#23232a" stroke="#4a4a55" stroke-width="2"/>
+    <g fill="#4a4a55"><rect x="27" y="58" width="8" height="6" rx="2"/><rect x="43" y="58" width="8" height="6" rx="2"/><rect x="59" y="58" width="8" height="6" rx="2"/><rect x="75" y="58" width="8" height="6" rx="2"/><rect x="91" y="58" width="8" height="6" rx="2"/><rect x="107" y="58" width="8" height="6" rx="2"/><rect x="123" y="58" width="8" height="6" rx="2"/>
+    <rect x="27" y="86" width="8" height="6" rx="2"/><rect x="43" y="86" width="8" height="6" rx="2"/><rect x="59" y="86" width="8" height="6" rx="2"/><rect x="75" y="86" width="8" height="6" rx="2"/><rect x="91" y="86" width="8" height="6" rx="2"/><rect x="107" y="86" width="8" height="6" rx="2"/><rect x="123" y="86" width="8" height="6" rx="2"/></g>
+    <rect x="28" y="68" width="30" height="14" rx="3" fill="#ff453a"/><rect x="62" y="68" width="36" height="14" rx="3" fill="#ffb340" class="ill-pousse"/><rect x="102" y="68" width="30" height="14" rx="3" fill="#ff6961" opacity=".55"/>
+    <g class="ill-etoile"><path d="M80 6c1.800 15 8 21.200 23 23-15 1.800-21.200 8-23 23-1.800-15-8-21.200-23-23 15-1.800 21.200-8 23-23z" fill="#ffb340"/></g>
+    <path d="M124 14c.700 5.500 3 7.800 8.500 8.500-5.500.700-7.800 3-8.500 8.500-.700-5.500-3-7.800-8.500-8.500 5.500-.700 7.800-3 8.500-8.500z" fill="#fff" class="ill-scintille"/>
+    <path d="M36 20c.5 4 2.200 5.700 6.200 6.200-4 .5-5.700 2.200-6.200 6.200-.5-4-2.200-5.700-6.200-6.200 4-.5 5.700-2.200 6.200-6.200z" fill="#ff6961" class="ill-scintille d2"/>
+  </symbol>
+  <symbol id="ill-bobine" viewBox="0 0 120 120">
+    <g class="ill-tourne"><circle cx="60" cy="60" r="46" fill="#23232a" stroke="#ffb340" stroke-width="4"/><circle cx="60" cy="60" r="7" fill="#ffb340"/>
+    <circle cx="60" cy="30" r="10" fill="#111114"/><circle cx="86" cy="45" r="10" fill="#111114"/><circle cx="86" cy="75" r="10" fill="#111114"/><circle cx="60" cy="90" r="10" fill="#111114"/><circle cx="34" cy="75" r="10" fill="#111114"/><circle cx="34" cy="45" r="10" fill="#111114"/></g>
+  </symbol>
+  <symbol id="i-dupliquer" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 5v8A1.5 1.5 0 0 0 6 14.5h.5"/></symbol>
+</svg>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="f-rvb" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB">
+    <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
+    <feOffset id="f-rvb-r" in="r" dx="8" dy="0" result="r2"/>
+    <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g"/>
+    <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b"/>
+    <feOffset id="f-rvb-b" in="b" dx="-8" dy="0" result="b2"/>
+    <feBlend in="r2" in2="g" mode="screen" result="rg"/>
+    <feBlend in="rg" in2="b2" mode="screen"/>
+  </filter>
+</svg>
+
+<div id="ecran-biblio" class="biblio cache"></div>
+
+<div id="ecran-montage" class="editeur cache">
+  <header class="barre">
+    <button class="icone-btn" id="b-biblio" title="Bibliothèque de projets"><svg class="ic"><use href="#i-grille"/></svg></button>
+    <input id="titre-projet" class="titre-projet" spellcheck="false" aria-label="Titre du projet" placeholder="Titre du projet">
+    <button class="pilule" id="b-format" title="Format et brief"></button>
+    <span class="espace"></span>
+    <span id="taches" class="taches"></span>
+    <span id="sauvegarde" class="etat-sauvegarde"></span>
+    <button class="icone-btn" id="b-retours" title="Retours de l'IA"><svg class="ic"><use href="#i-bulle"/></svg><span id="nb-retours" class="pastille-nombre cache"></span></button>
+    <button class="icone-btn" id="b-aide" title="Raccourcis (?)"><svg class="ic"><use href="#i-aide"/></svg></button>
+    <button class="icone-btn" id="b-connexions" title="Connexions : ton IA, ElevenLabs, Google Drive, Treg, Blender"><svg class="ic"><use href="#i-prise"/></svg></button>
+    <button class="icone-btn" id="b-reglages" title="Réglages et moteurs"><svg class="ic"><use href="#i-reglages"/></svg></button>
+    <button class="btn claude" id="b-claude" title="Écris ce que tu veux : ton IA monte la vidéo à partir de tes rushes"><svg class="ic plein"><use href="#i-etincelle"/></svg><span>Demander à l’IA</span></button>
+  </header>
+
+  <main class="atelier">
+    <aside id="gauche" class="colonne">
+      <nav class="onglets-gauche" id="onglets-gauche">
+        <button data-panneau="medias" class="actif"><svg class="ic"><use href="#i-grille"/></svg><span>Médias</span></button>
+        <button data-panneau="texte"><svg class="ic"><use href="#i-texte"/></svg><span>Texte</span></button>
+        <button data-panneau="habiller"><svg class="ic"><use href="#i-baguette"/></svg><span>Habiller</span></button>
+        <button data-panneau="creer" title="Musiques, voix, bruitages, images et vidéos avec ElevenLabs"><svg class="ic"><use href="#i-onde"/></svg><span>Créer</span></button>
+        <button data-panneau="ia"><svg class="ic"><use href="#i-case"/></svg><span>Consignes</span></button>
+      </nav>
+      <div id="p-medias" class="panneau-g">
+        <button class="importer-grand" data-a="importer" title="Choisir des vidéos, des sons ou des photos sur ton ordinateur"><svg class="ic"><use href="#i-importer"/></svg><span><b>Importer</b><small>ou glisse tes fichiers ici</small></span></button>
+        <div id="grille-medias" class="grille-medias"></div>
+      </div>
+      <div id="p-texte" class="panneau-g cache">
+        <div id="texte-tete"></div>
+        <div class="texte-outils">
+          <input id="texte-cherche" type="search" placeholder="Chercher un mot…">
+          <span id="texte-info" class="dim"></span>
+        </div>
+        <div id="texte-mots" class="texte-mots"></div>
+        <div id="texte-action" class="texte-action cache"></div>
+      </div>
+      <div id="p-habiller" class="panneau-g cache">
+        <div class="bascule-habiller"><div class="segmente" id="bascule-habiller"><button data-hab="style" class="actif">Style du film</button><button data-hab="effets">Effets à poser</button></div></div>
+        <div id="p-style" class="panneau-g defile"></div>
+        <div id="p-effets" class="panneau-g defile cache"></div>
+      </div>
+      <div id="p-creer" class="panneau-g defile cache"></div>
+      <div id="p-ia" class="panneau-g cache"></div>
+    </aside>
+
+    <section id="visionneuse">
+      <div class="vis-barre">
+        <div class="vis-titre" id="vis-titre"></div>
+        <div class="segmente cache" id="vue-switch"><button data-vue="montage" class="actif">Mon montage</button><button data-vue="direct" class="cache" title="Le travail de l’IA, au moment où elle le fait"><i class="point-direct"></i>En direct</button><button data-vue="claude"><svg class="ic plein"><use href="#i-etincelle"/></svg>Vidéo de l’IA</button></div>
+        <button class="icone-btn" id="b-zones" title="Montrer les zones que le réseau recouvre (boutons, légende)"><svg class="ic"><use href="#i-telephone"/></svg></button>
+        <button class="icone-btn" id="b-cadre" title="Aperçu du recadrage automatique"><svg class="ic"><use href="#i-cadre"/></svg></button>
+      </div>
+      <div class="ecran" id="ecran">
+        <video id="v-rush" playsinline preload="auto"></video>
+        <img id="i-fixe" class="fixe cache" alt="">
+        <!-- le montage, au format exact de la vidéo finale : ce qu'on voit ici est ce que « Créer la vidéo » fabrique -->
+        <div id="scene" class="scene cache">
+          <div id="scene-zoom" class="scene-zoom">
+            <div id="scene-contenu" class="scene-contenu">
+              <video id="v-a" playsinline preload="auto" class="cache"></video>
+              <video id="v-b" playsinline preload="auto" class="cache"></video>
+              <img id="i-fixe-m" class="cache" alt="">
+              <div id="carte" class="carte-ecran cache"></div>
+              <video id="v-dessus" playsinline preload="auto" muted class="dessus cache"></video>
+              <div id="hab-derriere"></div>
+              <canvas id="hab-decoupe" class="hab-decoupe cache"></canvas>
+              <div id="hab-milieu"></div>
+            </div>
+            <div id="hab-devant"></div>
+          </div>
+          <div id="zones" class="zones cache"></div>
+        </div>
+        <video id="v-claude" class="v-claude cache" controls playsinline preload="metadata"></video>
+        <!-- le rendu de l’IA en direct : ses images arrivent au fur et à mesure -->
+        <div id="direct" class="direct cache"><img id="direct-img" class="cache" alt=""><div id="direct-attente" class="direct-attente"></div>
+          <div class="direct-haut"><span class="direct-badge"><i class="point-direct"></i>En direct</span><span id="direct-info"></span></div><div class="direct-barre"><i id="direct-jauge"></i></div></div>
+        <audio id="a-son" preload="auto"></audio>
+        <canvas id="onde-grande" class="onde-grande cache"></canvas>
+        <div id="cadre" class="cadre cache"></div>
+        <div id="indic-ecran" class="indic-ecran"></div>
+        <div id="vide" class="vide"></div>
+      </div>
+      <canvas id="bande" class="bande"></canvas>
+      <div class="transport">
+        <div class="tc-grand" id="tc"></div>
+        <div class="commandes">
+          <button class="icone-btn" data-a="debut" title="Début"><svg class="ic"><use href="#i-debut"/></svg></button>
+          <button class="icone-btn" data-a="prec" title="Élément précédent (↑)"><svg class="ic"><use href="#i-prec"/></svg></button>
+          <button class="icone-btn" data-a="img-" title="Image précédente (←), une seconde avec Maj"><svg class="ic"><use href="#i-img-moins"/></svg></button>
+          <button class="lire" data-a="lire" id="b-lire" title="Lecture / pause (espace)"><svg class="ic plein"><use href="#i-lire"/></svg></button>
+          <button class="icone-btn" data-a="img+" title="Image suivante (→), une seconde avec Maj"><svg class="ic"><use href="#i-img-plus"/></svg></button>
+          <button class="icone-btn" data-a="suiv" title="Élément suivant (↓)"><svg class="ic"><use href="#i-suiv"/></svg></button>
+        </div>
+        <div class="actions-lecteur" id="actions-lecteur"></div>
+      </div>
+    </section>
+
+    <aside id="cote" class="colonne">
+      <div id="claude" class="corps-cote claude"></div>
+      <div id="inspecteur" class="corps-cote cache"></div>
+    </aside>
+  </main>
+
+  <section id="chronologie">
+    <div class="outils-tl">
+      <button class="icone-btn" data-a="annuler" title="Annuler (⌘Z)"><svg class="ic"><use href="#i-annuler"/></svg></button>
+      <button class="icone-btn" data-a="refaire" title="Rétablir (⇧⌘Z)"><svg class="ic"><use href="#i-retablir"/></svg></button>
+      <span class="sep"></span>
+      <button class="outil" data-a="couper" title="Couper le plan à la tête de lecture (S ou ⌘B)"><svg class="ic"><use href="#i-ciseaux"/></svg><span>Couper</span></button>
+      <button class="outil" data-a="lame" id="b-lame" title="Mode ciseaux (C) : clique sur un plan pour le couper à cet endroit. V ou Échap pour revenir."><svg class="ic"><use href="#i-lame"/></svg><span>Ciseaux</span></button>
+      <button class="outil" data-a="supprimer" title="Supprimer la sélection (⌫)"><svg class="ic"><use href="#i-poubelle"/></svg><span>Supprimer</span></button>
+      <span class="sep"></span>
+      <button class="outil violet" data-a="case" title="Une case vide que l’IA remplira : scène, titre, carte… (B)"><svg class="ic"><use href="#i-case"/></svg><span>Case IA</span></button>
+      <button class="outil jaune" data-a="indication" title="Une note pour l’IA sur un moment du montage (N)"><svg class="ic"><use href="#i-drapeau"/></svg><span>Note IA</span></button>
+      <span class="sep"></span>
+      <button class="outil rose" data-a="effets" title="Transitions, titres, mouvements et bruitages à glisser sur la timeline"><svg class="ic"><use href="#i-baguette"/></svg><span>Effets</span></button>
+      <button class="outil" data-a="sous-titres" id="b-st" title="Sous-titres sur tout le film : un clic pour les mettre ou les enlever (le style se règle dans Habiller)"><svg class="ic"><use href="#i-cc"/></svg><span>Sous-titres</span></button>
+      <span class="sep"></span>
+      <div class="format-tl" id="format-tl" role="group" aria-label="Format de la vidéo"></div>
+      <span class="espace"></span>
+      <span class="zoom"><button class="icone-btn" data-a="zoom-" title="Dézoomer (−)"><svg class="ic"><use href="#i-moins"/></svg></button><input id="zoom" type="range" min="0" max="100" value="45" aria-label="Zoom"><button class="icone-btn" data-a="zoom+" title="Zoomer (+)"><svg class="ic"><use href="#i-plus"/></svg></button></span>
+      <button class="icone-btn" data-a="tout" title="Tout voir (0)"><svg class="ic"><use href="#i-tout"/></svg></button>
+    </div>
+    <div id="tl" class="tl">
+      <div id="tl-interieur" class="tl-interieur">
+        <div id="regle" class="regle"></div>
+        <div id="piste-indic" class="piste piste-indic"></div>
+        <div id="piste-dessus" class="piste piste-dessus"></div>
+        <div id="piste-montage" class="piste piste-montage"></div>
+        <div id="piste-claude" class="piste piste-claude cache"></div>
+        <div id="tete" class="tete"></div>
+        <div id="fin-montage" class="fin-montage cache"></div>
+        <div id="insertion" class="insertion cache"></div>
+        <div id="guide-aimant" class="guide-aimant cache"></div>
+        <div id="guide-lame" class="guide-lame cache"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="voile" class="voile cache"><div id="feuille" class="feuille"></div></div>
+<div id="bulle" class="bulle cache"></div>
+<div id="notes" class="notes"></div>
+<div id="depot" class="depot cache"><svg class="cadre-depot" aria-hidden="true"><rect x="14" y="14" width="96%" height="94%" rx="22"/></svg><div><svg class="ill" viewBox="0 0 160 120" aria-hidden="true"><use href="#ill-rushes"/></svg><b>Lâche tout ici</b><small>Vidéos, sons, photos : ils restent à leur place sur ton ordinateur, même très lourds.<br>Sur la timeline, ils se posent là où tu lâches.</small></div></div>
+<input type="file" id="f-pieces" multiple hidden>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

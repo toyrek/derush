@@ -1,0 +1,154 @@
+"""Machine-readable Skill / Capability / Tool contract (`audio-production skill --json`, alias `contract --json`).
+Derived from the same tables the code runs on (model.OPERATION_TYPES, executor.TOOL_FOR, errors.ERROR_TABLE);
+nothing is hand-maintained beside the implementation."""
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+from . import CONTRACT_SCHEMA_VERSION, DOCTOR_SCHEMA_VERSION, PACKAGE_NAME, REQUEST_SCHEMA_VERSION, RESPONSE_SCHEMA_VERSION, SKILL_ID, VERSION
+from .adapter import FLAGS_USED, KNOWN_CONTRACT_VERSIONS, OPTIONAL_FLAGS_USED, SUPPORTED_CONTRACT_VERSION, TOOLS_USED
+from .errors import ERROR_CODES, ERROR_TABLE, EXIT_CODES
+from .executor import CLEANUP_POLICIES, DURATION_TOLERANCE, TOOL_FOR, WORK_DIR_NAME
+from .fillers import LEXICON_PRESETS, MAX_RUN_TOKENS, RUN_MAX_GAP
+from .model import (CHANNEL_LAYOUTS, DUCK_FIELDS, DYNAMICS_STAGES, FORBIDDEN_KEYS, MAX_LEXICON_WORDS, MAX_WORDS, TRANSCRIPT_SCHEMA, ID_RE, INTERMEDIATE_FORMAT, MAX_CONCAT_INPUTS, MAX_MIX_INPUTS, OPERATION_TYPES,
+                    OUTPUT_FORMATS, REF_RE, REQUEST_SCHEMA_ID, SAMPLE_RATES, UNSUPPORTED_OPERATIONS)
+
+CONTRACT_SCHEMA_ID = f"{SKILL_ID}/contract@{CONTRACT_SCHEMA_VERSION}"
+
+# Cross-repository Capability ids (kajisho5/AI-video-production-OS docs/SPEC.md
+# `CapabilityContract.provides`), matching the ids already assigned to this Skill's
+# operations in that project's own docs/CAPABILITY_MATRIX.md. Every operation type maps
+# 1:1 to its own id (FADE_IN / FADE_OUT are `audio.fade_in` / `audio.fade_out`: a
+# registry keys capabilities by id, so one id per entry). All sixteen always write a
+# validated audio artifact through the single `{SKILL_ID}/run` tool, so none is excluded
+# the way `thumbnail/validate` is elsewhere.
+CAPABILITY_IDS: Dict[str, str] = {
+    "GAIN": "audio.gain", "TRIM": "audio.trim", "CUT": "audio.cut", "SILENCE_REMOVE": "audio.silence_remove",
+    "FADE_IN": "audio.fade_in", "FADE_OUT": "audio.fade_out", "NORMALIZE": "audio.normalize", "MIX": "audio.mix",
+    "MONO": "audio.mono", "STEREO": "audio.stereo", "DOWNMIX": "audio.downmix", "NOISE_REDUCTION": "audio.noise_reduction",
+    "DYNAMICS": "audio.dynamics", "CONCAT": "audio.concat", "VOICE_CLEANUP": "audio.voice_cleanup",
+    "FILLER_REMOVE": "audio.filler_remove",
+}
+
+
+def capability_provides() -> List[Dict[str, str]]:
+    return [{"id": CAPABILITY_IDS[typ], "lifecycle": "EXPERIMENTAL", "tool_id": f"{SKILL_ID}/run", "operation": typ}
+            for typ in sorted(OPERATION_TYPES)]
+
+
+# The AI Video Production OS registry's `dependencies`: ffmpeg-skill, as a range of its contract_version (the one
+# versions this adapter reads: 1.0 up to ffmpeg-skill 2.x, 2.0 for 3.x, ADR-21; ADR-15: what is actually needed is
+# checked flag by flag, not by package version).
+FFMPEG_SKILL_CONTRACT_RANGE = f">={SUPPORTED_CONTRACT_VERSION} <{int(KNOWN_CONTRACT_VERSIONS[-1].split('.')[0]) + 1}.0"
+
+
+def dependencies() -> List[Dict[str, Any]]:
+    return [{"skill_id": "ffmpeg-skill", "version_range": FFMPEG_SKILL_CONTRACT_RANGE, "range_of": "contract_version", "required": True,
+             "tools": [f"ffmpeg-skill/{t}" for t in TOOLS_USED]}]
+
+
+def _param_schema(ps: Dict[str, Any]) -> Dict[str, Any]:
+    out = {k: v for k, v in ps.items() if k in ("type", "required", "min", "max", "enum", "default", "description", "max_length")}
+    if ps["type"] == "ranges":
+        out["type"] = "array"
+        out["items"] = {"type": "object", "properties": {"start": {"type": "number"}, "end": {"type": "number"}}, "required": ["start", "end"], "additionalProperties": False}
+    if ps["type"] == "stage":
+        out["type"] = "object"
+        out["properties"] = {k: {kk: vv for kk, vv in v.items()} for k, v in DYNAMICS_STAGES[ps["stage"]].items()}
+        out["additionalProperties"] = False
+    if ps["type"] == "levels":
+        out["type"] = "array"
+        out["items"] = {"type": "object", "properties": {"gain_db": {"type": "number", "min": -60, "max": 60}, "mute": {"type": "boolean"}}, "additionalProperties": False}
+    if ps["type"] == "duck":
+        out["type"] = "object"
+        out["properties"] = {k: dict(v) for k, v in DUCK_FIELDS.items()}
+        out["required_properties"] = [k for k, v in DUCK_FIELDS.items() if v["required"]]
+        out["additionalProperties"] = False
+    if ps["type"] == "words":
+        out["type"] = "array"
+        out["max_items"] = MAX_WORDS
+        out["items"] = {"type": "object", "properties": {"start": {"type": "number", "min": 0}, "end": {"type": "number"}, "text": {"type": "string", "max_length": 128},
+                                                         "confidence": {"type": "number", "min": 0, "max": 1}},
+                        "required": ["start", "end", "text"], "additionalProperties": False}
+    if ps["type"] == "transcript":
+        out["type"] = "object"
+        out["schema"] = TRANSCRIPT_SCHEMA
+        out["reads"] = ["schema", "segments[].words[].{start, end, text, confidence}", "id", "asset_id", "language"]
+    if ps["type"] == "lexicon":
+        out["type"] = "object"
+        out["properties"] = {"presets": {"type": "array", "items": {"type": "string", "enum": sorted(LEXICON_PRESETS)}},
+                             "words": {"type": "array", "items": {"type": "string", "max_length": 64}, "max_items": MAX_LEXICON_WORDS},
+                             "keep": {"type": "array", "items": {"type": "string", "max_length": 64}, "max_items": MAX_LEXICON_WORDS}}
+        out["additionalProperties"] = False
+    return out
+
+
+def operation_specs() -> List[Dict[str, Any]]:
+    out = []
+    for typ, spec in OPERATION_TYPES.items():
+        tool, extra = TOOL_FOR[typ]
+        out.append({"type": typ, "description": spec["description"], "inputs": {"min": spec["inputs"][0], "max": spec["inputs"][1]},
+                    "parameters": {k: _param_schema(v) for k, v in spec["parameters"].items()},
+                    "tool": f"ffmpeg-skill/{tool}", "required_capabilities": ["ffmpeg-skill", "ffmpeg", "ffprobe", "encoder:pcm_s16le", *extra],
+                    "keeps_timeline": typ not in ("TRIM", "CUT", "SILENCE_REMOVE", "FILLER_REMOVE", "MIX", "CONCAT"), "deterministic": "content_equivalent"})
+    return out
+
+
+def skill_contract() -> Dict[str, Any]:
+    tools = [{"tool_id": f"{SKILL_ID}/run", "skill_id": SKILL_ID, "version": VERSION, "role": "execution",
+              "description": "Execute a typed AudioProject (operation graph) and write validated audio artifacts with provenance",
+              "inputs": ["request document (stdin)"], "input_type": REQUEST_SCHEMA_ID, "produces_output": True, "writes_media": True, "deterministic": True,
+              "idempotency_hint": "content_equivalent; intermediates reused by deterministic operation id",
+              "operations": sorted(OPERATION_TYPES), "supports": {"dry_run": True, "timeout": True, "cancel": True, "validate": True},
+              "verification": "every artifact is probed (audio stream, duration, channels, sample rate, codec, sha256); NORMALIZE is re-measured",
+              "provenance": "OBSERVED", "mutates_input": False, "delegates_to": [f"ffmpeg-skill/{t}" for t in TOOLS_USED]}]
+    return {
+        "schema": CONTRACT_SCHEMA_ID, "skill_id": SKILL_ID, "id": SKILL_ID, "name": PACKAGE_NAME, "package": PACKAGE_NAME, "version": VERSION,
+        "kind": "execution", "role": "audio production (processing); not measurement, not decision",
+        "description": "Deterministic audio production execution: gain, sample-accurate trim / cut, silence removal (explicit ranges), filler removal (caller-supplied word timings), fades, EBU R128 loudness "
+                       "normalisation, mix (with sidechain ducking), concat, mono/stereo/downmix, FFT noise reduction, typed dynamics (gate / compressor / limiter), speech clean-up presets, format conversion and "
+                       "audio extraction from video containers; typed operation graph in, validated artifacts with provenance out. Not an AI agent.",
+        "repository": "https://github.com/kajisho5/audio-production-skill",
+        "not_provided": ["AI reasoning", "decisions", "production plans", "loudness or silence measurement for decisions (media-analysis-skill)", "speech recognition",
+                         "video editing", "arbitrary ffmpeg filters", "shell execution", "network access"],
+        "tools": tools,
+        "provides": capability_provides(),
+        "dependencies": dependencies(),
+        "operations": operation_specs(),
+        "filler_lexicons": {"presets": {k: list(v) for k, v in LEXICON_PRESETS.items()}, "default": "none: FILLER_REMOVE.lexicon is required",
+                            "matching": f"exact on normalised text (NFKC, case-folded, punctuation and whitespace dropped, long-vowel marks unified); runs of up to "
+                                        f"{MAX_RUN_TOKENS} tokens at most {RUN_MAX_GAP}s apart count as one word; the longest run wins"},
+        "unsupported_operations": [{"type": t, "status": "not_implemented", "reason": r} for t, r in UNSUPPORTED_OPERATIONS.items()],
+        "output_formats": {f: {"extension": s["extension"], "codec": s["codec"], "required_capability": s["capability"], "lossless": s["lossless"]} for f, s in OUTPUT_FORMATS.items()},
+        "intermediate_format": {"format": INTERMEDIATE_FORMAT, "codec": OUTPUT_FORMATS[INTERMEDIATE_FORMAT]["codec"], "work_dir": f"<workspace>/{WORK_DIR_NAME}/<project_id>/"},
+        "channel_layouts": sorted(CHANNEL_LAYOUTS), "sample_rates": list(SAMPLE_RATES), "max_mix_inputs": MAX_MIX_INPUTS, "max_concat_inputs": MAX_CONCAT_INPUTS,
+        "timeline": {"unit": "seconds (float)", "ranges": "half-open [start, end)", "mapping": "every artifact carries segments: timeline range <- source_id + source range",
+                     "precision": f"TRIM / CUT / SILENCE_REMOVE / FILLER_REMOVE are sample-accurate (ffmpeg-skill/cut --accurate, precision reported per operation); every artifact duration is validated within {DURATION_TOLERANCE}s"},
+        "loudness": {"standard": "EBU R128 / ITU-R BS.1770 via ffmpeg loudnorm (two-pass, linear)", "parameters": ["target_lufs", "true_peak_db", "loudness_range_lu", "tolerance_lufs", "sample_rate", "profile"],
+                     "defaults": "none for target / true peak: the caller or profile decides", "measurement_for_decisions": "media-analysis-skill (loudness kind); this skill only verifies its own output"},
+        "execution": {"mode": "local", "canonical_invocation": ["audio-production", "run", "-", "--json"], "stdin": REQUEST_SCHEMA_ID,
+                      "stdout": f"exactly one {SKILL_ID}/response@{RESPONSE_SCHEMA_VERSION} document", "stderr": "diagnostics only",
+                      "executables": ["python3 <ffmpeg-skill>/scripts/{probe,audio,cut,loudness,join}.py (argv lists)"], "executable_resolution": "ffmpeg-skill directory: --ffmpeg-skill, AUDIO_PRODUCTION_FFMPEG_SKILL_DIR, VIDEO_AGENT_FFMPEG_SKILL_DIR, ~/.claude/skills/ffmpeg-skill, ./vendor/ffmpeg-skill, ../ffmpeg-skill; ffmpeg/ffprobe: PATH lookup by ffmpeg-skill",
+                      "shell": False, "arbitrary_executables": False, "arbitrary_filters": False, "network": False, "input_mutation": False, "ai": False},
+        "ffmpeg_skill": {"contract_version": SUPPORTED_CONTRACT_VERSION,
+                         "compatibility": "capability detection: every tools_used tool declared audio_only with every flags_used flag in its input_schema; no version window",
+                         "tools_used": list(TOOLS_USED), "flags_used": {k: list(v) for k, v in FLAGS_USED.items()},
+                         "optional_flags_used": {k: list(v) for k, v in OPTIONAL_FLAGS_USED.items()}},
+        "request": {"schema": REQUEST_SCHEMA_ID, "id_pattern": ID_RE.pattern, "reference_pattern": REF_RE.pattern, "forbidden_fields": sorted(FORBIDDEN_KEYS),
+                    "shape": {"schema": REQUEST_SCHEMA_ID, "project": {"project_id": "id", "sources": [{"source_id": "id", "path": "file"}],
+                              "tracks": [{"track_id": "id", "source_id": "id", "label?": "str", "channel_layout?": "mono|stereo|5.1|7.1", "range?": {"start": 0, "end": 1}, "gain_db?": 0}],
+                              "operations": [{"op_id": "id", "type": "GAIN|...", "inputs": ["track:<id>|op:<id>"], "parameters": {}}],
+                              "outputs": [{"output_id": "id", "operation": "op:<id>|track:<id>", "path": "file", "format": "wav|flac|mp3|m4a|aac|ogg|opus", "overwrite?": False,
+                                           "expect?": {"sample_rate?": 48000, "channels?": 2, "channel_layout?": "stereo", "duration?": 0, "duration_tolerance?": 0.1}}]},
+                              "options?": {"reuse_intermediates?": True, "timeout?": 600}}},
+        "response": {"schema": f"{SKILL_ID}/response@{RESPONSE_SCHEMA_VERSION}", "success": {"ok": True, "status": "ok", "dry_run": "bool", "plan": "...", "results": "[OperationResult]", "outputs": "[output artifact + provenance]"},
+                     "failure": {"ok": False, "status": "error|cancelled", "error": {"code": "one of errors.codes", "message": "str", "retryable": "bool", "details": {}}}},
+        "provenance": {"per_operation": ["operation_id", "type", "tool", "tool_versions", "parameters", "input_hashes", "output_hash", "segments", "status", "measurements", "tool_commands_observed"],
+                       "per_output": ["skill", "skill_version", "tool", "tool_versions", "output_hash", "operations (chain)", "sources (sha256)"],
+                       "identity": "sha256 over canonical JSON of {type, parameters, input identities, tool versions}; sources by file sha256; no timestamps, no UUIDs"},
+        "cleanup": {"cli_flag": "--cleanup", "policies": list(CLEANUP_POLICIES), "default": "keep",
+                    "scope": f"regular files directly inside <workspace>/{WORK_DIR_NAME}/<project_id>/ after a fully successful run; never on failure, never outputs",
+                    "response_key": "cleanup", "note": "operator-level (CLI), deliberately not a request option: the request block is pinned by consumers"},
+        "schema_versions": {"contract": str(CONTRACT_SCHEMA_VERSION), "request": str(REQUEST_SCHEMA_VERSION), "response": str(RESPONSE_SCHEMA_VERSION), "doctor": str(DOCTOR_SCHEMA_VERSION)},
+        "errors": {"codes": list(ERROR_CODES), "exit_codes": dict(EXIT_CODES), "retryable": {c: ERROR_TABLE[c][1] for c in ERROR_CODES}, "success_exit_code": 0},
+    }

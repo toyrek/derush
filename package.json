@@ -1,0 +1,22 @@
+{
+  "name": "derush",
+  "version": "7.0.0",
+  "description": "Dérush par IABAI — le montage vidéo avec ton IA (Claude ou Codex) : tu donnes la matière, l'IA monte, et publie si tu veux. macOS, Windows, Linux.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "derush": "./derush.mjs"
+  },
+  "scripts": {
+    "start": "node derush.mjs",
+    "installer": "node derush.mjs installer",
+    "bilan": "node derush.mjs installer --bilan",
+    "maj": "node derush.mjs mettre-a-jour"
+  },
+  "engines": {
+    "node": ">=20.12"
+  },
+  "optionalDependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.77.0"
+  }
+}

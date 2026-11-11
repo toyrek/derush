@@ -1,0 +1,330 @@
+"""Typed subtitle data model.
+
+subtitle-skill never processes subtitles as bare dicts. Every cue and
+document is a typed, immutable value object built by `from_dict`.
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field, replace
+from typing import Any, Mapping, Optional
+
+from .errors import SubtitleSkillError
+
+#: style is an allowlisted, typed set of fields -- never free-form.
+ALLOWED_STYLE_KEYS = frozenset(
+    {"align", "position", "line", "size", "bold", "italic", "color", "vertical"}
+)
+ALLOWED_ALIGN = frozenset({"left", "center", "right"})
+
+
+def _require(cond: bool, code: str, message: str) -> None:
+    if not cond:
+        raise SubtitleSkillError(code, message)
+
+
+@dataclass(frozen=True)
+class SubtitleStyle:
+    align: Optional[str] = None
+    position: Optional[float] = None  # 0..100, percent from left/top
+    line: Optional[float] = None  # 0..100, percent from top
+    size: Optional[float] = None  # 0..100, percent
+    bold: Optional[bool] = None
+    italic: Optional[bool] = None
+    color: Optional[str] = None
+    #: vertical text, top to bottom with lines right to left (TTML `tts:writingMode="tbrl"`);
+    #: for scripts that use it (ja/zh/ko). Roadmap step 10.
+    vertical: Optional[bool] = None
+
+    @staticmethod
+    def from_dict(data: Mapping[str, Any]) -> "SubtitleStyle":
+        unknown = set(data) - ALLOWED_STYLE_KEYS
+        _require(
+            not unknown,
+            "INVALID_INPUT",
+            f"unknown style field(s): {sorted(unknown)}",
+        )
+        if "align" in data and data["align"] is not None:
+            _require(
+                data["align"] in ALLOWED_ALIGN,
+                "INVALID_INPUT",
+                f"style.align must be one of {sorted(ALLOWED_ALIGN)}",
+            )
+        for flag in ("bold", "italic", "vertical"):
+            if data.get(flag) is not None:
+                _require(isinstance(data[flag], bool), "INVALID_INPUT", f"style.{flag} must be true or false")
+        return SubtitleStyle(**{k: data.get(k) for k in ALLOWED_STYLE_KEYS})
+
+    def to_dict(self) -> dict:
+        return {k: v for k, v in self.__dict__.items() if v is not None}
+
+
+@dataclass(frozen=True)
+class RubyAnnotation:
+    """A reading over a run of the cue text (furigana for Japanese): `base` is the
+    annotated text as it occurs in the cue, `text` the reading drawn above it."""
+
+    base: str
+    text: str
+
+    def to_dict(self) -> dict:
+        return {"base": self.base, "text": self.text}
+
+
+def _parse_ruby(raw: Any, cue_id: str, text: str) -> tuple:
+    _require(isinstance(raw, list) and raw, "INVALID_INPUT", f"cue {cue_id}: ruby must be a non-empty array")
+    out = []
+    cursor = 0
+    for i, item in enumerate(raw):
+        _require(isinstance(item, Mapping), "INVALID_INPUT", f"cue {cue_id}: ruby[{i}] must be an object")
+        unknown = set(item) - {"base", "text"}
+        _require(not unknown, "INVALID_INPUT", f"cue {cue_id}: ruby[{i}] unknown field(s) {sorted(unknown)}")
+        base, reading = item.get("base"), item.get("text")
+        for name, value in (("base", base), ("text", reading)):
+            _require(
+                isinstance(value, str) and value.strip() != "" and "\n" not in value,
+                "INVALID_INPUT",
+                f"cue {cue_id}: ruby[{i}].{name} must be a non-empty single-line string",
+            )
+        at = text.find(base, cursor)
+        _require(at >= 0, "INVALID_INPUT", f"cue {cue_id}: ruby[{i}].base {base!r} is not in the text (in order)")
+        cursor = at + len(base)
+        out.append(RubyAnnotation(base, reading))
+    return tuple(out)
+
+
+@dataclass(frozen=True)
+class WordTiming:
+    """One word (or token, for scripts without spaces) and when it is spoken, as
+    a transcription engine reports it. Read by the `shorts` caption profile."""
+
+    text: str
+    start: float
+    end: float
+
+    def to_dict(self) -> dict:
+        return {"text": self.text, "start": self.start, "end": self.end}
+
+
+def _parse_words(raw: Any, cue_id: str, start: float, end: float) -> tuple:
+    _require(isinstance(raw, list) and raw, "INVALID_INPUT", f"cue {cue_id}: words must be a non-empty array")
+    out = []
+    previous_end = start
+    for i, item in enumerate(raw):
+        _require(isinstance(item, Mapping), "INVALID_INPUT", f"cue {cue_id}: words[{i}] must be an object")
+        unknown = set(item) - {"text", "start", "end"}
+        _require(not unknown, "INVALID_INPUT", f"cue {cue_id}: words[{i}] unknown field(s) {sorted(unknown)}")
+        text = item.get("text")
+        _require(isinstance(text, str) and text.strip() != "" and "\n" not in text, "INVALID_INPUT",
+                 f"cue {cue_id}: words[{i}].text must be a non-empty single-line string")
+        times = []
+        for key in ("start", "end"):
+            value = item.get(key)
+            _require(isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value),
+                     "INVALID_TIME_RANGE", f"cue {cue_id}: words[{i}].{key} must be a finite number")
+            times.append(float(value))
+        w_start, w_end = times
+        _require(w_end > w_start, "INVALID_TIME_RANGE", f"cue {cue_id}: words[{i}] end <= start")
+        _require(start - 1e-6 <= w_start and w_end <= end + 1e-6, "INVALID_TIME_RANGE",
+                 f"cue {cue_id}: words[{i}] lies outside the cue")
+        _require(w_start >= previous_end - 1e-6, "INVALID_TIME_RANGE",
+                 f"cue {cue_id}: words[{i}] starts before the previous word ends")
+        previous_end = w_end
+        out.append(WordTiming(text.strip(), w_start, w_end))
+    return tuple(out)
+
+
+@dataclass(frozen=True)
+class SubtitleCue:
+    id: str
+    start: float  # seconds, inclusive
+    end: float  # seconds, exclusive
+    text: str
+    speaker: Optional[str] = None
+    style: Optional[SubtitleStyle] = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+    #: ruby annotations, in text order (roadmap step 10); each base matches the
+    #: first occurrence after the previous one
+    ruby: tuple = ()
+    #: word timings inside the cue (roadmap step 11, the `shorts` caption profile)
+    words: tuple = ()
+
+    @staticmethod
+    def from_dict(data: Mapping[str, Any]) -> "SubtitleCue":
+        _require(isinstance(data, Mapping), "INVALID_INPUT", "cue must be an object")
+        for req in ("id", "start", "end", "text"):
+            _require(req in data, "MISSING_INPUT", f"cue missing required field: {req}")
+
+        cue_id = data["id"]
+        _require(
+            isinstance(cue_id, str) and cue_id.strip() != "",
+            "INVALID_INPUT",
+            "cue.id must be a non-empty string",
+        )
+
+        start = data["start"]
+        end = data["end"]
+        _require(
+            isinstance(start, (int, float)) and not isinstance(start, bool),
+            "INVALID_TIME_RANGE",
+            f"cue {cue_id}: start must be numeric",
+        )
+        _require(
+            isinstance(end, (int, float)) and not isinstance(end, bool),
+            "INVALID_TIME_RANGE",
+            f"cue {cue_id}: end must be numeric",
+        )
+        start = float(start)
+        end = float(end)
+        _require(
+            math.isfinite(start) and math.isfinite(end),
+            "INVALID_TIME_RANGE",
+            f"cue {cue_id}: start/end must be finite (NaN/Infinity not allowed)",
+        )
+        _require(start >= 0, "INVALID_TIME_RANGE", f"cue {cue_id}: start < 0")
+        _require(end > start, "INVALID_TIME_RANGE", f"cue {cue_id}: end <= start")
+
+        text = data["text"]
+        _require(isinstance(text, str), "INVALID_INPUT", f"cue {cue_id}: text must be a string")
+
+        speaker = data.get("speaker")
+        if speaker is not None:
+            _require(
+                isinstance(speaker, str) and speaker.strip() != "",
+                "INVALID_INPUT",
+                f"cue {cue_id}: speaker must be a non-empty string",
+            )
+
+        style_data = data.get("style")
+        style = SubtitleStyle.from_dict(style_data) if style_data is not None else None
+
+        metadata = data.get("metadata", {})
+        _require(
+            isinstance(metadata, Mapping), "INVALID_INPUT", f"cue {cue_id}: metadata must be an object"
+        )
+
+        unknown = set(data) - {"id", "start", "end", "text", "speaker", "style", "metadata", "ruby", "words"}
+        _require(not unknown, "INVALID_INPUT", f"cue {cue_id}: unknown field(s) {sorted(unknown)}")
+        ruby = _parse_ruby(data["ruby"], cue_id, text) if data.get("ruby") is not None else ()
+        words = _parse_words(data["words"], cue_id, start, end) if data.get("words") is not None else ()
+
+        return SubtitleCue(
+            id=cue_id,
+            start=start,
+            end=end,
+            text=text,
+            speaker=speaker,
+            style=style,
+            metadata=dict(metadata),
+            ruby=ruby,
+            words=words,
+        )
+
+    @property
+    def duration(self) -> float:
+        return self.end - self.start
+
+    def ruby_segments(self) -> list:
+        """The text as [(segment, reading or None)], split at the ruby bases."""
+        segments = []
+        cursor = 0
+        for annotation in self.ruby:
+            at = self.text.find(annotation.base, cursor)
+            if at > cursor:
+                segments.append((self.text[cursor:at], None))
+            segments.append((annotation.base, annotation.text))
+            cursor = at + len(annotation.base)
+        if cursor < len(self.text) or not segments:
+            segments.append((self.text[cursor:], None))
+        return segments
+
+    def to_dict(self) -> dict:
+        d: dict = {"id": self.id, "start": self.start, "end": self.end, "text": self.text}
+        if self.speaker is not None:
+            d["speaker"] = self.speaker
+        if self.style is not None:
+            d["style"] = self.style.to_dict()
+        if self.metadata:
+            d["metadata"] = dict(self.metadata)
+        if self.ruby:
+            d["ruby"] = [r.to_dict() for r in self.ruby]
+        if self.words:
+            d["words"] = [w.to_dict() for w in self.words]
+        return d
+
+
+@dataclass(frozen=True)
+class SubtitleDocument:
+    id: str
+    version: int
+    language: str
+    cues: tuple  # tuple[SubtitleCue, ...], ordered as provided
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    @staticmethod
+    def from_dict(data: Mapping[str, Any]) -> "SubtitleDocument":
+        _require(isinstance(data, Mapping), "INVALID_INPUT", "subtitle document must be an object")
+        for req in ("id", "language", "cues"):
+            _require(req in data, "MISSING_INPUT", f"subtitle document missing field: {req}")
+
+        doc_id = data["id"]
+        _require(
+            isinstance(doc_id, str) and doc_id.strip() != "",
+            "INVALID_INPUT",
+            "document.id must be a non-empty string",
+        )
+
+        version = data.get("version", 1)
+        _require(
+            isinstance(version, int) and not isinstance(version, bool) and version >= 1,
+            "INVALID_INPUT",
+            "document.version must be a positive integer",
+        )
+
+        language = data["language"]
+        _require(
+            isinstance(language, str) and _is_bcp47_ish(language),
+            "INVALID_INPUT",
+            f"document.language is not a valid language tag: {language!r}",
+        )
+
+        raw_cues = data["cues"]
+        _require(isinstance(raw_cues, list) and len(raw_cues) > 0, "MISSING_INPUT", "document.cues must be a non-empty array")
+
+        cues = tuple(SubtitleCue.from_dict(c) for c in raw_cues)
+
+        seen = set()
+        for c in cues:
+            _require(c.id not in seen, "VALIDATION_ERROR", f"duplicate cue id: {c.id}")
+            seen.add(c.id)
+
+        metadata = data.get("metadata", {})
+        _require(isinstance(metadata, Mapping), "INVALID_INPUT", "document.metadata must be an object")
+
+        unknown = set(data) - {"id", "version", "language", "cues", "metadata"}
+        _require(not unknown, "INVALID_INPUT", f"unknown document field(s) {sorted(unknown)}")
+
+        return SubtitleDocument(
+            id=doc_id, version=version, language=language, cues=cues, metadata=dict(metadata)
+        )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "version": self.version,
+            "language": self.language,
+            "cues": [c.to_dict() for c in self.cues],
+            "metadata": dict(self.metadata),
+        }
+
+    def sorted_by_start(self) -> "SubtitleDocument":
+        return replace(self, cues=tuple(sorted(self.cues, key=lambda c: (c.start, c.end, c.id))))
+
+
+def _is_bcp47_ish(tag: str) -> bool:
+    if not tag or len(tag) > 35:
+        return False
+    parts = tag.split("-")
+    if not parts[0].isalpha() or not (2 <= len(parts[0]) <= 8):
+        return False
+    return all(p.isalnum() for p in parts)
