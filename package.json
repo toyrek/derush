@@ -1,6 +1,6 @@
 {
   "name": "derush",
-  "version": "9.1.0",
+  "version": "9.2.0",
   "description": "Dérush par IABAI — le montage vidéo avec ton IA (Claude ou Codex) : tu donnes la matière, l'IA monte, et publie si tu veux. macOS, Windows, Linux.",
   "type": "module",
   "private": true,

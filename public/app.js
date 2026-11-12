@@ -5022,10 +5022,31 @@ function rendreBlocsIA() {
   if (piste.dataset.cle === cle) return;
   piste.dataset.cle = cle;
   const regles = new Set(ui.reglagesIA.map((r) => r.bloc));
-  piste.style.height = `${20 + rangees.length * 24}px`;
-  $('#ecran-montage').style.setProperty('--h-blocs', `${20 + rangees.length * 24}px`);
-  piste.innerHTML = `<span class="piste-nom">${ic('etincelle', 'plein')}${t.direct ? 'Ce que pose l’IA · en direct' : 'Ce qu’a posé l’IA · clique un bloc pour le régler'}</span>${rangees.map(([k, nom, icone, blocs], i) => `<div class="rangee-ia" style="top:${20 + i * 24}px" title="${nom}">${blocs.map((b) =>
-    `<button class="bloc-ia b-${k}${b.id === ui.blocIA ? ' actif' : ''}${regles.has(b.id) ? ' regle' : ''}" data-bloc="${esc(b.id)}" style="left:${b.debut_s * ui.pps}px;width:${Math.max(8, b.duree_s * ui.pps - 1)}px" title="${esc(`${b.nom} · ${tempsFin(b.debut_s)} → ${tempsFin(b.debut_s + b.duree_s)}${b.detail ? `\n${b.detail}` : ''}`)}">${ic(icone)}<span>${esc(b.nom)}</span></button>`).join('')}</div>`).join('')}`;
+  // des blocs d'une même sorte qui se chevauchent (un titre et sa date, un fond sous deux transitions) se rangent sur
+  // plusieurs lignes : aucun ne cache l'autre. Trois lignes au plus par sorte, huit en tout (la timeline garde sa place).
+  const ranger = (blocs, max) => {
+    const fins = [];
+    const voie = new Map();
+    for (const b of [...blocs].sort((x, y) => x.debut_s - y.debut_s || y.duree_s - x.duree_s)) {
+      let k = fins.findIndex((f) => f <= b.debut_s + 0.02);
+      if (k < 0) k = fins.length < max ? fins.length : fins.indexOf(Math.min(...fins));
+      fins[k] = Math.max(fins[k] ?? 0, b.debut_s + b.duree_s);
+      voie.set(b.id, k);
+    }
+    return {voie, lignes: Math.max(1, fins.length)};
+  };
+  let voies = [];
+  for (let max = 3; max >= 1; max--) {
+    voies = rangees.map((r) => ranger(r[3], max));
+    if (voies.reduce((s, v) => s + v.lignes, 0) <= 8) break;
+  }
+  const hauts = [];
+  let haut = 20;
+  for (const v of voies) { hauts.push(haut); haut += v.lignes * 24; }
+  piste.style.height = `${haut}px`;
+  $('#ecran-montage').style.setProperty('--h-blocs', `${haut}px`);
+  piste.innerHTML = `<span class="piste-nom">${ic('etincelle', 'plein')}${t.direct ? 'Ce que pose l’IA · en direct' : 'Ce qu’a posé l’IA · clique un bloc pour le régler'}</span>${rangees.map(([k, nom, icone, blocs], i) => `<div class="rangee-ia" style="top:${hauts[i]}px;height:${voies[i].lignes * 24 - 2}px" title="${nom}">${blocs.map((b) =>
+    `<button class="bloc-ia b-${k}${b.id === ui.blocIA ? ' actif' : ''}${regles.has(b.id) ? ' regle' : ''}" data-bloc="${esc(b.id)}" style="left:${b.debut_s * ui.pps}px;width:${Math.max(8, b.duree_s * ui.pps - 1)}px;top:${1 + (voies[i].voie.get(b.id) ?? 0) * 24}px" title="${esc(`${b.nom} · ${tempsFin(b.debut_s)} → ${tempsFin(b.debut_s + b.duree_s)}${b.detail ? `\n${b.detail}` : ''}`)}">${ic(icone)}<span>${esc(b.nom)}</span></button>`).join('')}</div>`).join('')}`;
 }
 $('#piste-blocs').addEventListener('pointerdown', (e) => {
   const el = e.target.closest('[data-bloc]');

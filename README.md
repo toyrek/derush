@@ -2,7 +2,7 @@
 
 # Dérush par IABAI
 
-**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 9.1
+**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 9.2
 
 Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude**, **Codex** ou **Gemini**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
 
@@ -17,6 +17,8 @@ Dérush tourne sur **macOS, Windows et Linux**. Tes vidéos restent sur ton ordi
 - 24 compétences de plus (Instagram et YouTube, de Jake Schincariol), et les vrais logos partout.
 
 **9.1 — Gemini, essayé pour de vrai.** Le moteur Gemini a été réglé sur la vraie commande `agy` de Google (version 1.5.6). Gemini travaille toujours dans le bac à sable de Google, avec des permissions données pour chaque demande seulement : écrire dans son dossier de travail, lire les outils de Dérush et ce que tu lui as donné, rien d'autre de ton ordinateur. Ce bac à sable coupe le réseau local : le rendu des images passe par un relais en fichiers, et Dérush rend la vidéo pour lui. Les modèles sont ceux de ton compte Google : *Rapide* = Gemini 3.8 Flash, *Soigné* et *Maximum* = Gemini 4 Argon (ou Carbon s'il est proposé).
+
+**9.2 — Gemini 4 Argon essayé, les blocs ne se cachent plus.** Gemini a été essayé aussi au niveau *Maximum* (Gemini 4 Argon) : la même animation, plus soignée et sans rien d'inventé. Dans la timeline, deux blocs de l'IA qui se chevauchent (un titre et sa date, un fond sous des transitions) se rangent maintenant sur plusieurs lignes : aucun ne cache l'autre, chacun se clique.
 
 **Nouveau dans la version 8.** Sur Mac, Dérush est une vraie application : son icône dans le Dock, ses menus, sa fenêtre (plus de Chrome). Une vidéo déposée s'affiche en moins d'une seconde et se monte tout de suite ; la timeline reste fluide à tous les zooms. À la première ouverture, un tutoriel animé montre les gestes. Et avant de publier : une **analyse de viralité** (ce qui retient les gens, ce qui les fait partir, quoi changer) puis un **plan de partage** (légendes, hashtags, bon moment) pour chaque réseau.
 
