@@ -58,7 +58,7 @@ Sous **Importer**, le bouton **Enregistrer** ouvre deux choix. Tout se passe sur
 4. Clique **Arrêter** : ta voix se pose en vert sur la piste *Par-dessus*, là où tu as commencé. On y voit la forme de son son.
 5. Ce que tu as dit s'écrit tout seul, en quelques secondes (avec Whisper, sur ton ordinateur, s'il est installé : voir *Réglages*). Un clic sur **Sous-titres**, au-dessus de la timeline, et ils s'affichent sur l'aperçu.
 
-Ensuite, c'est un clip comme un autre : tu le glisses, tu le raccourcis par ses bords, tu le coupes, tu le supprimes. Tu refais une prise autant de fois que tu veux. Dans sa fiche (un clic dessus), tu règles son volume, et la case « C'est ma voix off » dit à ton IA que cette voix est le fil du film. Si ton projet n'a pas encore de montage, la voix va seulement dans tes médias.
+Ensuite, c'est un clip comme un autre : tu le glisses, tu le raccourcis par ses bords, tu le supprimes. Pour le couper, clique-le, place la tête de lecture dedans et clique **Couper** (ou `S`) ; ou prends les **Ciseaux** et clique à l'endroit voulu. Tu enlèves ainsi une hésitation, tu déplaces une phrase : c'est ton montage audio. Tu refais une prise autant de fois que tu veux. Dans sa fiche (un clic dessus), tu règles son volume, et la case « C'est ma voix off » dit à ton IA que cette voix est le fil du film. Si ton projet n'a pas encore de montage, la voix va seulement dans tes médias.
 
 **Me filmer (podcast, face caméra).** Une fenêtre montre ta webcam (en miroir, comme un selfie ; la vidéo enregistrée, elle, est à l'endroit). Choisis la caméra et le micro, clique **Enregistrer**, puis **Arrêter**. La vidéo arrive dans tes médias et, si la case est cochée, à la suite de ton montage.
 

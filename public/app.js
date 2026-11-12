@@ -2150,7 +2150,7 @@ function definirOutil(o) {
   TL.classList.toggle('outil-lame', o === 'lame');
   $('#b-lame').classList.toggle('actif', o === 'lame');
   $('#guide-lame').classList.add('cache');
-  if (o === 'lame') note('Mode ciseaux : clique sur un plan pour le couper. V ou Échap pour revenir.');
+  if (o === 'lame') note('Mode ciseaux : clique sur un plan (ou sur une voix off) pour le couper. V ou Échap pour revenir.');
 }
 function positionLame(ev) {
   const t = Math.max(0, tempsDepuisX(ev.clientX));
@@ -2159,7 +2159,7 @@ function positionLame(ev) {
 }
 $('#tl-interieur').addEventListener('pointermove', (e) => {
   const g = $('#guide-lame');
-  if (ui.outil !== 'lame' || !e.target.closest('.clip')) return g.classList.add('cache');
+  if (ui.outil !== 'lame' || !e.target.closest('.clip, .dessus')) return g.classList.add('cache');
   const {t, colle} = positionLame(e);
   g.style.left = `${t * ui.pps}px`;
   g.classList.toggle('colle', colle);
@@ -2182,6 +2182,10 @@ $('#tl-interieur').addEventListener('pointerdown', (e) => {
   if (ui.outil === 'lame' && clip && !poignee) {
     e.preventDefault();
     return couper(positionLame(e).t);
+  }
+  if (ui.outil === 'lame' && des && !poignee) {
+    e.preventDefault();
+    return couperDessus(des.dataset.id, positionLame(e).t);
   }
   if (!clip && !ind && !des) {
     if (!e.target.closest('#regle')) selectionner(null);
@@ -2437,6 +2441,9 @@ function ajouterIndication(genre = 'texte') {
 /** Couper le plan à un instant du montage (la tête de lecture, ou là où l'on clique en mode ciseaux). */
 function couper(instant = prog.t) {
   if (ui.mode !== 'montage') definirMode('montage'); // on coupe toujours dans le montage
+  // un clip posé par-dessus est sélectionné, et la tête de lecture est dedans : c'est lui qu'on coupe
+  const sd = ui.sel?.type === 'dessus' ? dessus(ui.sel.id) : null;
+  if (sd && instant > sd.debut && instant < sd.debut + sd.sortie - sd.entree) return couperDessus(sd.id, instant);
   const s = segmentA(seq, instant);
   if (!s) return note('Place la tête de lecture sur un plan pour le couper.', true);
   if (s.it.type === 'bloc') {
@@ -2459,6 +2466,19 @@ function couper(instant = prog.t) {
     s.it.sortie = t;
     P.montage.splice(s.k + 1, 0, deux);
     ui.sel = {type: 'item', id: deux.id};
+  });
+}
+/** Couper un clip posé par-dessus (une voix off, une musique, un plan de coupe) à un instant du montage : deux clips. */
+function couperDessus(id, instant) {
+  const s = dessus(id);
+  if (!s) return;
+  const dans = surGrille(instant - s.debut, F());
+  if (dans < 1 / F() || s.sortie - s.entree - dans < 1 / F()) return note('C’est le bord du clip : rien à couper.', true);
+  modifier(() => {
+    const deux = {...structuredClone(s), id: nouvelId(P, 'S'), entree: s.entree + dans, debut: s.debut + dans};
+    s.sortie = s.entree + dans;
+    P.superpositions.push(deux);
+    ui.sel = {type: 'dessus', id: deux.id};
   });
 }
 /** Q et W (comme dans OpenReel) : enlever le début ou la fin du plan, jusqu'à la tête de lecture. Le reste se recolle. */
@@ -3195,7 +3215,7 @@ function feuilleAide() {
     ['Glisser une vignette', 'La poser dans la timeline (en bas : le montage ; plus haut : par-dessus)'],
     ['+ sur une vignette', 'L’ajouter au montage, à la tête de lecture'],
     ['Espace', 'Lecture / pause'],
-    ['S · ⌘B', 'Couper le plan à la tête de lecture'],
+    ['S · ⌘B', 'Couper le plan à la tête de lecture (ou la voix off, si c’est elle qui est sélectionnée)'],
     ['C · V', 'Mode ciseaux (un clic coupe le plan à cet endroit) · retour à la sélection'],
     ['Q · W', 'Enlever le début · la fin du plan jusqu’à la tête de lecture'],
     ['⌫', 'Supprimer la sélection (ou, dans le texte du montage, les mots choisis)'],

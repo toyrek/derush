@@ -1,5 +1,7 @@
 # Dérush — ce qui est nouveau, version après version
 
+**10.3 — Couper sa voix off.** Le bouton *Couper* (ou `S`) et les ciseaux coupent aussi un clip posé par-dessus quand c'est lui qui est sélectionné : tu enlèves une hésitation de ta voix off, tu déplaces une phrase, tu fais ton propre montage audio. Dérush trouve aussi Git sur les Mac où celui du système refuse de marcher.
+
 **10.2 — L'installation s'adapte à ta machine.** Le bilan (`node derush.mjs installer --bilan`) commence par décrire l'ordinateur (système, puce, mémoire, place libre) et conseille la formule d'installation qui lui va : l'IA qui installe Dérush pour toi n'a plus qu'à la suivre. La page d'accueil du dépôt est refaite, avec des visuels et le message à coller à ton IA. Dérush s'appelle maintenant « bêta test ».
 
 **Nouveau dans la version 10.**
