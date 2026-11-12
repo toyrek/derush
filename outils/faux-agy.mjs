@@ -11,6 +11,7 @@
 // AGY_FAUX_RENDU=<Composition> : dans « montage », lance pour de vrai « node remotion/rendre.mjs <Composition> rendu/final.mp4 »
 //   (le rendu passe alors par le relais de Dérush, comme avec la vraie commande).
 // AGY_FAUX_MODELES=perso : la liste d'un compte personnel (Gemini 4 Argon et Flash, sans Carbon).
+// AGY_FAUX_ANNEXES=1 : dans « montage », remet aussi deux fichiers dans rendu/livraison/annexes/.
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
@@ -95,6 +96,11 @@ if (sc === 'conseil') {
     }));
   } else if (ok) {
     await commande('node remotion/rendre.mjs Montage rendu/final.mp4', async () => { fs.mkdirSync('rendu', {recursive: true}); if (process.env.AGY_FAUX_VIDEO) fs.copyFileSync(process.env.AGY_FAUX_VIDEO, 'rendu/final.mp4'); return 'Command exited with code 0.'; });
+  }
+  // d'autres fichiers remis avec la vidéo (AGY_FAUX_ANNEXES=1) : Dérush doit les ranger à côté d'elle
+  if (ok && process.env.AGY_FAUX_ANNEXES) {
+    await ecrire('rendu/livraison/annexes/storyboard.md', '# Storyboard\n\n0 s : titre. 3 s : date et lieu. 6 s : carton de fin.\n');
+    await ecrire('rendu/livraison/annexes/sons/polices-et-sons.md', '# Polices et sons\n\nAnton (SIL Open Font License). Aucun son.\n');
   }
   reponse = ok ? 'J’ai monté ta vidéo : un titre au début, les deux meilleurs passages, une musique douce dessous. Dis-moi si le titre te convient.' : '';
 }

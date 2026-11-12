@@ -77,6 +77,8 @@ La colonne de droite est une vraie conversation. Clique « Demander à Claude »
 
 **Une question, pas une vidéo.** Demande un avis, une idée, une explication : Claude répond, sans fabriquer de vidéo.
 
+**D'autres fichiers avec la vidéo.** Demande une image fixe, un storyboard, un master de haute qualité, la liste des polices et des sons : ton IA les remet avec la vidéo. Sous la carte de la vidéo, une ligne « fichiers joints » les compte ; « Ouvrir » montre leur dossier (ils sont rangés dans `vidéos`, à côté de la vidéo).
+
 **Plusieurs vidéos d'un coup.** « Fais 3 clips de 20 secondes », « une version TikTok et une version YouTube », « la même en anglais » : Claude les monte et les livre toutes. Elles apparaissent ensemble dans sa réponse.
 
 Ce que Claude reçoit, en plus de ta demande :

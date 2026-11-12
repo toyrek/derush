@@ -2,7 +2,7 @@
 
 # Dérush par IABAI
 
-**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 9.3
+**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 9.4
 
 Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude**, **Codex** ou **Gemini**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
 
@@ -21,6 +21,8 @@ Dérush tourne sur **macOS, Windows et Linux**. Tes vidéos restent sur ton ordi
 **9.2 — Gemini 4 Argon essayé, les blocs ne se cachent plus.** Gemini a été essayé aussi au niveau *Maximum* (Gemini 4 Argon) : la même animation, plus soignée et sans rien d'inventé. Dans la timeline, deux blocs de l'IA qui se chevauchent (un titre et sa date, un fond sous des transitions) se rangent maintenant sur plusieurs lignes : aucun ne cache l'autre, chacun se clique.
 
 **9.3 — Le modèle de Claude, et les longs briefs.** Dans « Qui monte ta vidéo ? » (et dans Connexions), tu choisis maintenant le modèle de Claude : *Auto* (Opus 5.5, ou Sonnet 5.5 au niveau Rapide), Opus 5.5, **Fable 5.2** ou Sonnet 5.5. Un long brief collé dans la zone d'écriture part en entier (jusqu'à 24 000 caractères) : avant, Dérush le coupait à 8 000 sans prévenir. Au-delà, il le dit et propose de joindre le texte en fichier. Pendant que ton IA travaille, Dérush empêche maintenant le Mac de s'endormir.
+
+**9.4 — Les fichiers remis avec la vidéo, des rôles mieux devinés.** Une image fixe, un storyboard, un master de haute qualité, la liste des polices et des sons : ce que ton IA remet en plus de la vidéo est maintenant rangé à côté d'elle et compté sous sa carte (« fichiers joints », bouton « Ouvrir »). Quand tu joins tout un dossier, Dérush devine mieux le rôle de chaque fichier : une référence reste une référence même si elle montre un logo, un texte n'est plus pris pour un logo, une image d'un dossier de logos est un logo.
 
 **Nouveau dans la version 8.** Sur Mac, Dérush est une vraie application : son icône dans le Dock, ses menus, sa fenêtre (plus de Chrome). Une vidéo déposée s'affiche en moins d'une seconde et se monte tout de suite ; la timeline reste fluide à tous les zooms. À la première ouverture, un tutoriel animé montre les gestes. Et avant de publier : une **analyse de viralité** (ce qui retient les gens, ce qui les fait partir, quoi changer) puis un **plan de partage** (légendes, hashtags, bon moment) pour chaque réseau.
 

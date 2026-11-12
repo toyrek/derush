@@ -4216,6 +4216,8 @@ function carteVideo(v, k) {
     <div class="cl-avant-pub"><button class="btn petit" data-cl="analyser" data-nom="${esc(x.nom)}" title="Avant de publier : ton IA note l’accroche, le rythme, le son… et te dit quoi améliorer">${ic('eclair')}<span>Analyser</span></button><button class="btn petit publier" data-cl="partager" data-nom="${esc(x.nom)}" title="Légendes, hashtags, bon moment et publication sur TikTok, Instagram, YouTube, LinkedIn">${ic('publier')}<span>Partager</span></button></div>
     ${(x.publications ?? []).length ? publicationsHtml(x.publications) : ''}</div>`;
 }
+/** Les fichiers remis avec la vidéo (image fixe, storyboard, master, liste des sons…) : leur nombre, leurs noms, leur dossier. */
+const annexesHtml = (v) => (v.annexes?.nombre ? `<div class="cl-annexes" title="${esc(v.annexes.fichiers.map((f) => `${f.nom} · ${f.taille_lisible}`).join('\n'))}">${ic('trombone')}<span><b>${v.annexes.nombre} fichier${v.annexes.nombre > 1 ? 's' : ''} joint${v.annexes.nombre > 1 ? 's' : ''} · ${esc(v.annexes.taille_lisible)}</b><small>${esc(v.annexes.fichiers.map((f) => f.nom.split('/').pop()).join(', '))}</small></span><button class="btn petit" data-cl="annexes" data-version="${v.n}">Ouvrir</button></div>` : '');
 const cartesVideos = (v) => (v.videos.length > 1
   ? `<div class="cl-lot"><span>${v.videos.length} vidéos · version ${v.n}</span><div class="cl-videos">${v.videos.map((_, k) => carteVideo(v, k)).join('')}</div></div>`
   : carteVideo(v, 0));
@@ -4228,7 +4230,7 @@ function bulleClaude(x, c) {
   const v = x.version ? c.versions.find((y) => y.n === x.version) : null;
   const long = x.texte.length > 520;
   const m = x.moteur ?? 'claude';
-  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${v ? cartesVideos(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
+  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
 }
 /** La bulle de l'IA au travail : la bobine tourne, une ligne dit ce qu'elle fait, son rendu passe en petit ; le détail se déplie. */
 function bulleTravail(c) {
@@ -4509,6 +4511,7 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'lien-pub') { const l = e.target.closest('[data-lien]').dataset.lien; if (/^https:\/\//.test(l)) window.open(l, '_blank', 'noopener'); return; }
     if (act === 'copier') { await copierTexte(e.target.closest('[data-texte]').dataset.texte); return note('Copié : colle-le dans l’app du réseau.'); }
     if (act === 'finder') return await api('POST', '/api/ouvrir', {chemin: c.versions.flatMap((v) => v.videos).find((x) => x.nom === e.target.closest('[data-nom]').dataset.nom)?.chemin});
+    if (act === 'annexes') return await api('POST', '/api/ouvrir', {chemin: c.versions.find((v) => String(v.n) === e.target.closest('[data-version]').dataset.version)?.annexes?.chemin});
     if (act === 'aux-medias') {
       await api('POST', '/api/claude/videos/medias', {nom: e.target.closest('[data-nom]').dataset.nom});
       await rafraichirMedias();
