@@ -357,6 +357,7 @@ node derush.mjs construire-app --zip ~/Desktop
 ## Limites connues
 
 - Claude a besoin d'Internet et de ton abonnement Claude. Si la limite de l'abonnement est atteinte, il s'arrête et le dit dans la conversation.
+- Pendant que ton IA travaille, Dérush empêche le Mac de s'endormir (l'écran peut s'éteindre). Un portable dont on ferme le capot s'endort quand même. Sous Windows et Linux, règle la mise en veille toi-même pour un long travail.
 - Dans l'aperçu, les débordements de son (J-cut et L-cut) ne se chevauchent pas encore. Ils sont exacts dans la vidéo.
 - L'aperçu peut être décalé d'une image. La vidéo, elle, est exacte, car chaque plan est recoupé depuis le rush d'origine.
 - Dans l'aperçu, le flou des transitions est un flou simple ; la vidéo a un vrai flou de zoom ou de filé.
