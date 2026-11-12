@@ -91,7 +91,7 @@ Pour donner Dérush à quelqu'un sans passer par GitHub (Mac) : `node derush.mjs
 
 ## 4. L'IA qui monte
 
-Dérush a besoin d'au moins une IA : **Claude Code** (compte Claude Pro ou Max), **Codex** (compte ChatGPT Plus, Pro ou Business) ou **Gemini** (la commande `agy` d'Antigravity, compte Google). Tu es toi-même l'une d'elles : elle est donc sans doute déjà installée et connectée, et le bilan le dit.
+Dérush a besoin d'au moins une IA : **Claude Code** (compte Claude Pro ou Max), **Codex** (compte ChatGPT Plus, Pro ou Business) ou **Gemini** (la commande `agy` d'Antigravity, compte Google ; son installateur officiel ajoute `~/.local/bin` au PATH dans `~/.zshrc` et `~/.profile`). Tu es toi-même l'une d'elles : elle est donc sans doute déjà installée et connectée, et le bilan le dit.
 
 Pour l'autre, ou si le bilan dit « pas connecté » : dans Dérush, **Connexions** → *Installer* puis *Me connecter* (une page s'ouvre dans le navigateur, la personne s'y connecte elle-même). Ne te connecte jamais à sa place.
 

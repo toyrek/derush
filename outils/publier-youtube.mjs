@@ -18,7 +18,8 @@
 // « publique » s'il a choisi autre chose). Hors de Dérush, la commande n'a pas ces limites.
 //
 // Avec Claude, la clé Treg est dans l'environnement que Dérush lui donne. Avec Codex (bac à sable, sans la clé), la
-// commande passe par le relais de Dérush (DERUSH_RELAIS), qui fait l'envoi hors du bac à sable.
+// commande passe par le relais de Dérush (DERUSH_RELAIS, ou DERUSH_RELAIS_BOITE pour un bac à sable sans réseau local),
+// qui fait l'envoi hors du bac à sable.
 import fs from 'node:fs';
 import path from 'node:path';
 import {preparerEnvoi, envoyerSurYouTube} from '../lib/youtube.mjs';
@@ -60,6 +61,21 @@ try { demande = preparerEnvoi({fichier, titre, description, tags, visibilite, po
 let dit = -1;
 const avance = (p) => { const pc = Math.floor(p * 10) * 10; if (pc !== dit) { dit = pc; process.stderr.write(`envoi : ${pc} %\n`); } };
 
+if (!process.env.TREG_TOKEN && process.env.DERUSH_RELAIS_BOITE && process.env.DERUSH_RELAIS_JETON) {
+  // bac à sable sans réseau local (Gemini) : la demande passe par la boîte du relais (des fichiers), Dérush fait l'envoi
+  try {
+    const {demanderParBoite} = await import('../lib/boite.mjs');
+    const ligne = await demanderParBoite({
+      boite: process.env.DERUSH_RELAIS_BOITE, jeton: process.env.DERUSH_RELAIS_JETON, route: 'youtube',
+      corps: {fichier: demande.fichier, titre: demande.titre, description: demande.description, tags: demande.tags, visibilite: demande.visibilite, pourEnfants, synthetique, notifier, encore},
+      surTexte: (t) => process.stderr.write(t),
+    });
+    const fin = /^##DERUSH-YOUTUBE (\{.*\})##$/.exec(ligne);
+    finir(fin ? JSON.parse(fin[1]) : {ok: false, raison: 'relais', message: 'Le relais de Dérush a refusé la demande.'});
+  } catch (e) {
+    finir({ok: false, raison: 'relais', message: `Le relais de Dérush ne répond pas : ${e.message}`});
+  }
+}
 if (!process.env.TREG_TOKEN && process.env.DERUSH_RELAIS && process.env.DERUSH_RELAIS_JETON) {
   // bac à sable (Codex) : Dérush fait l'envoi de son côté, avec la clé qu'il garde
   try {

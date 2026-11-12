@@ -3943,7 +3943,7 @@ const logo = (cle, taille = 22, cls = '') => (LOGOS[cle]
 const moteurIA = () => ui.claude?.ia?.choisi ?? SRV.moteurs?.ia_choisie ?? 'claude';
 const NOMS_IA = {claude: 'Claude', codex: 'Codex', gemini: 'Gemini'};
 const COMPTES_IA = {claude: {compte: 'Avec ton compte Claude (Pro ou Max).', relie: 'connecté à Claude'}, codex: {compte: 'Avec ton compte ChatGPT (Plus, Pro ou Business).', relie: 'connecté à ChatGPT'},
-  gemini: {compte: 'Avec ton compte Google (Gemini 4 Carbon et Argon, par la commande agy d’Antigravity).', relie: 'connecté à Google'}};
+  gemini: {compte: 'Avec ton compte Google (Gemini 4 Argon, Gemini 3.8 Flash, et Carbon si ton compte le propose), par la commande agy d’Antigravity.', relie: 'connecté à Google'}};
 const nomIA = (m = moteurIA()) => NOMS_IA[m] ?? 'Claude';
 const iaPrete = (m = moteurIA()) => !!ui.claude?.[m]?.ok;
 const qualiteIA = () => ui.claude?.ia?.qualite ?? 'max';
@@ -4577,7 +4577,9 @@ function carteIA(d, m) {
     : occupe ? `<span class="etiq">${anneau(0.5)}Installation…</span>`
       : x.installable ? `<button class="btn bleu petit" data-cx="${m}/installer">Installer</button>`
         : x.connectable ? `<button class="btn bleu petit" data-cx="${m}/connecter">Me connecter</button>` : '';
-  const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
+  // Gemini : les modèles que ce compte Google propose (ils changent d'un compte à l'autre)
+  const familles = m === 'gemini' && x.ok ? [...new Set((x.modeles ?? []).map((s) => String(s).replace(/-(low|medium|high|max)$/, '').split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')))].join(', ') : '';
+  const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}${familles ? ` · ${esc(familles)}` : ''}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
   const aide = m === 'gemini' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google dans la page qui suit, ferme le terminal, puis reviens ici.' : 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.';
   return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: nomIA(m), sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? `<small class="dim">${aide}</small>` : '')});
 }

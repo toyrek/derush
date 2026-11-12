@@ -11,8 +11,10 @@
 // Ce que Dérush lit pendant le rendu : ../rendu/.direct/<rendu>/etat.json (progression) et f-00001.jpg… (une petite
 // image par demi-seconde de vidéo). Si l'affichage en direct pose le moindre problème, le rendu continue sans lui.
 //
-// Quand l'IA travaille dans un bac à sable (Codex), le navigateur de rendu ne peut pas y démarrer : Dérush donne alors
-// l'adresse d'un relais (DERUSH_RELAIS) et fait le rendu à notre place, avec ces mêmes arguments. Rien à changer ici.
+// Quand l'IA travaille dans un bac à sable (Codex, Gemini), le navigateur de rendu ne peut pas y démarrer : Dérush donne
+// alors un relais et fait le rendu à notre place, avec ces mêmes arguments. Le relais est une adresse locale
+// (DERUSH_RELAIS), ou, quand le bac à sable coupe aussi le réseau local, un dossier où déposer la demande
+// (DERUSH_RELAIS_BOITE). Rien à changer ici.
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -37,7 +39,64 @@ async function parRelais() {
   process.stdout.write(attente.replace(/\n?##DERUSH-RELAIS code=\d+##\n?/, '\n'));
   return r.ok && code != null ? Number(code) : 1;
 }
-const codeRelais = await parRelais();
+/**
+ * Le même relais, par fichiers : on dépose la demande dans le dossier donné par Dérush (DERUSH_RELAIS_BOITE, dans le
+ * dossier de travail), et Dérush répond dans un fichier, lu ici au fur et à mesure. Renvoie le code de fin, ou null
+ * s'il n'y a pas de boîte.
+ */
+async function parBoite() {
+  const boite = process.env.DERUSH_RELAIS_BOITE;
+  const jeton = process.env.DERUSH_RELAIS_JETON;
+  if (!boite || !jeton || process.env.DERUSH_PROJET_REMOTION) return null;
+  const {randomBytes} = await import('node:crypto');
+  const pause = (ms) => new Promise((ok) => setTimeout(ok, ms));
+  const id = randomBytes(12).toString('hex');
+  // un signe de vie toutes les 3 secondes : si cette commande est arrêtée, Dérush arrête le rendu
+  const battement = path.join(boite, `battement-${id}`);
+  const vivre = () => { try { fs.writeFileSync(battement, String(Date.now())); } catch { /* sans importance */ } };
+  try {
+    vivre();
+    const demande = path.join(boite, `demande-${id}.json`);
+    fs.writeFileSync(`${demande}.tmp`, JSON.stringify({jeton, route: 'rendre', corps: {args: process.argv.slice(2), cwd: process.cwd()}}));
+    fs.renameSync(`${demande}.tmp`, demande);
+  } catch (e) {
+    console.error(`Le rendu n’a pas pu être demandé à Dérush (${e.message}).`);
+    return 1;
+  }
+  const signe = setInterval(vivre, 3000);
+  const reponse = path.join(boite, `reponse-${id}.txt`);
+  const debut = Date.now();
+  while (!fs.existsSync(reponse)) {
+    if (Date.now() - debut > 30000) { clearInterval(signe); console.error('Dérush ne répond pas : le rendu n’a pas pu être demandé.'); return 1; }
+    await pause(150);
+  }
+  const fd = fs.openSync(reponse, 'r');
+  const dec = new TextDecoder();
+  const bloc = Buffer.alloc(65536);
+  let pos = 0;
+  let reste = '';
+  let code = null;
+  while (code === null) {
+    const n = fs.readSync(fd, bloc, 0, bloc.length, pos);
+    if (!n) { await pause(200); continue; }
+    pos += n;
+    reste += dec.decode(bloc.subarray(0, n), {stream: true});
+    let i;
+    while (code === null && (i = reste.indexOf('\n')) >= 0) {
+      const ligne = reste.slice(0, i);
+      reste = reste.slice(i + 1);
+      const fin = /^##DERUSH-RELAIS code=(\d+)##\s*$/.exec(ligne);
+      if (fin) code = Number(fin[1]); else process.stdout.write(`${ligne}\n`);
+    }
+    // un morceau sans fin de ligne (l'avancement) part tout de suite, sauf s'il peut être le début de la dernière ligne
+    if (code === null && reste && !reste.startsWith('#')) { process.stdout.write(reste); reste = ''; }
+  }
+  clearInterval(signe);
+  fs.closeSync(fd);
+  for (const f of [reponse, battement]) { try { fs.unlinkSync(f); } catch { /* déjà retiré */ } }
+  return code;
+}
+const codeRelais = (await parBoite()) ?? (await parRelais());
 if (codeRelais !== null) process.exit(codeRelais);
 
 const {bundle} = await import('@remotion/bundler');

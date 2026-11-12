@@ -4,7 +4,8 @@
 // Le faux serveur joue la porte directe de Treg (/call/youtube.youtube.video.upload, /call/youtube.youtube.video.detail,
 // /call/<adresse entière>) et l'adresse d'envoi de YouTube (/depot). Il marque ses propres refus de X-Treg-Error, comme
 // le vrai Treg ; sans cet en-tête, c'est « YouTube » qui répond. Les essais passent par la vraie commande
-// (outils/publier-youtube.mjs) et par le vrai relais de Codex (lib/relais.mjs).
+// (outils/publier-youtube.mjs) et par le vrai relais (lib/relais.mjs) : son adresse locale (Codex) et sa boîte, par
+// fichiers (Gemini).
 import crypto from 'node:crypto';
 import http from 'node:http';
 import fs from 'node:fs';
@@ -179,6 +180,27 @@ await essai('le relais dit le refus de YouTube', 'quota', parRelais(relais), ['-
 await relais.fermer?.();
 relais = await ouvrir({permis: false, visibilite: null});
 await essai('le relais refuse si YouTube n’a pas été demandé', 'normal', parRelais(relais), ['--encore'], (r) => r.code === 1 && r.j.raison === 'non_demande' && journal.length === 0, {fichier: lien});
+await relais.fermer?.();
+
+console.log('— Le relais par fichiers (la boîte : pour le bac à sable de Gemini, sans réseau local) —');
+const ouvrirBoite = (youtube) => ouvrirRelais(atelier, {boite: true, youtube: youtube && {...youtube, videos: path.join(projet, 'vidéos'), surEnvoi: (t) => notes.push(t)}});
+const parBoite = (relais, jeton = relais.jeton) => ({DERUSH_RELAIS_BOITE: relais.boite, DERUSH_RELAIS_JETON: jeton});
+fs.rmSync(journalProjet, {force: true});
+notes.length = 0;
+relais = await ouvrirBoite({permis: true, visibilite: 'unlisted'});
+await essai('la boîte existe, dans le dossier de travail', 'normal', {}, ['--help'], () => relais.boite === path.join(atelier, 'rendu', '.relais') && fs.statSync(relais.boite).isDirectory());
+await essai('envoi par la boîte', 'normal', parBoite(relais), [], (r) => r.code === 0 && r.j.ok && r.j.id === 'ESSAI_abc123' && entier() && ouv().jeton === CLE && notes.length === 1 && fs.existsSync(journalProjet), {fichier: lien});
+await essai('la boîte ne renvoie pas une vidéo déjà envoyée', 'normal', parBoite(relais), [], (r) => r.code === 0 && r.j.deja === true && journal.length === 0, {fichier: lien});
+await essai('la boîte refuse « publique » si l’humain a choisi autre chose', 'normal', parBoite(relais), ['--visibilite', 'public', '--encore'], (r) => r.code === 1 && r.j.raison === 'visibilite' && journal.length === 0, {fichier: lien});
+await essai('la boîte refuse une vidéo hors du projet', 'normal', parBoite(relais), [], (r) => r.code === 1 && r.j.raison === 'fichier' && journal.length === 0, {fichier: ailleurs});
+await essai('la boîte refuse un mauvais jeton', 'normal', parBoite(relais, 'faux'), [], (r) => r.code === 1 && r.j.raison === 'relais' && journal.length === 0, {fichier: lien});
+await essai('la boîte dit le refus de YouTube', 'quota', parBoite(relais), ['--encore'], (r) => r.code === 1 && r.j.raison === 'quota', {fichier: lien});
+await essai('les demandes traitées ne restent pas dans la boîte', 'normal', {}, ['--help'], () => fs.readdirSync(relais.boite).every((f) => !/^demande-/.test(f)));
+const boiteFermee = relais.boite;
+await relais.fermer?.();
+await essai('la boîte est retirée à la fin du travail', 'normal', {}, ['--help'], () => !fs.existsSync(boiteFermee));
+relais = await ouvrirBoite({permis: false, visibilite: null});
+await essai('la boîte refuse si YouTube n’a pas été demandé', 'normal', parBoite(relais), ['--encore'], (r) => r.code === 1 && r.j.raison === 'non_demande' && journal.length === 0, {fichier: lien});
 await relais.fermer?.();
 
 console.log(`\n${resultats.filter(Boolean).length} essais réussis sur ${resultats.length}`);
