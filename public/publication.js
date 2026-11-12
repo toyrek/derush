@@ -113,7 +113,7 @@ export function creerPublication(o) {
     $$('.pa-onglets button', el).forEach((b) => b.classList.toggle('actif', b.dataset.onglet === S.onglet));
     rendreReperes();
     const x = S.onglet === 'analyse' ? S.analyse : S.plan;
-    const cle = JSON.stringify([S.onglet, S.video, x?.etat, x?.etapes?.length, x?.erreur, S.onglet === 'partage' ? [S.reseau, [...S.choix], S.treg?.pret, S.treg?.verification?.le] : x?.resultat?.cree_le, o.iaPrete?.(), !!o.claude?.()?.en_cours]);
+    const cle = JSON.stringify([S.onglet, S.video, x?.etat, x?.etapes?.length, x?.erreur, S.onglet === 'partage' ? [S.reseau, [...S.choix], S.treg?.pret, S.treg?.jeton, S.treg?.verification?.le] : x?.resultat?.cree_le, o.iaPrete?.(), !!o.claude?.()?.en_cours]);
     const actif = document.activeElement;
     // un champ en cours de saisie n'est jamais redessiné sous les doigts
     if (!force && (cle === S.cle || (actif && el.contains(actif) && actif.matches('textarea, input')))) return majTemps();
@@ -211,8 +211,12 @@ export function creerPublication(o) {
     const s = plan.strategie;
     const v = S.treg?.verification;
     const pretTreg = !!S.treg?.pret;
-    const relie = (k) => (v?.ok ? !!v.reseaux?.[k] : pretTreg);
+    // YouTube a besoin de la clé Treg (le connecteur du compte Claude ne lui suffit pas : voir lib/youtube.mjs)
+    const cleTreg = !!S.treg?.jeton;
+    const relie = (k) => (k === 'youtube' && !cleTreg ? false : v?.ok ? !!v.reseaux?.[k] : pretTreg);
     const aPublier = cles.filter((k) => S.choix.has(k));
+    const youtubeSansCle = aPublier.includes('youtube') && !cleTreg && !!S.treg;
+    const rienAPublier = youtubeSansCle && aPublier.length === 1; // YouTube seul, sans la clé : inutile de déranger l'IA
     const occupe = !!o.claude?.()?.en_cours;
     return `<section class="pp-strategie"><h3>${ic('eclair')}La stratégie</h3><p>${esc(s.resume)}</p>
         ${s.ordre.length > 1 ? `<div class="pp-ordre"><small>Dans cet ordre</small>${s.ordre.map((k, i) => `<span>${i ? ic('img-plus') : ''}${logo(k, 20)}${NOMS_COURTS[k]}</span>`).join('')}</div>` : ''}
@@ -233,12 +237,14 @@ export function creerPublication(o) {
         ${x.conseils.length ? `<ul class="pp-conseils">${x.conseils.map((t) => `<li>${ic('baguette')}<span>${esc(t)}</span></li>`).join('')}</ul>` : ''}
       </section>
       <footer class="pp-publier">
-        <div class="pp-a-publier"><small>Publier sur</small>${cles.map((k) => `<button class="pp-puce${S.choix.has(k) ? ' actif' : ''}${relie(k) ? '' : ' a-relier'}" data-choix="${k}" title="${relie(k) ? 'Relié à Treg' : 'Pas encore relié dans Treg'}">${logo(k, 18)}${NOMS_COURTS[k]}${relie(k) ? '' : ic('attention')}</button>`).join('')}</div>
+        ${youtubeSansCle ? `<p class="pp-note alerte">${ic('attention')}<span><b>YouTube a besoin de ta clé Treg.</b> Le connecteur Treg de ton compte Claude suffit pour TikTok, Instagram et LinkedIn, pas pour YouTube.${rienAPublier ? ' Ajoute ta clé, ou copie le titre et la description et publie toi-même.' : ` Sans la clé, ${esc(o.nomIA())} publiera sur les autres réseaux et te dira que YouTube attend.`}</span></p>` : ''}
+        <div class="pp-a-publier"><small>Publier sur</small>${cles.map((k) => `<button class="pp-puce${S.choix.has(k) ? ' actif' : ''}${relie(k) ? '' : ' a-relier'}" data-choix="${k}" title="${relie(k) ? 'Relié à Treg' : k === 'youtube' && !cleTreg ? 'YouTube a besoin de ta clé Treg' : 'Pas encore relié dans Treg'}">${logo(k, 18)}${NOMS_COURTS[k]}${relie(k) ? '' : ic('attention')}</button>`).join('')}</div>
         ${aPublier.includes('youtube') ? `<div class="segmente pp-visi">${[['unlisted', 'Non répertoriée'], ['public', 'Publique'], ['private', 'Privée']].map(([k, n]) => `<button data-visi="${k}"${k === S.visibilite ? ' class="actif"' : ''}>${n}</button>`).join('')}</div>` : ''}
-        <span class="espace"></span>
-        ${pretTreg ? '' : `<button class="btn" data-pa="relier">${ic('relais')}Relier mes réseaux</button>`}
-        <button class="btn" data-pa="planifier" title="Refaire tous les textes">Refaire</button>
-        <button class="btn claude" data-pa="publier"${!aPublier.length || !o.iaPrete?.() || occupe ? ' disabled' : ''} title="${pretTreg ? 'Rien ne part sans ce clic' : 'Treg n’est pas relié : ton IA te redonnera les textes prêts à coller'}">${ic('publier')}<span>${occupe ? `${esc(o.nomIA())} travaille…` : `Publier avec ${esc(o.nomIA())}`}</span></button>
+        <div class="pp-actions">
+          <button class="btn" data-pa="planifier" title="Refaire tous les textes">Refaire</button>
+          ${pretTreg && !youtubeSansCle ? '' : `<button class="btn${youtubeSansCle ? ' bleu' : ''}" data-pa="relier">${ic('relais')}${pretTreg ? 'Ajouter ma clé Treg' : 'Relier mes réseaux'}</button>`}
+          ${rienAPublier ? '' : `<button class="btn claude" data-pa="publier"${!aPublier.length || !o.iaPrete?.() || occupe ? ' disabled' : ''} title="${pretTreg ? 'Rien ne part sans ce clic' : 'Treg n’est pas relié : ton IA te redonnera les textes prêts à coller'}">${ic('publier')}<span>${occupe ? `${esc(o.nomIA())} travaille…` : `Publier avec ${esc(o.nomIA())}`}</span></button>`}
+        </div>
       </footer>
       <p class="pp-note">${pretTreg ? `${ic('coche')}Treg est relié${v?.ok && v.compte ? ` (compte ${esc(v.compte)})` : ''}. TikTok part en brouillon dans ta boîte TikTok ; YouTube, Instagram et LinkedIn publient pour de vrai.` : `${ic('attention')}Tes réseaux ne sont pas encore reliés : tu peux copier chaque texte et publier toi-même, ou relier Treg en trois gestes.`}</p>`;
   }
@@ -362,7 +368,7 @@ export function creerPublication(o) {
         </ol>
         ${t.jeton ? `<div class="tg-bilan ${v.ok ? 'ok' : 'attention'}"><div class="tg-bilan-tete">${ic(v.ok ? 'coche' : 'attention')}<b>${v.ok ? (Object.values(v.reseaux ?? {}).some(Boolean) ? `C’est relié${v.compte ? ` (compte ${esc(v.compte)})` : ''}` : 'Ta clé marche') : 'Treg ne répond pas comme prévu'}</b><button class="btn petit" data-tg="verifier">Vérifier</button></div>${v.pourquoi ? `<p>${esc(v.pourquoi)}</p>` : ''}${v.ok ? pastilles : ''}${v.ok && Object.values(v.reseaux ?? {}).some((x) => !x) ? '<p class="dim">Un réseau manque ? Relie-le dans Treg, puis clique sur « Vérifier ».</p>' : ''}</div>` : pastilles}
         ${message ? `<p class="tg-message">${ic('attention')}${esc(message)}</p>` : ''}
-        ${t.connecteur?.etat === 'connecte' && !t.jeton ? `<p class="tg-claude">${logo('claude', 18)}<span>Avec Claude, le connecteur Treg de ton compte Claude répond déjà : tu peux publier sans clé. La clé sert aussi à Codex, et à voir ici quels réseaux sont reliés.</span></p>` : ''}
+        ${t.connecteur?.etat === 'connecte' && !t.jeton ? `<p class="tg-claude">${logo('claude', 18)}<span>Avec Claude, le connecteur Treg de ton compte Claude répond déjà : tu peux publier sur TikTok, Instagram et LinkedIn sans clé. <b>YouTube, lui, a besoin de la clé.</b> Elle sert aussi à Codex, et à voir ici quels réseaux sont reliés.</span></p>` : ''}
         <div class="pied"><span class="tg-donner" title="Tu peux le couper à tout moment"><label class="interrupteur"><input type="checkbox" data-tg-actif${t.actif ? ' checked' : ''}><i></i></label><span>Donner Treg à mon IA</span></span><span class="espace"></span><button class="btn principal" data-tg="fermer">${fait ? 'C’est bon' : 'Fermer'}</button></div>`;
     };
     const recharger = async (force = true) => { try { t = await api('GET', `/api/treg${force ? '?force=1' : ''}`); } catch (e) { message = e.message; } if (f.isConnected) rendreGuide(); };

@@ -46,6 +46,7 @@ Suis **[INSTALLER.md](INSTALLER.md)** pas à pas. Ne modifie pas le code pour «
 | `lib/competences.mjs` | La bibliothèque de compétences (`competences/`), reliée dans chaque dossier de travail |
 | `lib/drive.mjs`, `lib/treg.mjs`, `lib/elevenlabs.mjs` | Google Drive, publication avec Treg (et la vérification des réseaux reliés), studio ElevenLabs |
 | `lib/conseil.mjs` | Demander un avis à l'IA hors de la conversation de montage (sans connecteur, réponse en JSON) |
+| `lib/youtube.mjs`, `outils/publier-youtube.mjs` | L'envoi d'une vidéo sur YouTube par la porte directe de Treg (commande `derush-youtube` donnée à l'IA ; relais pour Codex) |
 | `lib/publication.mjs` | Avant de publier : les mesures d'une vidéo finie, l'analyse de viralité, le plan de partage |
 | `lib/sons.mjs` | Les vrais sons : la bibliothèque de sons libres (Openverse), Real SFX, Earshot ; leurs commandes et leurs consignes |
 | `lib/installation.mjs`, `lib/maj.mjs` | L'installateur multi-systèmes et les mises à jour (GitHub) |
@@ -66,6 +67,8 @@ DERUSH_BIBLIOTHEQUE=/chemin/vers/un/dossier/d-essai DERUSH_SANS_NAVIGATEUR=1 nod
 ```
 
 `outils/essai-interface.mjs` pilote ensuite l'interface sans fenêtre, dans Chrome (voir son en-tête).
+
+`node outils/essai-youtube.mjs` rejoue les 31 essais de l'envoi vers YouTube contre un faux Treg (aucun appel réel, aucune clé) : à relancer après tout changement de `lib/youtube.mjs`, `lib/relais.mjs` ou `outils/publier-youtube.mjs`. Un envoi réel coûte 1 600 des 10 000 unités du quota quotidien que tous les comptes reliés à Treg se partagent : ne jamais en faire un « pour voir ».
 
 L'app Mac native se pilote aussi sans la regarder : fabrique-la dans un dossier d'essai
 (`node derush.mjs construire-app <dossier> --sans-raccourci`), ouvre-la avec `DERUSH_COQUE_PILOTE=<dossier>`

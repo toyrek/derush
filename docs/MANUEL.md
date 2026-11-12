@@ -194,7 +194,7 @@ Chaque bouton *Demander* met la correction dans ton message à l'IA : tu relis, 
 
 **Le partage.** Choisis tes réseaux (TikTok, Instagram Reels, YouTube Shorts, LinkedIn) et, si tu veux, un mot pour l'IA. Elle écrit la stratégie (l'angle, l'ordre des réseaux, le rythme, quoi faire dans l'heure qui suit) et, pour chaque réseau : la légende, les hashtags, le bon moment, l'image de couverture, un premier commentaire. Tout se corrige sur place (c'est enregistré tout seul) et se copie d'un clic. *Publier* envoie tes textes relus, tels quels, avec Treg ; si tes réseaux ne sont pas reliés, tu peux tout copier et publier toi-même.
 
-**Relier ses réseaux.** Connexions → Treg → *Relier mes réseaux* : crée ton compte Treg, relie tes réseaux dans Treg, puis copie ta clé et clique sur *Coller ma clé*. Dérush vérifie la clé auprès de Treg et te montre quels réseaux sont reliés. Avec Claude, le connecteur Treg de ton compte Claude suffit aussi.
+**Relier ses réseaux.** Connexions → Treg → *Relier mes réseaux* : crée ton compte Treg, relie tes réseaux dans Treg, puis copie ta clé et clique sur *Coller ma clé*. Dérush vérifie la clé auprès de Treg et te montre quels réseaux sont reliés. Avec Claude, le connecteur Treg de ton compte Claude suffit pour TikTok, Instagram et LinkedIn. **YouTube a besoin de la clé** : c'est Dérush lui-même qui envoie la vidéo (commande `derush-youtube`), parce que les outils donnés à une IA ne voient pas l'adresse d'envoi que YouTube rend.
 
 ## Créer la vidéo sans IA
 
@@ -330,3 +330,4 @@ node derush.mjs construire-app --zip ~/Desktop
 - Testé sur un Mac à puce Apple avec macOS 26. Whisper (MLX) exige une puce Apple.
 - L'analyse de viralité s'appuie sur le texte dit : sans Whisper (Réglages), elle se fait sur les images et les mesures seulement.
 - La vraie application (sans navigateur) n'existe que sur Mac ; elle demande macOS 13 ou plus.
+- YouTube : il faut ta clé Treg dans Dérush, et YouTube relié dans Treg avec le droit de publier. Compte environ six envois par jour pour tous les comptes reliés à Treg. YouTube peut garder en privé une vidéo envoyée par une application qu'il n'a pas encore auditée : Dérush te le dit après l'envoi. L'envoi a été vérifié contre un faux Treg (31 cas) ; il reste à le confirmer avec un vrai compte.

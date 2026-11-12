@@ -2,13 +2,15 @@
 
 # Dérush par IABAI
 
-**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 8.0
+**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 8.1
 
 Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude** ou **Codex**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
 
 Dérush tourne sur **macOS, Windows et Linux**. Tes vidéos restent sur ton ordinateur.
 
 **Nouveau dans la version 8.** Sur Mac, Dérush est une vraie application : son icône dans le Dock, ses menus, sa fenêtre (plus de Chrome). Une vidéo déposée s'affiche en moins d'une seconde et se monte tout de suite ; la timeline reste fluide à tous les zooms. À la première ouverture, un tutoriel animé montre les gestes. Et avant de publier : une **analyse de viralité** (ce qui retient les gens, ce qui les fait partir, quoi changer) puis un **plan de partage** (légendes, hashtags, bon moment) pour chaque réseau.
+
+**8.1 — YouTube.** L'envoi sur YouTube passe maintenant par une commande de Dérush (`derush-youtube`), avec ta clé Treg : la première méthode, par les outils Treg de l'IA, ne pouvait pas marcher (YouTube rend l'adresse d'envoi dans un en-tête que ces outils ne montrent pas). Dérush reprend l'envoi s'il est coupé, n'envoie jamais deux fois la même vidéo, et te dit la visibilité réelle de la vidéo une fois en ligne.
 
 > **Bêta privée.** Tu as été invité à tester : merci de ne pas partager ce dépôt. Dis-nous ce qui coince (onglet *Issues* du dépôt) : c'est le but de la bêta.
 
@@ -109,7 +111,7 @@ Sous chaque vidéo livrée (et à la fin de « Créer la vidéo »), deux bouton
 | Réseau | Ce qui se passe |
 |---|---|
 | **TikTok** | La vidéo arrive en **brouillon** dans ta boîte TikTok ; tu colles la légende (bouton *Copier*) et tu publies depuis l'app. C'est une limite de TikTok pour l'instant. |
-| **YouTube Shorts** | Mise en ligne **non répertoriée** par défaut ; *Publique* ou *Privée* si tu le choisis. |
+| **YouTube Shorts** | Mise en ligne **non répertoriée** par défaut ; *Publique* ou *Privée* si tu le choisis. YouTube a besoin de ta **clé Treg** dans Dérush (Connexions › Treg › *Relier mes réseaux*) : le connecteur Treg d'un compte Claude ne lui suffit pas. |
 | **Instagram Reels** | Publiée sur ton compte professionnel. Instagram doit aller chercher la vidéo sur une adresse web : elle passe par un lien public temporaire (une heure). L'IA te le dit. |
 | **LinkedIn** | Publiée sur ton profil. |
 

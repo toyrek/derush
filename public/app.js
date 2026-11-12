@@ -3856,8 +3856,16 @@ function afficherRendu(t) {
 // Demander à Claude : on écrit ce qu'on veut, Claude Code monte la vidéo dans le dossier du projet
 // =====================================================================
 const prefs = {
-  lire(k, d) { try { return localStorage.getItem(`derush.${k}`) ?? d; } catch { return d; } },
-  ecrire(k, v) { try { localStorage.setItem(`derush.${k}`, v); } catch { /* stockage indisponible */ } },
+  /** Un réglage gardé par la fenêtre. Une liste revient en liste (même gardée en texte par une version d'avant). */
+  lire(k, d) {
+    let brut = null;
+    try { brut = localStorage.getItem(`derush.${k}`); } catch { return d; }
+    if (brut == null) return d;
+    if (!Array.isArray(d)) return brut;
+    try { const v = JSON.parse(brut); if (Array.isArray(v)) return v; } catch { /* l'ancienne forme : « tiktok,youtube » */ }
+    return brut.split(',').map((x) => x.trim()).filter(Boolean);
+  },
+  ecrire(k, v) { try { localStorage.setItem(`derush.${k}`, Array.isArray(v) ? JSON.stringify(v) : v); } catch { /* stockage indisponible */ } },
 };
 /** Une illustration animée (dessinée dans index.html), recopiée dans la page pour que ses animations tournent. */
 function ill(nom) {
@@ -4616,16 +4624,19 @@ function feuillePublier(nom) {
     <div class="pub-reseaux">${Object.entries(RESEAUX_UI).map(([k, n]) => `<button class="pub-reseau${choix.has(k) ? ' actif' : ''}" data-reseau="${k}">${logo(k, 32)}<span><b>${n}</b><small>${esc(c.reseaux?.[k]?.aide ?? '')}</small></span><i class="coche">${ic('coche')}</i></button>`).join('')}</div>
     <div class="cx-qualite${choix.has('youtube') ? '' : ' cache'}" id="pub-visi"><span>Sur YouTube</span><div class="segmente">${[['unlisted', 'Non répertoriée'], ['public', 'Publique'], ['private', 'Privée']].map(([k, n]) => `<button data-visi="${k}"${k === visibilite ? ' class="actif"' : ''}>${n}</button>`).join('')}</div></div>
     <label class="champ"><span>Un mot pour ${qui} (facultatif)</span><textarea id="pub-consigne" rows="2" placeholder="Le ton, un appel à l’action, des hashtags à mettre, une mention…"></textarea></label>
+    ${treg.pret && !treg.youtube ? `<p class="pub-treg attention" id="pub-yt-cle">${ic('attention')}<span>YouTube a besoin de ta clé Treg : le connecteur de ton compte Claude ne lui suffit pas.</span><button class="btn petit" data-guide-treg>Ajouter ma clé</button></p>` : ''}
     ${treg.pret ? `<p class="pub-treg ok">${ic('coche')}<span>Treg est relié. Rien ne part sans ce clic.</span></p>` : `<p class="pub-treg attention">${ic('attention')}<span>Treg n’est pas encore relié : ${qui} écrira tes textes, mais ne pourra pas publier.</span><button class="btn petit" data-connexions>Relier Treg</button></p>`}
     <div class="pied"><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-go${!iaPrete() || c.en_cours ? ' disabled' : ''}>${ic('publier')}Publier avec ${qui}</button></div>`);
   const maj = () => {
     $$('.pub-reseau', f).forEach((b) => b.classList.toggle('actif', choix.has(b.dataset.reseau)));
     $('#pub-visi', f).classList.toggle('cache', !choix.has('youtube'));
+    $('#pub-yt-cle', f)?.classList.toggle('cache', !choix.has('youtube'));
     $('[data-go]', f).disabled = !choix.size || !iaPrete() || !!c.en_cours;
   };
   f.addEventListener('click', async (e) => {
     if (e.target.closest('[data-fermer]')) return fermerFeuille();
     if (e.target.closest('[data-connexions]')) return feuilleConnexions();
+    if (e.target.closest('[data-guide-treg]')) return PUB.guideTreg(() => chargerClaude(true));
     const r = e.target.closest('[data-reseau]')?.dataset.reseau;
     if (r) { if (choix.has(r)) choix.delete(r); else choix.add(r); prefs.ecrire('publier.reseaux', [...choix]); return maj(); }
     const v = e.target.closest('[data-visi]')?.dataset.visi;

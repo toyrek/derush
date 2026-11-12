@@ -7,7 +7,8 @@ description: Publier une vidéo finie de Dérush sur TikTok, YouTube (Shorts), I
 
 Treg (treg.to) relie les comptes de l'humain (TikTok, YouTube, Instagram, LinkedIn) et fait les appels à sa place : tu n'as
 jamais de clé. Ses outils sont ceux du serveur `treg` (ou `claude_ai_Treg`) : `catalog_get` (lire un point d'entrée) et
-`call` (l'appeler). Les appels de publication sont gratuits.
+`call` (l'appeler). Les appels de publication sont gratuits. **Exception : YouTube**, qui passe par la commande
+`derush-youtube` fournie par Dérush (voir plus bas).
 
 ## Les règles, avant tout
 
@@ -49,18 +50,44 @@ confidentialité). TikTok jette un brouillon au bout de 24 h.
    (c'est le succès ici) ou `FAILED`.
 5. Donne à l'humain la légende et les hashtags prêts à coller.
 
-## YouTube (Shorts) — envoi en deux temps
+## YouTube (Shorts) — avec la commande `derush-youtube`
 
 Un Short : vidéo verticale de 3 minutes au plus. Environ six envois par jour pour tous les comptes reliés à Treg.
 
-1. `call` `youtube.youtube.video.upload`, `method: POST`,
-   `query: {"part": "id,snippet,status", "uploadType": "resumable"}`,
-   `body: {"snippet": {"title": "… (100 caractères au plus)", "description": "… (avec 2-3 #hashtags, dont #Shorts)",
-   "tags": [ … ], "categoryId": "22"}, "status": {"privacyStatus": "unlisted", "selfDeclaredMadeForKids": false}}`.
-   `selfDeclaredMadeForKids` est obligatoire (true seulement si l'humain dit que c'est pour les enfants).
-2. La réponse donne l'en-tête `Location` : envoie-y la vidéo **directement** :
-   `curl -X PUT -H 'Content-Type: video/mp4' --data-binary @VIDEO "$LOCATION"` → la réponse contient l'`id` de la vidéo.
-3. Le lien : `https://youtube.com/shorts/<id>` (vertical) ou `https://youtu.be/<id>`.
+**N'ouvre pas l'envoi avec l'outil `call`.** YouTube rend l'adresse où déposer la vidéo dans un en-tête de sa réponse, et
+les outils Treg d'une IA ne montrent pas les en-têtes : l'envoi s'ouvrirait, consommerait le quota du jour, et rien ne
+serait publié. Dérush fournit une commande qui fait tout l'envoi, avec la clé Treg que l'humain a rangée dans Dérush :
+
+```bash
+derush-youtube a-publier/VIDEO.mp4 --titre "Le titre (100 caractères au plus)" \
+  --description-fichier rendu/youtube-description.txt --tags "mot1,mot2" --visibilite unlisted
+```
+
+1. Écris d'abord la description dans un fichier texte (`rendu/youtube-description.txt`) : le texte, puis 2 ou 3
+   #hashtags sur la dernière ligne, dont `#Shorts` si la vidéo est verticale et fait 3 minutes au plus.
+2. `--visibilite` : `unlisted` (non répertoriée, le choix par défaut), `public` ou `private`, selon ce que l'humain a dit.
+   Ajoute `--ia` si la vidéo montre une personne, une voix ou une scène réaliste générée par IA, et `--pour-enfants`
+   seulement si l'humain dit que la vidéo est faite pour les enfants.
+3. La commande répond par une ligne JSON :
+   - `{"ok": true, "id": "…", "lien": "https://youtu.be/…", "lien_short": "https://youtube.com/shorts/…", "visibilite": "unlisted"}` :
+     c'est publié. Donne `lien_short` pour une vidéo verticale de 3 minutes au plus, `lien` sinon. **Lis `visibilite` :
+     c'est la visibilité réelle**, que la commande a redemandée à YouTube. S'il y a un champ `note`, redis-le à
+     l'humain tel quel (par exemple : YouTube a gardé la vidéo en privé, ce qu'il fait pour une application qu'il n'a
+     pas encore auditée). Avec `"deja": true`, ce fichier était déjà sur YouTube : rien n'a été renvoyé, donne le lien.
+   - `{"ok": false, "raison": "…", "message": "…"}` : ce n'est pas publié. Redis le `message` à l'humain, tel quel, et
+     note l'échec dans `publications.json`.
+4. Les raisons, et quoi faire :
+   - `cle_manquante` : l'humain n'a pas rangé sa clé Treg dans Dérush (le connecteur Treg de son compte Claude ne
+     suffit pas pour YouTube). Ne tente rien d'autre : donne-lui ses textes prêts à coller, et dis-lui d'ouvrir
+     **Connexions › Treg › « Relier mes réseaux »** pour coller sa clé.
+   - `cle_refusee`, `youtube_non_relie`, `quota` : c'est à l'humain d'agir (sa clé, sa chaîne à relier dans Treg, ou
+     attendre demain). Ne réessaie pas.
+   - `non_demande` : l'humain n'a pas nommé YouTube dans ce message. `visibilite` : il a choisi une autre visibilité
+     que celle que tu demandes ; reprends avec la sienne.
+   - `envoi`, `treg` : lis le message. Ne relance la commande qu'une fois, et seulement s'il parle d'une coupure.
+5. **Une seule fois par vidéo.** La commande refuse d'elle-même de renvoyer un fichier déjà envoyé. N'ajoute `--encore`
+   que si l'humain demande en toutes lettres de la remettre en ligne une seconde fois. Chaque envoi compte dans le
+   quota du jour (environ six pour tous les comptes reliés à Treg) : n'en gâche pas.
 
 ## Instagram (Reels) — il faut une adresse publique
 
