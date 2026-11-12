@@ -8,7 +8,9 @@ Dérush est un logiciel de montage vidéo qui travaille avec ton IA : **Claude**
 
 > **Bêta test — version 10.3.** Dérush vient de sortir : tout n'est pas encore parfait. Dis-nous ce qui coince dans l'onglet [Issues](../../issues), c'est le but de la bêta. Il a été essayé sur Mac ; Windows et Linux sont prévus, mais pas encore essayés pour de vrai.
 
-<!-- trailer -->
+<p align="center"><a href=".github/medias/trailer-derush.mp4"><img src=".github/medias/trailer-derush-apercu.gif" alt="Le trailer de Dérush en aperçu : tu donnes la matière, ton IA fait le montage, tu vois tout se poser dans la timeline" width="100%"></a></p>
+
+<p align="center"><sub><a href=".github/medias/trailer-derush.mp4"><b>Voir le trailer en entier</b></a> (avec le son). Il a été monté dans Dérush, par une IA, à partir d'un brief et de captures du logiciel.</sub></p>
 
 ---
 

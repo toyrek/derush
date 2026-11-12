@@ -6,5 +6,6 @@
 *.woff2 binary
 *.wav binary
 *.gif binary
+*.mp4 binary
 bin/derush-vision binary
 outils/lanceur-mac binary
