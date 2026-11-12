@@ -157,7 +157,11 @@ function fabriquer(dossier, tmp, {surPlace = false} = {}) {
   // l'icône
   icone(resources, tmp);
   const node = process.execPath;
-  const chemins = `export PATH="${path.dirname(node)}:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  // le dossier du Node qui fabrique l'app passe en premier ; écrit avec $HOME quand il est dans le dossier personnel :
+  // l'app partagée ne porte pas le nom de la personne qui l'a fabriquée, et le chemin reste bon chez une autre
+  const dossierNode = path.dirname(node);
+  const cheminNode = dossierNode.startsWith(os.homedir() + path.sep) ? `$HOME${dossierNode.slice(os.homedir().length)}` : dossierNode;
+  const chemins = `export PATH="${cheminNode}:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 APP="${surPlace ? path.resolve(RACINE).replace(/"/g, '\\"') : '\${0:A:h}/app'}"
 NODE="$(command -v node)"
 if [[ -z "$NODE" ]]; then
