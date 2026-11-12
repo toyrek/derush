@@ -4375,7 +4375,7 @@ function rendreClaude() {
   // en bas : le montage a changé depuis ? (sinon, rien à choisir) puis la zone d'écriture
   const changement = peutSuivre && !c.en_cours && c.montage_change ? `<div class="ia-change">${ic('attention')}<span>Tu as modifié ton montage.</span><div class="segmente"><button data-depart="nouveau"${depart === 'nouveau' ? ' class="actif"' : ''} title="L’IA repart de ton montage tel qu’il est maintenant, en gardant tes demandes">Repartir de lui</button><button data-depart="suite"${depart === 'suite' ? ' class="actif"' : ''} title="L’IA continue son propre travail">Continuer</button></div></div>` : '';
   const qui = nomIA(m);
-  const texteVide = !pret ? 'Branche d’abord ton IA (Connexions)…' : c.en_cours ? `${qui} travaille. Tu peux préparer ton prochain message…`
+  const texteVide = !pret ? 'Branche d’abord ton IA (Connexions)…' : c.en_cours ? `${nomIA(c.en_cours.moteur ?? m)} travaille. Tu peux préparer ton prochain message…`
     : attente.length ? `Dis à ${qui} quoi en faire, ou envoie tel quel…`
       : suite ? 'Une retouche, une question, une autre vidéo, « publie-la »…'
         : modeP === 'motion' ? 'Exemple : une animation de 20 secondes qui présente notre atelier du samedi, avec nos couleurs…' : 'Exemple : fais 3 clips de 20 secondes pour TikTok, dans le style de ma référence…';
