@@ -3947,6 +3947,11 @@ const COMPTES_IA = {claude: {compte: 'Avec ton compte Claude (Pro ou Max).', rel
 const nomIA = (m = moteurIA()) => NOMS_IA[m] ?? 'Claude';
 const iaPrete = (m = moteurIA()) => !!ui.claude?.[m]?.ok;
 const qualiteIA = () => ui.claude?.ia?.qualite ?? 'max';
+/** Le modèle de Claude choisi à la main (null : « Auto », selon le niveau). */
+const modeleIA = () => (ui.claude?.modeles?.[ui.claude?.ia?.modele] ? ui.claude.ia.modele : null);
+/** La rangée « Modèle de Claude » : Auto suit le niveau (Opus 5.5, ou Sonnet 5.5 en Rapide) ; sinon le modèle choisi. */
+const rangeeModele = (modeles, choisi, cx = false) => `<div class="cx-qualite cx-modele"><span>Modèle</span><div class="segmente">${[['', {nom: 'Auto', aide: 'Opus 5.5, ou Sonnet 5.5 au niveau Rapide'}], ...Object.entries(modeles ?? {})]
+  .map(([k, x]) => `<button ${cx ? 'data-cx="ia/choisir" ' : ''}data-modele="${k}"${(choisi ?? '') === k ? ' class="actif"' : ''} title="${esc(x.aide ?? '')}">${esc(x.nom)}</button>`).join('')}</div><small>${esc(choisi && modeles?.[choisi] ? `${modeles[choisi].nom} monte, au niveau de soin choisi.` : 'Auto : Opus 5.5, ou Sonnet 5.5 au niveau Rapide.')}</small></div>`;
 const RESEAUX_UI = {tiktok: 'TikTok', youtube: 'YouTube Shorts', instagram: 'Instagram Reels', linkedin: 'LinkedIn'};
 const ETATS_PUB = {publie: 'Publiée', brouillon: 'Brouillon dans ta boîte', en_cours: 'En cours', echec: 'Pas publiée'};
 /** Le format d'une vidéo, dit simplement (9:16, 16:9…). */
@@ -4334,7 +4339,7 @@ function rendreClaude() {
   const depart = !peutSuivre ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
   const attente = piecesEnAttente();
   const envoyees = piecesEnvoyees();
-  const cle = JSON.stringify([modeProjet(), ui.reglagesIA.map((r) => r.texte), m, pret, qualiteIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs]);
+  const cle = JSON.stringify([modeProjet(), ui.reglagesIA.map((r) => r.texte), m, pret, qualiteIA(), modeleIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs]);
   if (box.dataset.cle === cle) return majTravail(c);
   const ancien = $('#cl-texte', box);
   const focus = !!ancien && document.activeElement === ancien;
@@ -4350,7 +4355,7 @@ function rendreClaude() {
 
   // en haut : l'IA choisie (un clic pour changer), ce qu'elle a reçu, et le menu
   const tete = `<div class="ia-tete">
-    <button class="ia-choix" data-cl="choisir-ia" title="Choisir l’IA et la qualité">${logo(m, 26)}<span><b>${nomIA(m)}</b><small>${pret ? esc(c.qualites?.[qualiteIA()]?.nom ?? '') : 'à brancher'}</small></span>${ic('img-plus', 'chevron')}</button>
+    <button class="ia-choix" data-cl="choisir-ia" title="Choisir l’IA et la qualité">${logo(m, 26)}<span><b>${nomIA(m)}</b><small>${pret ? esc([m === 'claude' && modeleIA() ? c.modeles[modeleIA()].nom : null, c.qualites?.[qualiteIA()]?.nom ?? ''].filter(Boolean).join(' · ')) : 'à brancher'}</small></span>${ic('img-plus', 'chevron')}</button>
     <span class="espace"></span>
     ${envoyees.length ? `<button class="ia-recus${ui.clRecus ? ' actif' : ''}" data-cl="recus" title="Les fichiers que l’IA a reçus">${ic('trombone')}<span>${envoyees.length}</span></button>` : ''}
     <button class="icone-btn${ui.clMenu ? ' actif' : ''}" data-cl="menu" title="Plus : connexions, brief, créer sans IA…">${ic('points')}</button>
@@ -4612,7 +4617,8 @@ async function feuilleConnexions() {
     const reseaux = `<div class="cx-reseaux">${['tiktok', 'youtube', 'instagram', 'linkedin'].map((k) => logo(k, 22)).join('')}</div>`;
     f.innerHTML = `<div class="cx-tete"><div><h3>Connexions</h3><p class="sous-titre">Tout ce dont Dérush a besoin, branché ici en un clic. Rien n’est partagé sans toi.</p></div><span class="marque-iabai"><span>Dérush</span><small>par</small><img src="/marque/iabai.png" alt="IABAI"></span></div>
     <section class="cx-section"><h4>${ic('etincelle', 'plein')}Ton IA, celle qui monte</h4><div class="cx-grille trois">${carteIA(d, 'claude')}${carteIA(d, 'codex')}${carteIA(d, 'gemini')}</div>
-      <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(d.qualites ?? {}).map(([k, q]) => `<button data-cx="ia/choisir" data-qualite="${k}"${k === d.qualite ? ' class="actif"' : ''} title="${esc(q.aide)}">${esc(q.nom)}</button>`).join('')}</div><small>${esc(d.qualites?.[d.qualite]?.aide ?? '')}</small></div></section>
+      <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(d.qualites ?? {}).map(([k, q]) => `<button data-cx="ia/choisir" data-qualite="${k}"${k === d.qualite ? ' class="actif"' : ''} title="${esc(q.aide)}">${esc(q.nom)}</button>`).join('')}</div><small>${esc(d.qualites?.[d.qualite]?.aide ?? '')}</small></div>
+      ${d.choisi === 'claude' && d.claude?.ok ? rangeeModele(d.modeles, d.modele, true) : ''}</section>
     <section class="cx-section"><h4>${ic('onde')}Créer le son, les images, les plans</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(el.ok, el.attente), lg: logo('elevenlabs', 42), titre: 'ElevenLabs', sous: esc(el.ok ? 'Branché : musiques, voix, bruitages, images et plans vidéo.' : el.attente ? 'Autorise Dérush dans la page ElevenLabs ouverte dans ton navigateur.' : 'Musiques, voix off, bruitages, doublage, images et plans vidéo (crédits ElevenLabs).'), actions: el.ok ? `<span class="etiq ok">${ic('coche')}Branché</span>` : el.attente ? `<span class="etiq">${anneau(0.5)}En attente…</span>` : '<button class="btn bleu petit" data-cx="elevenlabs/brancher">Brancher</button>'})}</div></section>
     ${sectionSons(d)}
@@ -4658,7 +4664,7 @@ async function feuilleConnexions() {
     if (!b) return;
     const action = b.dataset.cx;
     const corps = {};
-    if (action === 'ia/choisir') { if (b.dataset.moteur) corps.moteur = b.dataset.moteur; if (b.dataset.qualite) corps.qualite = b.dataset.qualite; }
+    if (action === 'ia/choisir') { if (b.dataset.moteur) corps.moteur = b.dataset.moteur; if (b.dataset.qualite) corps.qualite = b.dataset.qualite; if (b.dataset.modele !== undefined) corps.modele = b.dataset.modele || null; }
     b.disabled = true;
     try {
       await api('POST', `/api/connexions/${action}`, corps);
@@ -4683,18 +4689,21 @@ function feuilleChoixIA() {
   const f = feuille(`<h3>Qui monte ta vidéo ?</h3><p class="sous-titre">Choisis ton IA et le niveau de soin. Tu peux changer à tout moment : la conversation continue avec la nouvelle.</p>
     <div class="ia-cartes trois">${carte('claude')}${carte('codex')}${carte('gemini')}</div>
     <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(c.qualites ?? {}).map(([k, q]) => `<button data-qualite="${k}"${k === qualiteIA() ? ' class="actif"' : ''}>${esc(q.nom)}</button>`).join('')}</div><small id="aide-qualite">${esc(c.qualites?.[qualiteIA()]?.aide ?? '')}</small></div>
+    ${moteurIA() === 'claude' && c.claude?.ok ? rangeeModele(c.modeles, modeleIA()) : ''}
     <div class="pied"><button class="btn" data-connexions>${ic('prise')}Connexions</button><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`);
   f.addEventListener('click', async (e) => {
     if (e.target.closest('[data-fermer]')) return fermerFeuille();
     if (e.target.closest('[data-connexions]')) return feuilleConnexions();
     const m = e.target.closest('[data-moteur]')?.dataset.moteur;
     const q = e.target.closest('[data-qualite]')?.dataset.qualite;
+    const mo = e.target.closest('[data-modele]')?.dataset.modele;
     if (m && !c[m]?.ok) return feuilleConnexions();
-    if (!m && !q) return;
+    if (!m && !q && mo === undefined) return;
     try {
-      await api('POST', '/api/connexions/ia/choisir', m ? {moteur: m} : {qualite: q});
+      await api('POST', '/api/connexions/ia/choisir', m ? {moteur: m} : q ? {qualite: q} : {modele: mo || null});
       await chargerClaude();
       if (m) note(`${nomIA(m)} monte tes prochaines vidéos.`);
+      if (mo !== undefined && !m && !q) note(mo ? `${c.modeles?.[mo]?.nom ?? 'Ce modèle'} monte tes prochaines vidéos.` : 'Claude choisit son modèle selon le niveau.');
       feuilleChoixIA();
     } catch (err) { note(err.message, true); }
   });

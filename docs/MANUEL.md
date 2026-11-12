@@ -63,14 +63,14 @@ Le mode se change ensuite dans *Brief et format* (menu « … » de la conversat
 
 La colonne de droite est une vraie conversation. Clique « Demander à Claude », ou clique dans le vide.
 
-1. **Écris ce que tu veux**, comme à un monteur. Des idées toutes faites sont proposées : un clic les recopie, tu les adaptes.
+1. **Écris ce que tu veux**, comme à un monteur. Des idées toutes faites sont proposées : un clic les recopie, tu les adaptes. Un long brief se colle tel quel (jusqu'à 24 000 caractères) ; plus long, mets-le dans un fichier et joins-le.
 2. **Joins ce qui l'aide** : le trombone (fenêtre « Ouvrir » du Mac), le nuage (directement dans ton Google Drive), ou glisse les fichiers sur la colonne de Claude, ou colle-les (`⌘V`, une capture d'écran par exemple).
    - Tout se joint : vidéos de référence, rushes en plus, charte graphique (PDF, images, zip), logo, polices, musiques, scripts, modèles 3D, fichiers Photoshop ou Illustrator…
    - Chaque pièce jointe a un **rôle** (Référence, Charte graphique, Logo, Police, Musique ou son, Rush à monter, Texte ou script) : Dérush le devine, tu peux le changer d'un clic.
    - Les fichiers restent à leur place sur ton Mac, même très lourds. Dérush prépare pour Claude un aperçu, une planche d'images pour une vidéo, le texte de ce qui est dit, et ouvre les zip.
-3. Choisis le **modèle** et la **réflexion**, en bas de la zone d'écriture. Dérush retient ton choix.
-   - **Opus 5.5** : le plus soigné. **Fable 5.2** : le plus récent. **Sonnet 5.5** : le plus rapide, bien pour une retouche ou une question.
-   - Réflexion **max**, **élevée** ou **rapide** : plus Claude réfléchit, plus c'est soigné, et plus c'est long.
+3. Choisis **qui monte** et le **niveau de soin** : clique le nom de ton IA, en haut de la colonne (« Qui monte ta vidéo ? »). Dérush retient ton choix.
+   - **Rapide**, **Soigné** ou **Maximum** : plus l'IA réfléchit, plus c'est soigné, et plus c'est long.
+   - Avec Claude, tu peux aussi choisir le **modèle** : *Auto* (Opus 5.5, ou Sonnet 5.5 au niveau Rapide), **Opus 5.5** (le plus soigné), **Fable 5.2** (le plus récent) ou **Sonnet 5.5** (le plus rapide).
 4. Envoie (`⌘↵`). Tu suis Claude geste par geste dans la conversation. Dès qu'il rend, **le lecteur passe « En direct »** : ses images arrivent au fur et à mesure, et se posent aussi sur la piste de Claude, sous ton montage. Tu peux **continuer à travailler** ou l'**arrêter** (le bouton rouge).
 5. **Ses vidéos arrivent dans le lecteur**, avec son message et leurs contrôles (format, durée, niveau du son, couleurs). Elles sont rangées dans le dossier `vidéos` du projet. Une vidéo de Claude peut aussi aller **dans tes médias** (l'icône de flèche sur sa carte), pour la retoucher dans Dérush, ou **sur ton Google Drive** (l'icône de nuage) : elle est copiée dans Mon Drive › Dérush › le titre du projet.
 6. **Continue la conversation** : « plus court », « un autre titre », « fais-en aussi une version carrée », ou une simple question. Claude se souvient de tout, et chaque version reste disponible.
