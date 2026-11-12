@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/publication.css">
 <link rel="stylesheet" href="/tuto.css">
+<link rel="stylesheet" href="/createur.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -74,6 +75,8 @@
   <symbol id="i-dialogue" viewBox="0 0 24 24"><path d="M4 4.5h10.5A1.500 1.500 0 0 1 16 6v6a1.500 1.500 0 0 1-1.500 1.500H9l-3.500 2.800v-2.800H4A1.500 1.500 0 0 1 2.500 12V6A1.500 1.500 0 0 1 4 4.500z"/><path d="M18.500 8.500H20A1.500 1.500 0 0 1 21.500 10v6a1.500 1.500 0 0 1-1.500 1.500h-1v2.800l-3.500-2.800H11"/></symbol>
   <symbol id="i-nuage" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z"/></symbol>
   <symbol id="i-filtre" viewBox="0 0 24 24"><path d="M4 5h16l-6.200 7.600V19l-3.600 1.600v-8z"/></symbol>
+  <symbol id="i-cadenas" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.500V8a4 4 0 0 1 8 0v2.500"/></symbol>
+  <symbol id="i-profil" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.800"/><path d="M4.500 20c.800-3.800 3.700-5.800 7.500-5.800s6.700 2 7.500 5.800"/></symbol>
   <symbol id="i-codex" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="3.5"/><path d="M7.5 10l3 2.5-3 2.5M12.5 15.5h4"/></symbol>
   <symbol id="i-mallette" viewBox="0 0 24 24"><rect x="3.5" y="7.5" width="17" height="12" rx="2.5"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17"/></symbol>
   <symbol id="i-oreille" viewBox="0 0 24 24"><path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 3.6-3.2 4.3-3.2 7.4a3 3 0 0 1-5.7 1.3"/><path d="M9.8 10a2.2 2.2 0 0 1 4.4 0c0 1.3-1.1 1.7-1.7 2.6"/></symbol>
@@ -107,6 +110,29 @@
     <g class="ill-etoile"><path d="M80 6c1.800 15 8 21.200 23 23-15 1.800-21.200 8-23 23-1.800-15-8-21.200-23-23 15-1.800 21.200-8 23-23z" fill="#ffb340"/></g>
     <path d="M124 14c.700 5.500 3 7.800 8.500 8.500-5.500.700-7.800 3-8.500 8.500-.700-5.500-3-7.800-8.500-8.500 5.500-.700 7.800-3 8.500-8.500z" fill="#fff" class="ill-scintille"/>
     <path d="M36 20c.5 4 2.200 5.700 6.200 6.200-4 .5-5.700 2.200-6.200 6.200-.5-4-2.200-5.700-6.200-6.200 4-.5 5.700-2.200 6.200-6.200z" fill="#ff6961" class="ill-scintille d2"/>
+  </symbol>
+  <symbol id="ill-motion" viewBox="0 0 160 120">
+    <rect x="22" y="16" width="116" height="88" rx="12" fill="#23232a" stroke="#4a4a55" stroke-width="2"/>
+    <g class="ill-flotte"><circle cx="52" cy="46" r="13" fill="#ff453a"/></g>
+    <g class="ill-tourne"><rect x="94" y="32" width="22" height="22" rx="5" fill="#ffb340"/></g>
+    <rect x="40" y="70" width="52" height="7" rx="3.5" fill="#fff" class="ill-pousse"/>
+    <rect x="40" y="83" width="30" height="5" rx="2.5" fill="#8a8a94"/>
+    <g fill="#64d2ff"><rect x="102" y="78" width="6" height="12" rx="2"/><rect x="111" y="70" width="6" height="20" rx="2" class="ill-scintille"/><rect x="120" y="62" width="6" height="28" rx="2" class="ill-scintille d2"/></g>
+    <path d="M132 8c.7 5.500 3 7.800 8.500 8.500-5.500.7-7.800 3-8.500 8.500-.7-5.500-3-7.800-8.500-8.500 5.500-.7 7.800-3 8.500-8.500z" fill="#fff" class="ill-scintille"/>
+  </symbol>
+  <symbol id="ill-extraits" viewBox="0 0 160 120">
+    <rect x="14" y="18" width="132" height="30" rx="7" fill="#23232a" stroke="#4a4a55" stroke-width="2"/>
+    <rect x="30" y="24" width="24" height="18" rx="3" fill="#ff453a"/><rect x="72" y="24" width="20" height="18" rx="3" fill="#ffb340"/><rect x="112" y="24" width="22" height="18" rx="3" fill="#64d2ff"/>
+    <g fill="none" stroke="#6a6a75" stroke-width="2" stroke-dasharray="3 3"><path d="M42 50v10M82 50v10M123 50v10"/></g>
+    <g class="ill-flotte"><rect x="28" y="62" width="28" height="46" rx="6" fill="#ff453a"/></g>
+    <g class="ill-flotte" style="animation-delay:.5s"><rect x="68" y="62" width="28" height="46" rx="6" fill="#ffb340"/></g>
+    <g class="ill-flotte" style="animation-delay:1s"><rect x="109" y="62" width="28" height="46" rx="6" fill="#64d2ff"/></g>
+  </symbol>
+  <symbol id="ill-son" viewBox="0 0 160 120">
+    <rect x="52" y="14" width="56" height="74" rx="10" fill="#23232a" stroke="#4a4a55" stroke-width="2"/>
+    <g class="ill-flotte"><circle cx="80" cy="44" r="13" fill="#ffb340"/></g>
+    <rect x="64" y="68" width="32" height="6" rx="3" fill="#fff" class="ill-pousse"/>
+    <g fill="#ff453a"><rect x="20" y="98" width="6" height="10" rx="3"/><rect x="32" y="92" width="6" height="16" rx="3" class="ill-scintille"/><rect x="44" y="96" width="6" height="12" rx="3"/><rect x="56" y="88" width="6" height="20" rx="3" class="ill-scintille d2"/><rect x="68" y="94" width="6" height="14" rx="3"/><rect x="80" y="86" width="6" height="22" rx="3" class="ill-scintille"/><rect x="92" y="94" width="6" height="14" rx="3"/><rect x="104" y="90" width="6" height="18" rx="3" class="ill-scintille d2"/><rect x="116" y="96" width="6" height="12" rx="3"/><rect x="128" y="92" width="6" height="16" rx="3" class="ill-scintille"/></g>
   </symbol>
   <symbol id="ill-bobine" viewBox="0 0 120 120">
     <g class="ill-tourne"><circle cx="60" cy="60" r="46" fill="#23232a" stroke="#ffb340" stroke-width="4"/><circle cx="60" cy="60" r="7" fill="#ffb340"/>
@@ -260,6 +286,7 @@
         <div id="piste-dessus" class="piste piste-dessus"></div>
         <div id="piste-montage" class="piste piste-montage"></div>
         <div id="piste-claude" class="piste piste-claude cache"></div>
+        <div id="piste-blocs" class="piste piste-blocs cache"></div>
         <div id="tete" class="tete"></div>
         <div id="fin-montage" class="fin-montage cache"></div>
         <div id="insertion" class="insertion cache"></div>

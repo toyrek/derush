@@ -201,7 +201,7 @@ if (commande !== 'ouvrir') {
     const nouveau = drapeau('--nouveau');
     const etats = await etatIA();
     const choix = option('--ia');
-    const moteur = ['claude', 'codex'].includes(choix) ? choix : etats.choisi;
+    const moteur = ['claude', 'codex', 'gemini'].includes(choix) ? choix : etats.choisi;
     const c = etats[moteur];
     if (!c?.ok) { console.error(c?.pourquoi ?? 'Aucune IA prête.'); process.exit(1); }
     console.log(`${c.nom}${modele ? ` · ${MODELES[modele]?.nom ?? modele}` : ''} · ${qualite ?? 'qualité par défaut'}`);
@@ -297,14 +297,16 @@ const {url} = await demarrerServeur(ctx, {port, modeApp});
 console.log(`Dérush ${VERSION} — ${ctx.P ? `projet « ${ctx.P.d.titre} »` : 'bibliothèque'} sur ${url}  (Ctrl+C pour quitter)`);
 if (modeCoque) console.log(`DERUSH_URL=${url}`);
 else if (!sansNavigateur) ouvrirFenetre(url);
-if (modeCoque) {
-  // La fenêtre native décide de l'arrêt : elle envoie le signal quand on quitte. Tout ce que Dérush a lancé
-  // (FFmpeg, l'IA et ses rendus) s'arrête avec lui.
+// Quand Dérush s'arrête (la fenêtre native qui quitte, Ctrl+C, le terminal fermé), tout ce qu'il a lancé s'arrête avec
+// lui : FFmpeg, l'IA et ses rendus. Sans cela, une IA lancée continuerait seule, sans personne pour la suivre.
+{
   const arreter = () => {
     try { arreterToutesLesDemandes(); arreterConseils(); arreterEnfants(); } catch { /* rien à arrêter */ }
     process.exit(0);
   };
   for (const s of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(s, arreter);
+}
+if (modeCoque) {
   // Elle tient aussi notre entrée ouverte : si elle disparaît sans prévenir (plantage), on finit le travail en cours,
   // puis on s'arrête, pour ne jamais rester en arrière-plan sans fenêtre.
   let orphelin = false;

@@ -2,11 +2,19 @@
 
 # Dérush par IABAI
 
-**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 8.1
+**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 9.0
 
-Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude** ou **Codex**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
+Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude**, **Codex** ou **Gemini**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
 
 Dérush tourne sur **macOS, Windows et Linux**. Tes vidéos restent sur ton ordinateur.
+
+**Nouveau dans la version 9.**
+- **Quatre façons de créer** : *Montage* (tu déposes tes vidéos), *Motion design* (rien à déposer : tu décris, ton IA cherche, écrit et anime tout), *Extraits courts* (une longue vidéo devient plusieurs clips), *Sur un son* (une musique ou une voix devient une vidéo).
+- **La table de montage se remplit en direct.** Tout ce que ton IA pose sur la vidéo (plans, titres, effets, sons) apparaît en blocs dans la timeline. Tu cliques un bloc, tu dis ce qui doit changer, et seul ce bloc est retouché.
+- **Ton profil de créateur.** Avec Treg, ton IA lit tes vidéos déjà publiées et leurs chiffres (en lecture seule), repère ce qui a vraiment marché, ton style, ta direction artistique, ce que dit ton public. Elle relit ce profil avant chaque montage, chaque titre, chaque conseil.
+- **Une mise en route** qui explique à quoi sert Treg et ce qui te protège ; **les sons tendance** proposés dans le plan de partage (à ajouter dans l'app, jamais dans le fichier).
+- **Gemini** s'ajoute à Claude et Codex (avec la commande `agy` d'Antigravity et ton compte Google : Gemini 4 Carbon, Argon, Flash).
+- 24 compétences de plus (Instagram et YouTube, de Jake Schincariol), et les vrais logos partout.
 
 **Nouveau dans la version 8.** Sur Mac, Dérush est une vraie application : son icône dans le Dock, ses menus, sa fenêtre (plus de Chrome). Une vidéo déposée s'affiche en moins d'une seconde et se monte tout de suite ; la timeline reste fluide à tous les zooms. À la première ouverture, un tutoriel animé montre les gestes. Et avant de publier : une **analyse de viralité** (ce qui retient les gens, ce qui les fait partir, quoi changer) puis un **plan de partage** (légendes, hashtags, bon moment) pour chaque réseau.
 
@@ -68,16 +76,17 @@ Ouvre Dérush, puis **Connexions** (la prise, en haut à droite). Chaque carte s
 | | Connexion | À quoi ça sert | Comment |
 |---|---|---|---|
 | <img src="public/logos/claude.svg" width="22"> | **Claude** | L'IA qui monte | *Installer*, puis *Me connecter* : ton compte Claude (Pro ou Max) |
-| 🖥 | **Codex** | L'IA qui monte | *Installer*, puis *Me connecter* : ton compte ChatGPT (Plus, Pro ou Business) |
+| <img src="public/logos/openai.svg" width="22"> | **Codex** | L'IA qui monte | *Installer*, puis *Me connecter* : ton compte ChatGPT (Plus, Pro ou Business) |
+| <img src="public/logos/googlegemini.svg" width="22"> | **Gemini** | L'IA qui monte | *Installer* (la commande `agy` d'Antigravity), puis *Me connecter* : une fenêtre de terminal s'ouvre, tu te connectes avec ton compte Google |
 | <img src="public/logos/elevenlabs.svg" width="22"> | **ElevenLabs** | Musiques, voix off, bruitages, doublage, images, plans vidéo | *Brancher* : tu autorises Dérush dans ton navigateur |
 | <img src="public/logos/openverse.svg" width="22"> | **Bibliothèque de sons** | De vrais bruitages libres de droits (Openverse), rangés dans `Musique › Sons` avec leurs crédits | Un interrupteur |
 | 🔊 | **Real SFX** | Poser ces sons à l'image près, sous ta voix et ta musique | *Ajouter* (9 Mo) |
 | 👂 | **Earshot** | L'oreille de l'IA : écouter, choisir, fabriquer un son (facultatif) | *Ajouter* (2,5 Go) |
 | <img src="public/logos/googledrive.svg" width="22"> | **Google Drive** | Donner tes fichiers du Drive à l'IA, y envoyer tes vidéos | Un interrupteur (il faut Google Drive pour ordinateur) |
-| 🔗 | **Treg** | Publier sur les réseaux | *Relier mes réseaux* : trois gestes, Dérush te guide et te montre quels réseaux sont reliés |
+| <img src="public/logos/treg.svg" width="22" style="background:#000"> | **Treg** (conseillé) | Publier sur les réseaux, lire tes chiffres et tes commentaires, dresser ton profil de créateur | *Relier mes réseaux* : trois gestes, Dérush te guide et te montre quels réseaux sont reliés |
 | <img src="public/logos/blender.svg" width="22"> | **Blender** | La 3D réaliste (facultatif) | *Installer* |
 
-Une seule IA suffit, mais tu peux brancher les deux et passer de l'une à l'autre à tout moment (le nom de l'IA, en haut de la conversation). Trois niveaux de qualité : **Rapide**, **Soigné**, **Maximum**.
+Une seule IA suffit, mais tu peux en brancher plusieurs et passer de l'une à l'autre à tout moment (le nom de l'IA, en haut de la conversation). Trois niveaux de qualité : **Rapide**, **Soigné**, **Maximum**.
 
 Tes comptes restent les tiens : Dérush ne voit jamais tes mots de passe. Les clés (ElevenLabs, Treg) sont rangées dans le dossier de Dérush sur ton ordinateur, jamais dans tes projets ni sur GitHub. L'IA ne reçoit que les connexions que tu lui donnes ici.
 
@@ -99,6 +108,12 @@ Deux réglages au-dessus de la timeline :
 Le manuel complet (tous les gestes, les effets, le studio ElevenLabs, les vrais sons) est dans [docs/MANUEL.md](docs/MANUEL.md).
 
 ---
+
+**Les modes.** À la création d'un projet, choisis *Montage*, *Motion design*, *Extraits courts* ou *Sur un son*. Tu peux en changer ensuite (menu « … » › *Brief et format*).
+
+**Régler ce que l'IA a posé.** Sous sa vidéo, la timeline montre ses blocs : plans (gris), titres et textes (jaune), effets (violet), sons (vert). Clique un bloc : « Plus tôt », « Plus tard », « Plus gros », « Moins fort », « Retirer », ou tes propres mots. Les réglages partent avec ton prochain message.
+
+**Ton profil de créateur.** Bouton *Mon profil* sur l'écran des projets (ou menu « … »). Il faut Treg relié, et Claude ou Codex. L'analyse prend 5 à 10 minutes, en lecture seule ; tu peux couper « Donner mon profil à mon IA », refaire l'analyse ou tout effacer.
 
 ## 4. Analyser, puis partager
 
@@ -133,13 +148,14 @@ Tes projets, tes moteurs et tes clés ne sont pas touchés (ils sont rangés ail
 
 ## Les compétences
 
-Dérush livre **80 compétences** que l'IA lit avant de travailler, et en télécharge 15 de plus (Remotion, Real SFX, le guide d'Earshot) à l'installation ou depuis Connexions :
+Dérush livre **105 compétences** que l'IA lit avant de travailler, et en télécharge 15 de plus (Remotion, Real SFX, le guide d'Earshot) à l'installation ou depuis Connexions :
 
 - **Montage** : FFmpeg (42 outils), étalonnage, mixage du son, sous-titres et traduction, contrôle qualité, motion design, miniatures, images, 3D avec Blender, passage vers Premiere Pro ou DaVinci Resolve ;
 - **Son et voix** : les sept compétences ElevenLabs (voix off, bruitages, musique, doublage, transcription…) ;
 - **Vrais sons** : `sons-openverse` (chercher des sons libres et noter leurs crédits), Real SFX (les poser à l'image près), Earshot (écouter et fabriquer un son) ;
 - **Réseaux** : accroches, scripts TikTok / Reels / Shorts, légendes, hashtags, tendances, carrousels, stratégie, croissance ;
-- **Publication** : `derush-viralite` (analyser une vidéo avant de la publier, avec des repères datés et sourcés) et `derush-publier` (TikTok, YouTube, Instagram, LinkedIn avec Treg).
+- **Instagram et YouTube, de bout en bout** : 24 compétences de Jake Schincariol (`ig-…`, `yt-…`) — accroches notées sur des formules éprouvées, minutage d'un script, légende vérifiée, titre et miniature jugés ensemble, audit d'un compte par écart à sa médiane ;
+- **Publication et créateur** : `derush-viralite` (analyser une vidéo avant de la publier, avec des repères datés et sourcés), `derush-publier` (TikTok, YouTube, Instagram, LinkedIn avec Treg) et `derush-createur` (dresser ton profil de créateur à partir de tes comptes, en lecture seule).
 
 Elles sont dans [competences/](competences/), avec leurs sources et leurs licences ([competences/LICENCES.md](competences/LICENCES.md)).
 

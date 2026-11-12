@@ -112,6 +112,31 @@
 .tl-regle i { width: 1px; height: 8px; background: rgba(255, 255, 255, .25); align-self: flex-end; }
 .tl-regle i:nth-child(odd) { height: 14px; }
 .tl-piste { position: absolute; left: 20px; right: 20px; top: 76px; height: 78px; border-radius: 10px; background: rgba(255, 255, 255, .03); }
+/* scène « Choisis ta façon de créer » : les quatre modes arrivent, puis l'un d'eux est choisi */
+.ts-modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; align-content: center; padding: 0 24px; }
+.ts-mode { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 16px 6px 14px; border-radius: 16px; background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09); animation: ts-mode var(--d) infinite both; }
+.ts-mode svg { width: 88px; height: 66px; overflow: visible; }
+.ts-mode b { font: normal 400 14px var(--affiche); letter-spacing: .03em; text-transform: uppercase; color: #fff; text-align: center; }
+.ts-mode.m2 { animation-name: ts-mode-choisi; animation-delay: .12s; } .ts-mode.m3 { animation-delay: .24s; } .ts-mode.m4 { animation-delay: .36s; }
+@keyframes ts-mode { 0%, 3% { opacity: 0; transform: translateY(18px); } 9%, 92% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; } }
+@keyframes ts-mode-choisi { 0%, 3% { opacity: 0; transform: translateY(18px); } 9%, 42% { opacity: 1; transform: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09); } 50%, 92% { opacity: 1; transform: translateY(-7px) scale(1.06); box-shadow: inset 0 0 0 2px #ff9f43, 0 14px 30px rgba(0, 0, 0, .45); } 98%, 100% { opacity: 0; } }
+/* scène « Règle chaque détail » : les blocs de l'IA se posent, on en clique un, il se décale */
+.ts-blocs { display: flex; flex-direction: column; justify-content: center; gap: 16px; padding: 0 30px; }
+.ts-b-pistes { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: rgba(0, 0, 0, .28); box-shadow: inset 0 0 0 1px rgba(255, 170, 80, .16); }
+.ts-b-piste { position: relative; height: 26px; }
+.ts-b-piste .b { position: absolute; top: 0; left: calc(var(--x) * 1%); width: calc(var(--w) * 1% - 2px); height: 26px; border-radius: 7px; padding: 0 8px; font: normal 650 11px/26px -apple-system, system-ui; white-space: nowrap; overflow: hidden; color: #1b1205; animation: ts-bloc var(--d) infinite both; }
+.ts-b-piste .b.plan { background: #9a9aa6; } .ts-b-piste .b.texte { background: #ffd60a; } .ts-b-piste .b.effet { background: #bf5af2; color: #fff; } .ts-b-piste .b.son { background: #30d158; color: #04210c; }
+.ts-b-piste .b2 { animation-delay: .1s; } .ts-b-piste .b3 { animation-delay: .25s; } .ts-b-piste .b4 { animation-delay: .4s; } .ts-b-piste .b5 { animation-delay: .5s; } .ts-b-piste .b6 { animation-delay: .6s; } .ts-b-piste .b7 { animation-delay: .7s; }
+.ts-b-piste .b.vise { animation-name: ts-bloc-vise; }
+@keyframes ts-bloc { 0%, 4% { opacity: 0; transform: scaleX(.2); transform-origin: left; } 11%, 92% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; } }
+@keyframes ts-bloc-vise { 0%, 4% { opacity: 0; transform: scaleX(.2); transform-origin: left; } 11%, 38% { opacity: 1; transform: none; box-shadow: none; } 44%, 66% { opacity: 1; transform: none; box-shadow: 0 0 0 2px #fff, 0 6px 16px rgba(0, 0, 0, .5); } 74%, 92% { opacity: 1; transform: translateX(34px); box-shadow: 0 0 0 2px #fff, 0 6px 16px rgba(0, 0, 0, .5); } 98%, 100% { opacity: 0; } }
+.ts-b-fiche { display: flex; align-items: center; gap: 7px; align-self: center; padding: 9px 12px; border-radius: 13px; background: rgba(40, 40, 46, .96); box-shadow: 0 14px 34px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .1); animation: ts-b-fiche var(--d) infinite both; }
+.ts-b-fiche b { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; font: normal 650 12px -apple-system, system-ui; color: #ffd60a; }
+.ts-b-fiche b .ic { width: 14px; height: 14px; }
+.ts-b-fiche span { padding: 5px 10px; border-radius: 10px; background: rgba(255, 255, 255, .08); font: normal 500 11.5px -apple-system, system-ui; color: #ddd; }
+.ts-b-fiche span.choisi { animation: ts-b-choisi var(--d) infinite both; }
+@keyframes ts-b-fiche { 0%, 40% { opacity: 0; transform: translateY(12px); } 46%, 92% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; } }
+@keyframes ts-b-choisi { 0%, 62% { background: rgba(255, 255, 255, .08); color: #ddd; transform: none; } 66% { transform: scale(1.12); } 70%, 100% { background: linear-gradient(135deg, #ffb340, #ff6b3d); color: #1c0d05; transform: none; } }
 .tl-plan { position: absolute; top: 6px; height: 66px; border-radius: 9px; padding: 6px 8px; font: normal 600 11px -apple-system, system-ui; color: #fff; background: linear-gradient(180deg, #7a2a22, #4a1814); box-shadow: inset 0 0 0 1px rgba(255, 105, 97, .45); overflow: hidden; }
 .tl-plan::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 16px; background: repeating-linear-gradient(90deg, rgba(255, 170, 160, .8) 0 2px, transparent 2px 5px); -webkit-mask: linear-gradient(0deg, #000 30%, transparent); mask: linear-gradient(0deg, #000 30%, transparent); }
 .tl-plan.p1 { left: 0; width: 108px; }

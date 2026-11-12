@@ -1,5 +1,5 @@
-// Dérush — le tutoriel animé. Six scènes courtes, jouées en boucle, qui montrent les gestes du logiciel : déposer,
-// demander à l'IA, retoucher, habiller, analyser, partager. Il s'ouvre à la première ouverture de Dérush, et se revoit
+// Dérush — le tutoriel animé. Huit scènes courtes, jouées en boucle, qui montrent les gestes du logiciel : choisir sa
+// façon de créer, déposer, demander à l'IA, régler ce qu'elle a posé, retoucher, habiller, analyser, partager. Il s'ouvre à la première ouverture de Dérush, et se revoit
 // depuis le menu Aide ou la fenêtre des raccourcis. Les scènes sont dessinées en HTML et animées en CSS (tuto.css) :
 // aucune image, aucune vidéo à charger.
 //
@@ -13,6 +13,12 @@ export function creerTutoriel(o) {
 
   const plan = (c, texte = '') => `<i class="tl-plan ${c}">${texte}</i>`;
   const SCENES = [
+    {
+      titre: ['Choisis', 'ta façon de créer'],
+      texte: 'Quatre façons de commencer. Montage : tu déposes tes vidéos. Motion design : rien à déposer, tu décris et ton IA cherche, écrit et anime tout. Extraits courts : une longue vidéo devient plusieurs clips. Sur un son : une musique ou une voix devient une vidéo.',
+      astuce: ['Bouton « Nouveau projet »', 'tu changes de mode quand tu veux'],
+      scene: () => `<div class="ts ts-modes">${[['claude', 'Montage'], ['motion', 'Motion design'], ['extraits', 'Extraits courts'], ['son', 'Sur un son']].map(([d, n], i) => `<div class="ts-mode m${i + 1}">${ill(d)}<b>${n}</b></div>`).join('')}</div>`,
+    },
     {
       titre: ['Dépose', 'ta matière'],
       texte: 'Glisse tes vidéos, tes sons et tes photos dans la fenêtre. Ils restent à leur place sur ton ordinateur : rien n’est copié, même les très gros fichiers. Et tu peux t’en servir tout de suite.',
@@ -28,13 +34,27 @@ export function creerTutoriel(o) {
     },
     {
       titre: ['Demande', 'à ton IA'],
-      texte: () => `Écris ce que tu veux, comme à un monteur. ${o.nomIA?.() ?? 'Claude'} choisit les meilleurs passages, monte, habille et te livre la vidéo. Tu dis ce qu’il faut changer, et c’est refait.`,
+      texte: () => `Écris ce que tu veux, comme à un monteur. ${o.nomIA?.() ?? 'Claude'} choisit les meilleurs passages, monte, habille et te livre la vidéo. Tu dis ce qu’il faut changer, et c’est refait. Et si tu relies tes réseaux, elle connaît ton style et ce qui marche chez toi.`,
       astuce: ['Bouton « Demander à l’IA »', 'ou ⌘K'],
       scene: () => `<div class="ts ts-ia">
         <div class="ts-bulle moi"><span class="ts-frappe">3 clips de 20 s pour TikTok, sous-titrés</span></div>
         <div class="ts-bulle ia"><div class="ts-bobine">${ill('bobine')}</div><div><b>Ton IA monte…</b><div class="ts-barre"><i></i></div><small>choisit les passages · pose les titres · règle le son</small></div></div>
         <div class="ts-livraison"><i class="v v1">${ic('lire', 'plein')}</i><i class="v v2">${ic('lire', 'plein')}</i><i class="v v3">${ic('lire', 'plein')}</i><b>${ic('coche')}3 vidéos prêtes</b></div>
         <div class="ts-champ"><span>Écris ce que tu veux…</span><i>${ic('envoi')}</i></div>
+      </div>`,
+    },
+    {
+      titre: ['Règle', 'chaque détail'],
+      texte: () => `Tout ce que ${o.nomIA?.() ?? 'ton IA'} pose sur ta vidéo apparaît dans la timeline, en direct : les plans, les titres, les effets, les sons. Clique un bloc, dis ce qui doit changer (plus tard, plus gros, moins fort…), et seul ce bloc est retouché.`,
+      astuce: ['Clique un bloc de couleur', 'sous la vidéo de ton IA'],
+      scene: () => `<div class="ts ts-blocs">
+        <div class="ts-b-pistes">
+          <div class="ts-b-piste"><i class="b plan b1" style="--x:0;--w:45"></i><i class="b plan b2" style="--x:46;--w:54"></i></div>
+          <div class="ts-b-piste"><i class="b texte b3 vise" style="--x:3;--w:24">Titre</i><i class="b texte b4" style="--x:50;--w:42">Sous-titres</i></div>
+          <div class="ts-b-piste"><i class="b effet b5" style="--x:42;--w:9"></i><i class="b effet b6" style="--x:76;--w:14">Zoom</i></div>
+          <div class="ts-b-piste"><i class="b son b7" style="--x:0;--w:100">Musique</i></div>
+        </div>
+        <div class="ts-b-fiche"><b>${ic('texte')}Titre</b><span>Plus tôt</span><span class="choisi">Plus tard</span><span>Plus gros</span><span>Retirer</span></div>
       </div>`,
     },
     {

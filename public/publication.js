@@ -11,6 +11,7 @@ const GAINS = {fort: 'Gros effet', moyen: 'Effet moyen', 'léger': 'Petit plus'}
 
 export function creerPublication(o) {
   const {api, note, esc, ic, ill, logo, JETON} = o;
+  const hoteDe = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const virgule = (n) => String(n).replace('.', ',');
@@ -140,7 +141,7 @@ export function creerPublication(o) {
   const etapesHtml = (x) => `<ul class="pa-etapes">${(x.etapes ?? []).slice(-7).map((e, i, l) => `<li class="${i === l.length - 1 ? 'en-cours' : 'fait'}">${ic(i === l.length - 1 ? (e.icone ?? 'etincelle') : 'coche')}<span>${esc(e.texte)}</span></li>`).join('')}</ul>`;
   const boutonIA = (libelle, action) => (o.iaPrete?.()
     ? `<button class="btn claude grand" data-pa="${action}">${ic('etincelle', 'plein')}<span>${libelle}</span></button><small class="pa-avec">Avec ${esc(o.nomIA())} · qualité ${esc(o.nomQualite?.() ?? 'Soigné')} · une à trois minutes</small>`
-    : `<button class="btn claude grand" data-pa="connexions">${ic('prise')}<span>Brancher mon IA</span></button><small class="pa-avec">L’analyse et le plan sont faits par Claude ou Codex : branche l’un des deux, en un clic.</small>`);
+    : `<button class="btn claude grand" data-pa="connexions">${ic('prise')}<span>Brancher mon IA</span></button><small class="pa-avec">L’analyse et le plan sont faits par ton IA (Claude, Codex ou Gemini) : branches-en une, en un clic.</small>`);
 
   function htmlAnalyse() {
     const a = S.analyse;
@@ -181,7 +182,7 @@ export function creerPublication(o) {
         </article>`).join('')}</div></section>
       ${r.tendances.length ? `<section class="pa-bloc"><div class="pa-bloc-tete"><h3>Ce qui marche en ce moment</h3></div><ul class="pa-tendances">${r.tendances.map((t) => `<li><b>${esc(t.titre)}</b>${t.detail ? `<p>${esc(t.detail)}</p>` : ''}<button class="pa-source" data-lien="${esc(t.source)}">${ic('lien')}${esc(hote(t.source))}${t.date ? ` · ${esc(t.date)}` : ''}</button></li>`).join('')}</ul></section>` : ''}
       ${r.limites ? `<p class="pa-limites">${ic('aide')}<span><b>Ce que cette analyse ne sait pas.</b> ${esc(r.limites)}</span></p>` : ''}
-      <footer class="pa-pied"><small>Analyse de ${esc(r.moteur === 'codex' ? 'Codex' : 'Claude')}, ${new Date(r.cree_le).toLocaleString('fr-FR', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'})}. Une estimation pour améliorer ta vidéo, pas une promesse de vues.</small><span class="espace"></span>
+      <footer class="pa-pied"><small>Analyse de ${esc({codex: 'Codex', gemini: 'Gemini'}[r.moteur] ?? 'Claude')}, ${new Date(r.cree_le).toLocaleString('fr-FR', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'})}. Une estimation pour améliorer ta vidéo, pas une promesse de vues.</small><span class="espace"></span>
         <button class="btn" data-pa="analyser" title="Après une retouche, ou pour un autre avis">Refaire l’analyse</button><button class="btn principal" data-onglet="partage">Passer au partage${ic('img-plus')}</button></footer>`;
   }
 
@@ -233,6 +234,9 @@ export function creerPublication(o) {
           <div class="pp-carte">${ic('drapeau')}<div><small>Le bon moment</small><b>${esc([x.moment.jour, x.moment.heure].filter(Boolean).join(' · ') || 'À ton rythme')}</b>${x.moment.pourquoi ? `<p>${esc(x.moment.pourquoi)}</p>` : ''}<p class="dim">Un point de départ : vérifie dans les statistiques de ton compte.</p></div></div>
           <div class="pp-carte">${ic('image')}<div><small>L’image de couverture</small><b>${x.couverture.instant_s != null ? `À ${temps(x.couverture.instant_s)}` : 'Au choix'}${x.couverture.texte ? ` · « ${esc(x.couverture.texte)} »` : ''}</b>${x.couverture.instant_s != null ? `<p><button class="btn petit" data-pa="voir-couverture" data-t="${x.couverture.instant_s}">${ic('oeil')}Voir cette image</button></p>` : ''}</div></div>
         </div>
+        ${x.sons?.length ? `<div class="champ"><span>Sons tendance, à ajouter dans l’app au moment de publier</span><div class="pp-sons">${x.sons.map((s) => `<div class="pp-son">${ic('note')}<div><b>${esc(s.titre)}</b>${s.artiste ? `<small>${esc(s.artiste)}</small>` : ''}<p>${esc(s.pourquoi)}</p><small class="dim">${esc([hoteDe(s.source), s.vu_le ? `vu le ${s.vu_le}` : ''].filter(Boolean).join(' · '))}</small></div>
+          <div class="pp-son-actions"><button class="btn petit" data-pa="copier-son" data-son="${esc(`${s.titre}${s.artiste ? ` ${s.artiste}` : ''}`)}">${ic('copier')}Copier le nom</button>${S.reseau === 'tiktok' ? `<button class="btn petit" data-lien="${esc(`https://www.tiktok.com/search?q=${encodeURIComponent(`${s.titre} ${s.artiste ?? ''}`.trim())}`)}">${ic('loupe')}Chercher dans TikTok</button>` : ''}</div></div>`).join('')}</div>
+          <p class="pp-note">${ic('attention')}<span>Dérush ne met jamais une musique du commerce dans ton fichier : elle ferait couper le son de ta vidéo. Choisis le son dans l’app${S.reseau === 'tiktok' ? ' TikTok, sur ton brouillon' : ''}, et baisse-le si ta voix doit rester devant.</span></p></div>` : ''}
         ${x.premier_commentaire ? `<div class="champ"><span>Premier commentaire, à épingler toi-même <button class="pp-copier" data-pa="copier-commentaire">${ic('copier')}Copier</button></span><p class="pp-commentaire selectionnable">${esc(x.premier_commentaire)}</p></div>` : ''}
         ${x.conseils.length ? `<ul class="pp-conseils">${x.conseils.map((t) => `<li>${ic('baguette')}<span>${esc(t)}</span></li>`).join('')}</ul>` : ''}
       </section>
@@ -326,6 +330,7 @@ export function creerPublication(o) {
       return o.demanderIA(demandes.length > 1 ? `Améliore la vidéo sur ces ${demandes.length} points, dans cet ordre :\n${demandes.map((d, i) => `${i + 1}. ${d}`).join('\n')}` : demandes[0]);
     }
     if (a === 'retirer-tag' && x) { x.hashtags.splice(Number(b.dataset.i), 1); enregistrer(); return rendre(true); }
+    if (a === 'copier-son') { await o.copierTexte(b.dataset.son ?? ''); return note('Copié : colle-le dans la recherche de sons de l’app.'); }
     if (a === 'copier-legende' && x) { await o.copierTexte(`${x.titre ? `${x.titre}\n\n` : ''}${x.legende}${x.hashtags.length ? `\n\n${x.hashtags.join(' ')}` : ''}`); return note('Copié : colle-le dans l’app du réseau.'); }
     if (a === 'copier-commentaire' && x) { await o.copierTexte(x.premier_commentaire); return note('Commentaire copié.'); }
     if (a === 'voir-couverture') { const l = $('#pa-lecteur', el); l.pause(); l.currentTime = Number(b.dataset.t) || 0; return; }
@@ -357,8 +362,9 @@ export function creerPublication(o) {
       const fait = !!t.jeton && v.ok;
       const pastilles = `<div class="tg-reseaux">${Object.entries(RESEAUX).map(([k, n]) => `<span class="${v.ok ? (v.reseaux?.[k] ? 'ok' : 'non') : ''}">${logo(k, 30)}<b>${n}</b>${v.ok ? `<i>${ic(v.reseaux?.[k] ? 'coche' : 'fermer')}</i>` : ''}</span>`).join('')}</div>`;
       f.innerHTML = `<div class="tg-tete"><div class="tg-dessin"><span class="tg-film">${ic('film')}</span><i></i>${['tiktok', 'instagram', 'youtube', 'linkedin'].map((k, i) => `<span class="tg-logo" style="--i:${i}">${logo(k, 30)}</span>`).join('')}</div>
-          <div><h3>Relier tes réseaux</h3><p class="sous-titre">Une seule fois, en trois gestes. Ensuite, ta vidéo part sur TikTok, Instagram, YouTube et LinkedIn depuis Dérush.</p></div></div>
-        <p class="tg-quoi">${ic('aide')}<span><b>Treg</b> est le service qui publie à ta place. C’est lui qui garde le lien avec tes comptes : Dérush ne voit jamais tes mots de passe, et rien ne part sans ton clic.</span></p>
+          <div><h3>Relier tes réseaux</h3><p class="sous-titre">Une seule fois, en trois gestes. Ensuite, ton IA publie tes vidéos, lit tes chiffres et tes commentaires, et apprend ce qui marche chez toi.</p></div></div>
+        <p class="tg-quoi">${ic('aide')}<span><b>Treg</b> est le service qui relie tes comptes à ton IA. Avec lui, elle peut <b>publier à ta place</b> (le bon titre, la bonne légende, les bons hashtags), <b>lire tes vidéos, tes chiffres et tes commentaires</b>, et <b>dresser ton profil de créateur</b> pour monter sur mesure.</span></p>
+        <p class="tg-quoi tg-rassure">${ic('cadenas')}<span><b>Tu gardes la main.</b> Tu relies seulement les comptes que tu veux, un par un. Dérush ne voit jamais tes mots de passe. Rien n’est publié sans ton clic. Tu retires l’accès quand tu veux, depuis Treg.</span></p>
         <ol class="tg-etapes">
           <li class="${t.jeton ? 'fait' : ''}"><span class="num">${t.jeton ? ic('coche') : '1'}</span><div><b>Crée ton compte Treg</b><small>Sur treg.to, avec ton adresse e-mail. La page s’ouvre dans ton navigateur.</small></div><button class="btn ${t.jeton ? '' : 'bleu'}" data-tg="ouvrir">Ouvrir Treg</button></li>
           <li class="${fait && Object.values(v.reseaux ?? {}).some(Boolean) ? 'fait' : ''}"><span class="num">${fait && Object.values(v.reseaux ?? {}).some(Boolean) ? ic('coche') : '2'}</span><div><b>Dans Treg, relie tes réseaux</b><small>Un clic par réseau : tu te connectes à ton compte TikTok, Instagram, YouTube ou LinkedIn, comme d’habitude.</small></div></li>

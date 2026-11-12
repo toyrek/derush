@@ -1,4 +1,4 @@
-# Dérush 8 — le manuel
+# Dérush 9 — le manuel
 
 > **À lire d'abord.** Dans ce manuel, « Claude » désigne l'IA qui monte : **Claude** (compte Claude) ou **Codex** (compte ChatGPT), selon ton choix dans **Connexions**. L'installation, les connexions, la publication et les mises à jour sont dans le [README](../README.md) et dans [INSTALLER.md](../INSTALLER.md). Ce manuel décrit l'écran et les gestes ; les chemins cités (`~/Movies`, `~/Library/…`) sont ceux du Mac, et leurs équivalents sur Windows et Linux sont dans le README.
 
@@ -45,6 +45,19 @@ Ton montage est un **squelette**, pas une contrainte : tu marques ce qui est ess
 - Les formats **RAW de caméra de cinéma** (RED, Blackmagic RAW, ARRI) ne se lisent pas : exporte d'abord une version ProRes ou H.264.
 
 Pour chaque média, Dérush prépare tout seul une version légère pour la lecture, la forme du son, des vignettes, les coupes de caméra, les silences, le volume, le texte mot à mot (avec Whisper) et le **recadrage qui suit les visages**.
+
+## Choisir sa façon de créer (les modes)
+
+À la création d'un projet, quatre cartes :
+
+| Mode | Ce que tu donnes | Ce que fait ton IA |
+|---|---|---|
+| **Montage** | Tes vidéos, tes sons, tes photos | Elle choisit les passages, monte, habille |
+| **Motion design** | Rien : une description (et ton logo, ta charte si tu en as) | Elle cherche sur le web, écrit un plan, anime tout dans Remotion, pose le son |
+| **Extraits courts** | Une longue vidéo, un podcast | Elle trouve les meilleurs moments et fait un clip de chacun |
+| **Sur un son** | Une musique, une voix | Elle crée les images qui vont avec |
+
+Le mode se change ensuite dans *Brief et format* (menu « … » de la conversation). Il est redit à l'IA à chaque message.
 
 ## Demander à Claude
 
@@ -97,6 +110,27 @@ En bas de la colonne de Claude, « Autres façons de finir » :
 - **Créer la vidéo sans IA** : Dérush fabrique seul le MP4, avec ton style et tes effets.
 - **Pack pour une autre IA** : le même dossier de montage, à donner à l'IA de ton choix.
 - **Brief et format**, **Dossier de travail de Claude** (le projet qu'il a écrit), **Effacer la conversation** (les vidéos et les fichiers joints restent).
+
+## Régler ce que l'IA a posé (la table de montage)
+
+Pendant qu'elle travaille, ton IA tient à jour la liste de ce qu'elle pose sur la vidéo : chaque plan gardé, chaque titre, chaque effet, chaque son. Dérush montre cette liste en blocs de couleur dans la timeline, sous sa vidéo, **en direct**.
+
+- **Clique un bloc** : la vidéo se place à cet endroit, et la colonne de droite montre ce qu'est ce bloc.
+- **Règle-le** d'un geste (« Plus tôt », « Plus tard », « Plus court », « Plus long », « Plus gros », « Moins fort », « Retirer »), change le texte d'un titre, ou écris ce que tu veux avec tes mots.
+- Les réglages s'ajoutent en haut de la zone d'écriture. Ils partent avec ton prochain message (ou d'un clic sur « Envoyer les réglages ») : l'IA ne touche qu'aux blocs que tu as réglés.
+
+Ces blocs décrivent le travail de l'IA ; ils ne remplacent pas ta timeline à toi. Pour reprendre sa découpe dans ta timeline, le bouton « Mettre sa découpe dans ma timeline » reste là.
+
+## Mon profil de créateur
+
+Bouton **Mon profil** sur l'écran des projets, ou menu « … » de la conversation.
+
+Ton IA lit tes comptes avec Treg, **en lecture seule** : tes vidéos publiées, leurs vues, leurs partages, tes miniatures, tes commentaires. Elle classe ce qui a vraiment marché (par écart à ta vidéo médiane, pas par vues brutes), décrit ton style et ta direction artistique, et en tire des consignes de montage et de titres.
+
+- Il faut **Treg relié** et **Claude ou Codex** (Gemini n'a pas les outils Treg). Compte 5 à 10 minutes.
+- Le profil est rangé dans le dossier de Dérush, sur ton ordinateur. Un seul profil, pour tous tes projets.
+- Tant que « Donner mon profil à mon IA » est allumé, elle le relit avant chaque montage, chaque analyse de viralité et chaque plan de partage.
+- « Refaire l'analyse » (une fois par mois suffit) et « Effacer mon profil » sont dans la colonne de gauche.
 
 ## Google Drive
 
@@ -330,4 +364,7 @@ node derush.mjs construire-app --zip ~/Desktop
 - Testé sur un Mac à puce Apple avec macOS 26. Whisper (MLX) exige une puce Apple.
 - L'analyse de viralité s'appuie sur le texte dit : sans Whisper (Réglages), elle se fait sur les images et les mesures seulement.
 - La vraie application (sans navigateur) n'existe que sur Mac ; elle demande macOS 13 ou plus.
+- **Gemini** : écrit d'après la documentation officielle de la commande `agy` (Antigravity CLI) et vérifié avec une commande simulée ; pas encore essayé avec la vraie commande. Avec Gemini, Dérush ne donne pas les outils Treg : seul YouTube peut être publié, et le profil de créateur se fait avec Claude ou Codex.
+- Les blocs de la table de montage sont ce que l'IA déclare avoir posé : s'ils ne correspondent pas à la vidéo, dis-le-lui, elle les remettra à jour.
+- Les sons tendance du plan de partage viennent d'une recherche sur le web, avec leur source et leur date : vérifie qu'ils sont encore dans l'app au moment de publier.
 - YouTube : il faut ta clé Treg dans Dérush, et YouTube relié dans Treg avec le droit de publier. Compte environ six envois par jour pour tous les comptes reliés à Treg. YouTube peut garder en privé une vidéo envoyée par une application qu'il n'a pas encore auditée : Dérush te le dit après l'envoi. L'envoi a été vérifié contre un faux Treg (31 cas) ; il reste à le confirmer avec un vrai compte.

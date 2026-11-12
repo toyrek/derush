@@ -46,6 +46,8 @@ Suis **[INSTALLER.md](INSTALLER.md)** pas à pas. Ne modifie pas le code pour «
 | `lib/competences.mjs` | La bibliothèque de compétences (`competences/`), reliée dans chaque dossier de travail |
 | `lib/drive.mjs`, `lib/treg.mjs`, `lib/elevenlabs.mjs` | Google Drive, publication avec Treg (et la vérification des réseaux reliés), studio ElevenLabs |
 | `lib/conseil.mjs` | Demander un avis à l'IA hors de la conversation de montage (sans connecteur, réponse en JSON) |
+| `lib/createur.mjs`, `public/createur.js` | Le profil du créateur (l'IA lit ses comptes avec Treg, en lecture seule) et la mise en route ; compétence `derush-createur` |
+| `lib/ia.mjs` | Les trois assistants : Claude Code, Codex, Gemini (commande `agy`) — les trouver, les installer, les connecter, lire leur travail |
 | `lib/youtube.mjs`, `outils/publier-youtube.mjs` | L'envoi d'une vidéo sur YouTube par la porte directe de Treg (commande `derush-youtube` donnée à l'IA ; relais pour Codex) |
 | `lib/publication.mjs` | Avant de publier : les mesures d'une vidéo finie, l'analyse de viralité, le plan de partage |
 | `lib/sons.mjs` | Les vrais sons : la bibliothèque de sons libres (Openverse), Real SFX, Earshot ; leurs commandes et leurs consignes |
@@ -67,6 +69,8 @@ DERUSH_BIBLIOTHEQUE=/chemin/vers/un/dossier/d-essai DERUSH_SANS_NAVIGATEUR=1 nod
 ```
 
 `outils/essai-interface.mjs` pilote ensuite l'interface sans fenêtre, dans Chrome (voir son en-tête).
+
+Ajoute `DERUSH_SUPPORT=/chemin/vers/un/dossier/d-essai` pour ne toucher ni aux réglages, ni aux projets récents, ni aux commandes de la vraie installation (relie-y `moteurs`, `competences`, `node_modules` par des liens pour ne rien retélécharger). **Un clic sur « Envoyer » dans un essai lance la vraie IA choisie par la personne, à son niveau de qualité** : dans un essai d'interface, force l'assistant (`moteur`) dans la requête, ou sers-toi de la commande simulée `outils/faux-agy.mjs` (voir son en-tête) avec `DERUSH_AGY`.
 
 `node outils/essai-youtube.mjs` rejoue les 31 essais de l'envoi vers YouTube contre un faux Treg (aucun appel réel, aucune clé) : à relancer après tout changement de `lib/youtube.mjs`, `lib/relais.mjs` ou `outils/publier-youtube.mjs`. Un envoi réel coûte 1 600 des 10 000 unités du quota quotidien que tous les comptes reliés à Treg se partagent : ne jamais en faire un « pour voir ».
 

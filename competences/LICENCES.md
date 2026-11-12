@@ -7,6 +7,7 @@ Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pa
 | Compétence | Domaine | Source | Licence | Auteur |
 |---|---|---|---|---|
 | `sons-openverse` | Montage | écrite pour Dérush (API Openverse, sans clé) | celle de Dérush | IABAI |
+| `derush-createur` | Réseaux sociaux | écrite pour Dérush (lecture des comptes du créateur avec Treg, en lecture seule) | celle de Dérush | IABAI |
 | `derush-viralite` | Réseaux sociaux | écrite pour Dérush (grille d'analyse et repères datés, sources citées dans `reperes.md`) | celle de Dérush | IABAI |
 | `audio-production` | Montage | https://github.com/kajisho5/audio-production-skill | MIT | kajisho5 |
 | `blender-skill` | Montage | https://github.com/kajisho5/blender-skill | MIT | kajisho5 |
@@ -85,5 +86,29 @@ Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pa
 | `text-to-speech` | Son et voix (ElevenLabs) | https://github.com/elevenlabs/skills | MIT | ElevenLabs |
 | `voice-changer` | Son et voix (ElevenLabs) | https://github.com/elevenlabs/skills | MIT | ElevenLabs |
 | `voice-isolator` | Son et voix (ElevenLabs) | https://github.com/elevenlabs/skills | MIT | ElevenLabs |
+| `ig-audit` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-caption` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-carousel` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-comment` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-dm` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-human` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-plan` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-profile` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-reel` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-reply` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-repurpose` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-story` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `ig-viral` | Réseaux sociaux (Instagram) | https://github.com/Jakeschincariol/instagram-agent-skill | MIT | Jake Schincariol |
+| `yt-audit` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-chapters` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-comment` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-edit` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-package` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-plan` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-retention` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-script` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-seo` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-shorts` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+| `yt-viral` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
 
 Les textes complets des licences sont dans `licences/`. Chaque dossier garde aussi sa licence (quand le dépôt en a une) et un `SOURCE.md` qui dit d’où il vient et ce qui a été retiré.

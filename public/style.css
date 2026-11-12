@@ -500,6 +500,14 @@ h3.cat-transition .ic, h3.cat-titre .ic, h3.cat-ambiance .ic, h3.cat-son .ic { c
 .info-detourage { font-size: 11.5px; color: var(--dim); background: rgba(100, 210, 255, .08); border-radius: 8px; padding: 7px 9px; margin-bottom: 10px; line-height: 1.4; }
 
 /* nouveau projet : le genre de vidéo */
+.modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 2px 0 14px; }
+.mode-carte { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 10px 13px; border: 0; border-radius: 15px; text-align: center; background: rgba(255, 255, 255, .055); color: var(--texte); transition: transform .16s var(--ressort), background .15s, box-shadow .15s; }
+.mode-carte:hover { background: rgba(255, 255, 255, .1); transform: translateY(-2px); }
+.mode-carte.actif { box-shadow: inset 0 0 0 2px var(--accent-2); background: rgba(255, 69, 58, .1); }
+.mode-carte svg { width: 96px; height: 72px; overflow: visible; }
+.mode-carte b { font-family: var(--affiche); font-weight: 400; font-size: 17px; letter-spacing: .02em; text-transform: uppercase; }
+.mode-carte small { font-size: 11px; line-height: 1.35; color: var(--dim); }
+@media (max-width: 760px) { .modes { grid-template-columns: 1fr 1fr; } }
 .types-video { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
 .type-video { border: 0; border-radius: 10px; padding: 9px 10px; text-align: left; background: rgba(255, 255, 255, .055); color: var(--texte); min-height: 66px; display: flex; flex-direction: column; gap: 3px; }
 .type-video:hover { background: rgba(255, 255, 255, .1); }
@@ -870,6 +878,34 @@ h3.cat-transition .ic, h3.cat-titre .ic, h3.cat-ambiance .ic, h3.cat-son .ic { c
 /* — la piste de Claude, sous le montage — */
 .piste-claude { height: 66px; background: linear-gradient(180deg, rgba(255, 140, 60, .07), rgba(255, 140, 60, .015)); border-top: 1px solid rgba(255, 170, 80, .14); }
 .piste-claude .piste-nom { color: #ffcf9a; }
+/* la table de montage de l'IA : ses blocs, rangés par sorte, cliquables */
+.editeur.avec-claude.avec-blocs { grid-template-rows: 50px minmax(0, 1fr) calc(360px + var(--h-blocs, 92px)); }
+.piste-blocs { background: linear-gradient(180deg, rgba(255, 140, 60, .045), rgba(255, 140, 60, 0)); }
+.piste-blocs .piste-nom { color: #ffcf9a; } .piste-blocs .piste-nom .ic { color: var(--braise-1); }
+.rangee-ia { position: absolute; left: 0; right: 0; height: 22px; }
+.bloc-ia { position: absolute; top: 1px; height: 20px; display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border: 0; border-radius: 6px; font-size: 10.5px; font-weight: 650; white-space: nowrap; overflow: hidden; color: #1b1205; animation: apparait .3s ease-out; transition: filter .12s, box-shadow .12s; }
+.bloc-ia:hover { filter: brightness(1.12); }
+.bloc-ia .ic { width: 11px; height: 11px; flex: none; }
+.bloc-ia span { overflow: hidden; text-overflow: ellipsis; }
+.bloc-ia.b-plan { background: #9a9aa6; color: #101014; }
+.bloc-ia.b-texte { background: #ffd60a; }
+.bloc-ia.b-effet { background: #bf5af2; color: #fff; }
+.bloc-ia.b-son { background: #30d158; color: #04210c; }
+.bloc-ia.actif { box-shadow: 0 0 0 2px #fff, 0 4px 14px rgba(0, 0, 0, .5); z-index: 3; }
+.bloc-ia.regle::after { content: ''; position: absolute; top: 2px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 1.5px #fff; }
+.pastille-type.bloc-ia { position: static; height: 30px; padding: 0; animation: none; }
+.pastille-type.bloc-ia .ic { width: 16px; height: 16px; }
+.bloc-ia-fiche .bloc-detail { margin: 0 0 12px; padding: 9px 11px; border-radius: 10px; background: rgba(255, 255, 255, .05); font-size: 12.5px; line-height: 1.45; }
+.bloc-gestes { display: flex; flex-wrap: wrap; gap: 6px; }
+.bloc-regles { display: flex; flex-direction: column; gap: 5px; margin: 12px 0 0; }
+.bloc-regles small, .cl-reglages small { display: flex; align-items: center; gap: 5px; color: var(--dim); font-size: 11px; }
+.cl-reglages small .ic { width: 12px; height: 12px; }
+.bloc-regle { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 9px; border-radius: 9px; background: rgba(255, 150, 60, .12); box-shadow: inset 0 0 0 1px rgba(255, 170, 80, .3); font-size: 11.5px; line-height: 1.35; }
+.bloc-regle b { font-weight: 650; }
+.bloc-regle button { margin-left: auto; flex: none; display: grid; place-items: center; width: 18px; height: 18px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .1); color: var(--texte); }
+.bloc-regle button .ic { width: 10px; height: 10px; }
+.bloc-ia-fiche .bloc-note { font-size: 11.5px; margin: 12px 0 10px; }
+.cl-reglages { display: flex; flex-direction: column; gap: 5px; padding: 8px 8px 2px; max-height: 132px; overflow-y: auto; }
 .piste-claude .piste-nom .ic { color: var(--braise-1); }
 .cl-bande { position: absolute; left: 0; top: 18px; height: 44px; border-radius: 7px; overflow: hidden; background: #1c130e; box-shadow: inset 0 0 0 1px rgba(255, 170, 80, .38); cursor: default; transition: box-shadow .15s; animation: apparait .3s ease-out; }
 .cl-bande:hover { box-shadow: inset 0 0 0 1.5px rgba(255, 196, 120, .8); }
@@ -1058,6 +1094,7 @@ h3.cat-transition .ic, h3.cat-titre .ic, h3.cat-ambiance .ic, h3.cat-son .ic { c
 /* — les logos : sur une pastille claire, pour que les logos noirs (TikTok, ElevenLabs, GitHub) restent lisibles — */
 .logo { --t: 22px; display: inline-grid; place-items: center; flex: none; width: var(--t); height: var(--t); border-radius: calc(var(--t) * .29); background: #f6f2ec; box-shadow: 0 1px 0 rgba(255, 255, 255, .6) inset, 0 2px 8px rgba(0, 0, 0, .35); vertical-align: middle; }
 .logo img, .biblio-tete .logo img { display: block; width: 62%; height: 62%; border-radius: 0; box-shadow: none; }
+.logo.l-treg { background: #0b0b0d; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .2), 0 2px 8px rgba(0, 0, 0, .35); } /* la marque de Treg : blanche sur noir */
 .logo.picto { color: #fff; background: #3a3a42; }
 .logo.picto .ic { width: 60%; height: 60%; stroke-width: 1.9; }
 .logo.p-codex { background: #0d0d0f; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), 0 2px 8px rgba(0, 0, 0, .35); }
@@ -1161,6 +1198,9 @@ h3.cat-transition .ic, h3.cat-titre .ic, h3.cat-ambiance .ic, h3.cat-son .ic { c
 .cx-section h4 .ic { width: 14px; height: 14px; color: var(--braise-1); }
 .cx-grille { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .cx-grille.deux { grid-template-columns: 1fr 1fr; }
+.cx-grille.trois { grid-template-columns: repeat(3, 1fr); }
+.ia-cartes.trois { grid-template-columns: repeat(3, 1fr); }
+.ia-cartes.trois .ia-carte { flex-direction: column; align-items: flex-start; }
 .cx-carte { display: flex; align-items: flex-start; gap: 13px; padding: 13px 14px; border-radius: 15px; background: rgba(255, 255, 255, .04); border: 1px solid var(--ligne); transition: border-color .2s, background .2s; }
 .cx-carte:hover { background: rgba(255, 255, 255, .06); border-color: var(--ligne-forte); }
 .cx-carte.ok { border-color: rgba(48, 209, 88, .3); background: linear-gradient(180deg, rgba(48, 209, 88, .05), rgba(255, 255, 255, .03)); }
@@ -1234,7 +1274,8 @@ h3.cat-transition .ic, h3.cat-titre .ic, h3.cat-ambiance .ic, h3.cat-son .ic { c
 .format .forme.auto { width: 54px; height: 54px; border-style: dashed; display: grid; place-items: center; }
 @media (max-width: 1400px) { .fmt:not([data-format-tl="auto"]) span { display: none; } }
 @media (max-width: 1180px) { .outils-tl .outil span { display: none; } }
-@media (max-width: 760px) { .cx-grille.deux, .ia-cartes, .pub-reseaux { grid-template-columns: 1fr; } .marque-iabai span, .marque-iabai small { display: none; } }
+@media (max-width: 980px) { .cx-grille.trois { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .cx-grille.deux, .ia-cartes, .ia-cartes.trois, .pub-reseaux { grid-template-columns: 1fr; } .marque-iabai span, .marque-iabai small { display: none; } }
 
 /* — Dérush par IABAI — */
 .biblio-tete h1.marque { display: flex; align-items: center; gap: 11px; font-family: var(--affiche); font-weight: 400; font-size: 42px; line-height: 1; letter-spacing: .02em; text-transform: uppercase; }

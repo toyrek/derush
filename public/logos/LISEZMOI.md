@@ -1,7 +1,9 @@
 # Logos
 
-Les logos de ce dossier viennent de [Simple Icons](https://simpleicons.org) 16.36.0, dont les fichiers SVG sont
-publiés sous licence CC0 1.0 (domaine public). Les marques restent la propriété de leurs détenteurs : Dérush les
+Les logos de ce dossier viennent de [Simple Icons](https://simpleicons.org), dont les fichiers SVG sont publiés sous
+licence CC0 1.0 (domaine public) : de la version 16.36.0 pour la plupart, et d'une version plus ancienne pour les
+marques que Simple Icons a retirées depuis (LinkedIn : 13.21.0 ; OpenAI : 15.0.0 ; Windows : 12.0.0, fichier
+`windows11.svg`). La marque de Treg (deux carrés en diagonale) est redessinée ici à partir de celle de son site. Les marques restent la propriété de leurs détenteurs : Dérush les
 montre seulement pour dire à quel service il se connecte. Les règles d’usage de chaque marque, quand elles existent,
 sont citées ci-dessous.
 
@@ -28,6 +30,13 @@ sont citées ci-dessous.
 | `googlechrome.svg` | Google Chrome | #4285F4 | https://partnermarketinghub.withgoogle.com/brands/chrome |
 | `homebrew.svg` | Homebrew | #FBB040 |  |
 | `x.svg` | X | #000000 | https://about.x.com/en/who-we-are/brand-toolkit |
+| `linkedin.svg` | LinkedIn | #0A66C2 | https://brand.linkedin.com |
+| `openai.svg` | OpenAI (Codex, ChatGPT, Whisper) | #000000 | https://openai.com/brand |
+| `googlegemini.svg` | Google Gemini | #8E75B2 | https://about.google/brand-resource-center |
+| `google.svg` | Google | #4285F4 | https://about.google/brand-resource-center |
+| `windows.svg` | Windows 11 | #0078D4 |  |
+| `adobepremierepro.svg` | Adobe Premiere Pro | #9999FF |  |
+| `treg.svg` | Treg | blanc sur noir | https://treg.to |
 | `facebook.svg` | Facebook | #0866FF | https://about.meta.com/brand/resources/facebook/logo |
 | `threads.svg` | Threads | #000000 | https://www.meta.com/brand/resources/instagram/threads |
 | `snapchat.svg` | Snapchat | #FFFC00 | https://www.snapchat.com/brand-guidelines |

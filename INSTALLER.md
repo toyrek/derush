@@ -1,4 +1,4 @@
-# Installer Dérush — le guide pour l'IA (Claude Code ou Codex)
+# Installer Dérush — le guide pour l'IA (Claude Code, Codex ou Gemini)
 
 Ce fichier s'adresse à l'IA à qui quelqu'un a demandé d'installer Dérush sur son ordinateur. Suis-le dans l'ordre. Ton but : que la personne puisse double-cliquer sur « Dérush », brancher son IA dans « Connexions » et monter sa première vidéo, sans avoir rien eu à comprendre.
 
@@ -91,7 +91,7 @@ Pour donner Dérush à quelqu'un sans passer par GitHub (Mac) : `node derush.mjs
 
 ## 4. L'IA qui monte
 
-Dérush a besoin d'au moins une IA : **Claude Code** (compte Claude Pro ou Max) ou **Codex** (compte ChatGPT Plus, Pro ou Business). Tu es toi-même l'une des deux : elle est donc sans doute déjà installée et connectée, et le bilan le dit.
+Dérush a besoin d'au moins une IA : **Claude Code** (compte Claude Pro ou Max), **Codex** (compte ChatGPT Plus, Pro ou Business) ou **Gemini** (la commande `agy` d'Antigravity, compte Google). Tu es toi-même l'une d'elles : elle est donc sans doute déjà installée et connectée, et le bilan le dit.
 
 Pour l'autre, ou si le bilan dit « pas connecté » : dans Dérush, **Connexions** → *Installer* puis *Me connecter* (une page s'ouvre dans le navigateur, la personne s'y connecte elle-même). Ne te connecte jamais à sa place.
 

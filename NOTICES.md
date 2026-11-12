@@ -9,10 +9,12 @@ et sous quelle licence.
 |---|---|---|---|
 | Compétences « réseaux » (51) | `competences/` | Frank Heijdenrijk — social-media-skills/skills | MIT |
 | Compétences « viral » (7) | `competences/` | Vyral — vyralcontent/content-skills | MIT |
+| Compétences Instagram (13, `ig-…`) et YouTube (11, `yt-…`) | `competences/` | Jake Schincariol — instagram-agent-skill, youtube-agent-skill | MIT |
 | Compétences ElevenLabs (7) | `competences/` | ElevenLabs — elevenlabs/skills | MIT |
 | ffmpeg-skill et les compétences de montage (12) | `competences/` | kajisho5 | MIT |
 | Compétence `sons-openverse` (chercher des sons libres, noter leurs crédits) | `competences/` | IABAI | celle de Dérush |
 | Compétence `derush-viralite` (analyser une vidéo avant de la publier) | `competences/` | IABAI | celle de Dérush |
+| Compétences `derush-createur` (dresser le profil d'un créateur) et `derush-publier` | `competences/` | IABAI | celle de Dérush |
 | Logos des services | `public/logos/` | Simple Icons | CC0 1.0 (les marques restent à leurs détenteurs) |
 | Polices Anton, Archivo Black, Bebas Neue, Montserrat, Playfair Display, Poppins | `public/polices/` | leurs auteurs, via Google Fonts | SIL Open Font License 1.1 |
 | Police Permanent Marker | `public/polices/` | Font Diner, via Google Fonts | Apache 2.0 |
@@ -37,6 +39,7 @@ Les logos et leurs règles d'usage sont décrits dans [public/logos/LISEZMOI.md]
 | uv | Installer les moteurs Python | MIT / Apache 2.0 |
 | Claude Code | L'IA qui monte (compte Claude) | Conditions d'Anthropic |
 | Codex | L'IA qui monte (compte ChatGPT) | Apache 2.0 (l'outil), conditions d'OpenAI (le service) |
+| Antigravity CLI (commande `agy`) | L'IA qui monte (compte Google, Gemini) | Conditions de Google |
 
 ## Services en ligne (avec tes comptes)
 

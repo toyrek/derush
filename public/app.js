@@ -2,13 +2,14 @@
 import {
   FORMATS, CADENCES, GENRES_BLOC, GENRES_INDICATION, EXT_MEDIAS, LANGUES, tc, lireTemps, versImage, surGrille, sequence, segmentA,
   motsEntre, texteDesMots, dureeLisible, nouvelId, borner, arrondi, fpsSource, fenetreCadrage, pointCadrage, debordements,
-  TYPES_VIDEO, formatProche,
+  TYPES_VIDEO, MODES, formatProche,
 } from '/commun.js';
 import {
   CATALOGUE, CATEGORIES, LOOKS, PLATEFORMES, POLICES_TITRES, STYLES_SOUS_TITRES, creerHabillage, decoupeA, preparerEtat, reglagesDe, resumeEffet, styleComplet,
 } from '/moteur.js';
 import {creerPublication} from '/publication.js';
 import {creerTutoriel} from '/tuto.js';
+import {creerCreateur} from '/createur.js';
 
 const JETON = document.querySelector('meta[name="derush-jeton"]').content;
 // Chaque fenêtre a son identifiant : le serveur sait laquelle est la principale, et quand la dernière se ferme.
@@ -101,7 +102,7 @@ let SRV = {moteurs: {}, file: null};
 let P = null;
 let seq = {segs: [], duree: 0, images: 0, fps: 30};
 const ui = {
-  mode: 'montage', sel: null, multi: new Set(), outil: 'selection', pressePapiers: null, texteVue: 'montage', panneau: 'medias', pps: 60, cadre: true, glisseMedia: null,
+  mode: 'montage', sel: null, blocIA: null, reglagesIA: [], multi: new Set(), outil: 'selection', pressePapiers: null, texteVue: 'montage', panneau: 'medias', pps: 60, cadre: true, glisseMedia: null,
   annuler: [], refaire: [], src: {id: null, entree: null, sortie: null, vue0: 0, vue1: 1},
   texteSpans: null, texteDedans: [], motCourant: null, trouve: null, exportTache: null, retours: [], editeurPret: false,
   habiller: 'style', vue: 'montage', versionVue: null, claude: null, brouillon: '', depart: null, clipsVus: null,
@@ -226,7 +227,9 @@ async function afficherBibliotheque() {
   const format = (k) => FORMATS[k]?.ratio ?? '';
   B.innerHTML = `<div class="biblio-interieur">
     <div class="biblio-tete"><img src="/icone.svg" alt=""><div><h1 class="marque">Dérush <small>par</small> <img class="iabai" src="/marque/iabai.png" alt="IABAI"></h1><p>Tu donnes la matière. Ton IA fait le montage. <span class="beta">Bêta privée</span></p></div><span class="espace"></span>
-      <button class="btn bouton-cx" data-b="connexions" title="Ton IA, ElevenLabs, Google Drive, Treg, Blender">${logo('claude', 18)}${logo('codex', 18)}${logo('elevenlabs', 18)}<span>Connexions</span></button>
+      <button class="btn bouton-cx" data-b="connexions" title="Ton IA, ElevenLabs, Google Drive, Treg, Blender">${logo('claude', 18)}${logo('codex', 18)}${logo('gemini', 18)}${logo('treg', 18)}<span>Connexions</span></button>
+      <button class="btn bouton-cx" data-b="profil" title="Mon profil de créateur : ce que ton IA a appris de tes comptes">${ic('profil')}<span>Mon profil</span></button>
+      <button class="btn bouton-cx" data-b="accueil" title="Mise en route : ton IA, tes réseaux, ton profil">${ic('drapeau')}<span>Mise en route</span></button>
       <button class="icone-btn" data-b="tutoriel" title="Revoir le tutoriel">${ic('aide')}</button>
       <button class="icone-btn" data-b="reglages" title="Réglages et moteurs">${ic('reglages')}</button>
       <button class="icone-btn" data-b="quitter" title="Quitter Dérush">${ic('quitter')}</button></div>
@@ -241,21 +244,24 @@ async function afficherBibliotheque() {
     </div>
     <div class="biblio-pied">${ic('dossier')}<span>Projets rangés dans ${esc(d.racine)}</span><span class="espace"></span><button class="btn petit" data-b="autre">Ouvrir un autre dossier…</button></div>
   </div>`;
-  // première ouverture : le tutoriel animé, puis (aucune IA branchée) les connexions, une fois
+  // première ouverture : le tutoriel animé, puis la mise en route (ton IA, tes réseaux, ton profil), une fois
   if (!SRV.reglages?.tuto_vu && !ui.tutoMontre) return tutoriel(true);
   proposerConnexions();
 }
-/** Aucune IA branchée : on ouvre les Connexions une fois, depuis la bibliothèque. */
+/** La mise en route s'ouvre une fois, depuis la bibliothèque : à la première ouverture, ou tant qu'aucune IA n'est branchée. */
 function proposerConnexions() {
   if (ui.cxMontree) return;
   ui.cxMontree = true;
-  api('GET', '/api/connexions').then((x) => { if (!x.claude?.ok && !x.codex?.ok && ui.ecran === 'biblio' && !ecranOuvert()) feuilleConnexions(); }).catch(() => {});
+  if (!SRV.reglages?.accueil_vu) { if (ui.ecran === 'biblio' && !ecranOuvert()) CR.accueil({premiere: true}); return; }
+  api('GET', '/api/connexions').then((x) => { if (!x.claude?.ok && !x.codex?.ok && !x.gemini?.ok && ui.ecran === 'biblio' && !ecranOuvert()) CR.accueil(); }).catch(() => {});
 }
 $('#ecran-biblio').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-b]')?.dataset.b;
   const carte = e.target.closest('.projet');
   if (b === 'nouveau') return feuilleNouveauProjet();
   if (b === 'connexions') return feuilleConnexions();
+  if (b === 'profil') return CR.ouvrir();
+  if (b === 'accueil') return CR.accueil();
   if (b === 'reglages') return feuilleReglages();
   if (b === 'tutoriel') return tutoriel();
   if (b === 'quitter') return quitter();
@@ -285,14 +291,20 @@ function tuilesFormat(actif, avecAuto = false) {
     return `<div class="format${k === actif ? ' actif' : ''}" data-format="${k}"><div class="forme" style="width:${Math.min(w, 96)}px;height:${w > 96 ? Math.round(96 * f.hauteur / f.largeur) : h}px"></div><b>${f.ratio}</b><span>${esc(f.nom.replace(/^.*?\(|\)$/g, '').replace(/^(Vertical|Horizontal|Carré|Portrait) /, ''))}</span></div>`;
   }).join('')}</div>`;
 }
+/** Le dessin de chaque mode de création (voir MODES dans commun.mjs). */
+const DESSINS_MODE = {montage: 'claude', motion: 'motion', extraits: 'extraits', son: 'son'};
+const TITRES_MODE = {montage: 'Nouveau montage', motion: 'Nouvelle animation', extraits: 'Mes extraits', son: 'Nouveau clip'};
+const modeProjet = () => (MODES[P?.mode] ? P.mode : 'montage');
 function feuilleNouveauProjet() {
   let format = 'auto';
   let genre = 'trend';
-  const f = feuille(`<h3>Nouveau projet</h3><p class="sous-titre">Donne-lui un nom et choisis le genre de vidéo. Le format suit ta vidéo, et se change ensuite d’un clic dans la timeline.</p>
-    <label class="champ"><span>Nom</span><input id="np-titre" value="Nouveau montage"></label>
-    <div class="champ"><span>Genre de vidéo</span><div class="types-video">${Object.entries(TYPES_VIDEO).map(([k, v]) => `<button class="type-video${k === genre ? ' actif' : ''}" data-genre="${k}"><b>${esc(v.nom)}</b><small>${esc(v.description)}</small></button>`).join('')}</div></div>
+  let mode = 'montage';
+  const f = feuille(`<h3>Nouveau projet</h3><p class="sous-titre">Choisis comment tu veux créer. Tu pourras changer de mode ensuite, dans le brief.</p>
+    <div class="modes">${Object.entries(MODES).map(([k, v]) => `<button class="mode-carte${k === mode ? ' actif' : ''}" data-mode="${k}">${ill(DESSINS_MODE[k])}<b>${esc(v.nom)}</b><small>${esc(v.description)}</small></button>`).join('')}</div>
+    <label class="champ"><span>Nom</span><input id="np-titre" value="${TITRES_MODE[mode]}"></label>
+    <div class="champ" id="np-genre"><span>Genre de vidéo</span><div class="types-video">${Object.entries(TYPES_VIDEO).map(([k, v]) => `<button class="type-video${k === genre ? ' actif' : ''}" data-genre="${k}"><b>${esc(v.nom)}</b><small>${esc(v.description)}</small></button>`).join('')}</div></div>
     <div class="champ"><span>Format</span>${tuilesFormat(format, true)}</div>
-    <div class="pied"><button class="btn" data-f="annuler">Annuler</button><button class="btn principal" data-f="creer">Créer</button></div>`);
+    <div class="pied"><button class="btn" data-f="annuler">Annuler</button><button class="btn principal" data-f="creer">Créer</button></div>`, true);
   const champ = $('#np-titre', f);
   champ.select();
   f.addEventListener('click', async (e) => {
@@ -300,18 +312,30 @@ function feuilleNouveauProjet() {
     if (t) { format = t.dataset.format; $$('.format', f).forEach((x) => x.classList.toggle('actif', x === t)); }
     const g = e.target.closest('[data-genre]');
     if (g) { genre = g.dataset.genre; $$('.type-video', f).forEach((x) => x.classList.toggle('actif', x === g)); }
+    const m = e.target.closest('[data-mode]');
+    if (m) {
+      // le nom proposé suit le mode, tant qu'on ne l'a pas écrit soi-même
+      if (Object.values(TITRES_MODE).includes(champ.value.trim())) champ.value = TITRES_MODE[m.dataset.mode];
+      mode = m.dataset.mode;
+      $$('.mode-carte', f).forEach((x) => x.classList.toggle('actif', x === m));
+      // le genre de vidéo ne sert qu'avec de la vidéo à monter
+      $('#np-genre', f).classList.toggle('cache', mode === 'motion' || mode === 'son');
+    }
     const a = e.target.closest('[data-f]')?.dataset.f;
     if (a === 'annuler') fermerFeuille();
     if (a === 'creer') {
       try {
-        await api('POST', '/api/projets', {titre: champ.value.trim() || 'Nouveau montage'});
-        const look = TYPES_VIDEO[genre]?.look ?? 'simple';
-        await api('PUT', '/api/projet', {sortie: format === 'auto' ? {auto: true, fps: 30} : {preset: format, fps: 30, auto: false}, brief: {type: genre},
+        await api('POST', '/api/projets', {titre: champ.value.trim() || TITRES_MODE[mode]});
+        const g2 = mode === 'motion' ? 'explication' : mode === 'son' ? 'libre' : genre;
+        const look = TYPES_VIDEO[g2]?.look ?? 'simple';
+        // « Auto » suit la première vidéo : sans vidéo (motion design), on part en vertical
+        const sortie = format !== 'auto' ? {preset: format, fps: 30, auto: false} : mode === 'motion' ? {preset: 'vertical', fps: 30, auto: false} : {auto: true, fps: 30};
+        await api('PUT', '/api/projet', {mode, sortie, brief: {type: g2},
           // le style du genre, mais sans sous-titres : ils ne se mettent que si on les demande (bouton Sous-titres)
           style: {...LOOKS[look].style, look, sous_titres: {...LOOKS[look].style.sous_titres, style: 'aucun'}}});
         fermerFeuille();
         await demarrerEditeur();
-        feuilleImporter();
+        if (mode === 'motion') montrerClaude(true); else feuilleImporter();
       } catch (err) { note(err.message, true); }
     }
   });
@@ -346,7 +370,7 @@ async function demarrerEditeur() {
   ui.annuler = [];
   ui.refaire = [];
   ui.src = {id: null, entree: null, sortie: null, vue0: 0, vue1: 1};
-  Object.assign(ui, {claude: null, vue: 'montage', versionVue: null, videoVue: 0, depart: null, brouillon: '', clipsVus: null, clEchanges: null, directAuto: null, studio: null, studioForm: {}, studioType: prefs.lire('studio.type', 'musique'), voix: null, ecoute: null});
+  Object.assign(ui, {blocIA: null, reglagesIA: [], claude: null, vue: 'montage', versionVue: null, videoVue: 0, depart: null, brouillon: '', clipsVus: null, clEchanges: null, directAuto: null, studio: null, studioForm: {}, studioType: prefs.lire('studio.type', 'musique'), voix: null, ecoute: null});
   ECOUTE.pause();
   DIRECT.file = [];
   DIRECT.rendu = null;
@@ -404,10 +428,22 @@ async function demarrerEditeur() {
 function afficherVide() {
   const v = $('#vide');
   if (ui.mode === 'montage' && !seq.segs.length && ui.vue === 'montage') {
-    const cle = P.medias.length ? 'medias' : 'rien';
+    const mode = modeProjet();
+    const cle = `${P.medias.length ? 'medias' : 'rien'}-${mode}`;
     if (v.dataset.cle !== cle) {
       v.dataset.cle = cle;
-      v.innerHTML = P.medias.length
+      const sansMatiere = {
+        motion: `<div><p class="guide-titre">Tu décris, <em>ton IA anime</em></p><p class="guide-sous">Pas besoin de vidéo. Dis le sujet, les mots à afficher, la durée et le style.</p>
+          <div class="guide">${geste('motion', '01', 'Décris', 'Le sujet, le texte, la durée. Joins ton logo ou ta charte.')}${FLECHE}${geste('claude', '02', 'Elle crée', 'Recherches, plan, animation, son : tu suis en direct.')}${FLECHE}${geste('coupe', '03', 'Tu règles', 'Chaque titre, effet et son apparaît dans la timeline.')}</div>
+          <div class="guide-actions"><button class="btn claude" data-a="claude">${ic('etincelle', 'plein')}<span>Décrire mon animation</span></button></div></div>`,
+        extraits: `<div><p class="guide-titre">Une longue vidéo, <em>plusieurs clips</em></p><p class="guide-sous">Dépose ta vidéo ou ton podcast en entier : ton IA trouve les meilleurs moments et fait un clip de chacun.</p>
+          <div class="guide">${geste('rushes', '01', 'Dépose', 'La vidéo entière, sans rien couper.')}${FLECHE}${geste('extraits', '02', 'Elle choisit', 'Les passages forts, un clip par idée.')}${FLECHE}${geste('claude', '03', 'Tu publies', 'Chaque clip a son titre et ses sous-titres.')}</div>
+          <div class="guide-actions"><button class="btn principal" data-a="importer">${ic('plus')}Importer</button></div></div>`,
+        son: `<div><p class="guide-titre">Un son, <em>une vidéo</em></p><p class="guide-sous">Dépose ta musique, ta voix ou ton podcast : ton IA crée les images qui vont avec.</p>
+          <div class="guide">${geste('son', '01', 'Dépose', 'Le son, tel quel.')}${FLECHE}${geste('motion', '02', 'Elle anime', 'Des images calées sur le rythme ou sur les mots.')}${FLECHE}${geste('claude', '03', 'Tu règles', 'Demande une retouche, un autre style.')}</div>
+          <div class="guide-actions"><button class="btn principal" data-a="importer">${ic('plus')}Importer</button></div></div>`,
+      }[mode];
+      v.innerHTML = !P.medias.length && sansMatiere ? sansMatiere : P.medias.length
         ? `<div><p class="guide-titre">Deux façons <em>d’avancer</em></p><p class="guide-sous">Tes médias sont là. À toi de voir jusqu’où tu veux aller.</p>
           <div class="guide">${geste('coupe', '', 'Je choisis', 'Glisse un média dans la timeline en bas, ou clique sur son <b>+</b>. Puis coupe et supprime ce qui est en trop.')}
           ${geste('claude', '', 'Ton IA choisit', 'Ne coupe rien. Écris ce que tu veux : elle garde les meilleurs passages et monte la vidéo.', `<button class="btn claude" data-a="claude">${ic('etincelle', 'plein')}<span>Demander à l’IA</span></button>`)}</div>
@@ -494,6 +530,7 @@ function verifierSelection() {
   if ((s.type === 'item' && !item(s.id)) || (s.type === 'indic' && !indication(s.id)) || (s.type === 'dessus' && !dessus(s.id))) ui.sel = null;
 }
 function selectionner(sel) {
+  if (ui.blocIA) { ui.blocIA = null; rendreBlocsIA(); }
   ui.sel = sel;
   ui.multi.clear();
   $$('.clip.sel, .indic.sel, .dessus.sel').forEach((e) => e.classList.remove('sel'));
@@ -1890,7 +1927,7 @@ function rendreDessus() {
 function rendreMontage() {
   const piste = $('#piste-montage');
   const parts = [`<span class="piste-nom">${ic('film')}Montage</span>`];
-  if (!seq.segs.length) parts.push(`<div class="depose-ici"><span>${P.medias.length ? '<b>Glisse un média ici</b> ou clique sur le + de sa vignette' : '<b>Importe tes vidéos</b>, puis glisse-les ici'}</span></div>`);
+  if (!seq.segs.length) parts.push(`<div class="depose-ici"><span>${P.medias.length ? '<b>Glisse un média ici</b> ou clique sur le + de sa vignette' : modeProjet() === 'motion' ? '<b>Rien à importer</b> : décris ton animation à droite, la vidéo de ton IA et ses blocs apparaîtront en dessous' : '<b>Importe tes vidéos</b>, puis glisse-les ici'}</span></div>`);
   const aDessiner = [];
   const aCharger = new Set();
   for (const s of seq.segs) {
@@ -2521,11 +2558,15 @@ function rendreInspecteur() {
   const box = $('#inspecteur');
   if (!P) return;
   const sel = ui.sel;
+  // un bloc de l'IA cliqué dans la timeline : la colonne montre ses réglages
+  const bloc = !sel && ui.multi.size <= 1 && ui.blocIA ? blocIA(ui.blocIA) : null;
+  if (ui.blocIA && !bloc) ui.blocIA = null;
   // rien de sélectionné : la colonne est à Claude
-  const rien = !sel && ui.multi.size <= 1;
+  const rien = !sel && ui.multi.size <= 1 && !bloc;
   box.classList.toggle('cache', rien);
   $('#claude').classList.toggle('cache', !rien);
   if (rien) { box.innerHTML = ''; return rendreClaude(); }
+  if (bloc) return rendreBlocIA(box, bloc);
   if (ui.multi.size > 1) {
     const ids = idsSelectionnes();
     const segs = seq.segs.filter((x) => ids.includes(x.it.id));
@@ -2706,6 +2747,7 @@ function feuilleBrief() {
   const b = P.brief;
   const champ = (k, label, aide, grand = false) => `<label class="champ"><span>${label}</span>${grand ? `<textarea data-brief="${k}" placeholder="${esc(aide)}">${esc(b[k])}</textarea>` : `<input data-brief="${k}" value="${esc(b[k])}" placeholder="${esc(aide)}">`}</label>`;
   const f = feuille(`<h3>Brief et format</h3><p class="sous-titre">C’est la première chose que l’IA lira : explique le projet comme à un monteur.</p>
+    <div class="champ"><span>Mode de création</span><div class="segmente" id="brief-mode">${Object.entries(MODES).map(([k, v]) => `<button data-mode-projet="${k}"${k === modeProjet() ? ' class="actif"' : ''} title="${esc(v.description)}">${esc(v.nom)}</button>`).join('')}</div></div>
     <label class="champ"><span>Genre de vidéo (l’IA suit la recette de ce genre)</span><select data-brief="type">${option('', 'Non précisé', !b.type)}${Object.entries(TYPES_VIDEO).map(([k, v]) => option(k, `${v.nom} — ${v.description}`, b.type === k)).join('')}</select></label>
     ${champ('objectif', 'Objectif, histoire', 'Teaser de 30 s qui donne envie d’écouter le podcast…', true)}
     <div class="deux">${champ('public', 'Public', '13-18 ans du Val-d’Oise')}${champ('plateformes', 'Plateformes', 'TikTok, Reels, YouTube…')}</div>
@@ -2724,6 +2766,15 @@ function feuilleBrief() {
     sauver();
   });
   f.addEventListener('click', (e) => {
+    const bm = e.target.closest('[data-mode-projet]');
+    if (bm) {
+      P.mode = bm.dataset.modeProjet;
+      $$('#brief-mode button', f).forEach((x) => x.classList.toggle('actif', x === bm));
+      api('PUT', '/api/projet', {mode: P.mode}).catch((err) => note(err.message, true));
+      $('#vide').dataset.cle = '';
+      afficherVide();
+      rendreClaude();
+    }
     const tuile = e.target.closest('[data-format]');
     if (tuile) {
       const k = tuile.dataset.format;
@@ -2858,7 +2909,7 @@ async function feuilleReglages() {
     return `<div class="moteur"><div class="rond" style="background:${couleur}22;color:${couleur}">${ic(icone)}</div><div class="desc"><b>${titre}</b><small>${esc(x.ok ? (x.detail ?? x.nom) : x.pourquoi)}</small></div>${x.ok ? `<span class="etiq ok">${ic('coche')}prêt</span>` : x.installable ? `<button class="btn bleu petit" data-installer="${cle}">Installer · ${esc(x.taille)}</button>` : '<span class="etiq">indisponible</span>'}</div>`;
   };
   const f = feuille(`<h3>Réglages</h3><p class="sous-titre">Les moteurs tournent sur ton ordinateur. Seule ton IA travaille en ligne, avec ton compte.</p>
-    <div class="moteur">${logo('claude', 30)}<div class="desc"><b>Connexions</b><small>Ton IA (Claude ou Codex), ElevenLabs, Google Drive, Treg pour publier, Blender, les mises à jour.</small></div><button class="btn bleu petit" data-connexions>Ouvrir</button></div>
+    <div class="moteur">${logo('claude', 30)}<div class="desc"><b>Connexions</b><small>Ton IA (Claude, Codex ou Gemini), ElevenLabs, Google Drive, Treg pour publier, Blender, les mises à jour.</small></div><button class="btn bleu petit" data-connexions>Ouvrir</button></div>
     ${ligne('whisper', 'texte', '#0a84ff', 'Texte mot à mot — Whisper')}
     ${ligne('voix', 'voix', '#30d158', 'Séparer la voix — Demucs')}
     ${SRV.systeme === 'mac' || mo.vision?.ok || mo.vision?.installable ? ligne('vision', 'cadre', '#ff9f0a', 'Recadrage qui suit les visages — Apple Vision') : ''}
@@ -2947,7 +2998,7 @@ function afficherExport(t) {
   const f = feuille(`<h3>${ic('ok')} Pack prêt</h3><p class="sous-titre">${r.plans} plans · ${r.cases_a_creer} cases à créer · ${r.par_dessus} par-dessus · ${r.indications} indications · ${r.mots_dits} mots · ${esc(r.taille_lisible)}${r.kit ? ' · kit Remotion' : ''}</p>
     <div class="resultat">${esc(r.dossier)}</div>
     ${r.avertissements?.length ? `<div class="verifs" style="margin-top:12px">${r.avertissements.map((a) => `<div class="verif attention">${ic('attention')}<div class="espace" style="font-size:12px">${esc(a)}</div></div>`).join('')}</div>` : ''}
-    <p style="margin:16px 0 8px">Pour finir la vidéo avec une IA : ouvre ce dossier dans Claude Code ou Codex (ou donne-lui son chemin) et envoie ce message.</p>
+    <p style="margin:16px 0 8px">Pour finir la vidéo avec une IA : ouvre ce dossier dans Claude Code, Codex ou Gemini (ou donne-lui son chemin) et envoie ce message.</p>
     <textarea class="message-ia" readonly>${esc(message)}</textarea>
     <div class="pied"><button class="btn" data-finder>${ic('finder')}Afficher dans le dossier</button><span class="espace"></span><button class="btn" data-copier>Copier le message</button><button class="btn principal" data-fermer>OK</button></div>`);
   f.querySelector('[data-fermer]').onclick = fermerFeuille;
@@ -3878,15 +3929,22 @@ const geste = (dessin, num, titre, texte, plus = '') => `<div class="geste">${il
 const guideGestes = () => `<div class="guide">${geste('rushes', '01', 'Dépose', 'Tes vidéos, tes sons, tes photos. Même sans rien trier.')}${FLECHE}${geste('coupe', '02', 'Coupe, ou pas', 'Garde les bons passages. Ou ne touche à rien : ton IA choisira.')}${FLECHE}${geste('claude', '03', 'Demande', 'Écris ce que tu veux, joins tes références. Ton IA monte, et publie si tu veux.')}</div>`;
 
 // ——— l'IA qui monte : Claude (compte Claude) ou Codex (compte ChatGPT) ———
-// Les logos viennent de Simple Icons (CC0, public/logos) ; les marques absentes de Simple Icons ont un picto neutre.
-const LOGOS = {openverse: 'openverse', claude: 'claude', anthropic: 'anthropic', elevenlabs: 'elevenlabs', drive: 'googledrive', tiktok: 'tiktok', youtube: 'youtubeshorts', instagram: 'instagram', blender: 'blender', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', linux: 'linux'};
-const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', codex: 'codex', linkedin: 'mallette', treg: 'relais', remotion: 'film', maj: 'maj', competences: 'outil', windows: 'fenetre'};
+// Les logos viennent de Simple Icons (CC0, public/logos : voir LISEZMOI.md pour la version de chacun) ; seuls les outils
+// qui n'ont pas de logo à eux (Real SFX, Earshot…) gardent un picto.
+const LOGOS = {openverse: 'openverse', claude: 'claude', anthropic: 'anthropic', codex: 'openai', openai: 'openai', chatgpt: 'openai', whisper: 'openai', gemini: 'googlegemini', google: 'google',
+  elevenlabs: 'elevenlabs', drive: 'googledrive', treg: 'treg', tiktok: 'tiktok', youtube: 'youtubeshorts', instagram: 'instagram', linkedin: 'linkedin', facebook: 'facebook', x: 'x',
+  blender: 'blender', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', macos: 'macos', linux: 'linux', windows: 'windows',
+  premiere: 'adobepremierepro', resolve: 'davinciresolve'};
+const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', remotion: 'film', maj: 'maj', competences: 'outil'};
 /** Un logo sur sa pastille claire : les logos noirs (TikTok, GitHub…) restent lisibles sur le fond sombre. */
 const logo = (cle, taille = 22, cls = '') => (LOGOS[cle]
-  ? `<span class="logo ${cls}" style="--t:${taille}px"><img src="/logos/${LOGOS[cle]}.svg" alt="" draggable="false"></span>`
+  ? `<span class="logo l-${cle} ${cls}" style="--t:${taille}px"><img src="/logos/${LOGOS[cle]}.svg" alt="" draggable="false"></span>`
   : `<span class="logo picto p-${cle} ${cls}" style="--t:${taille}px">${ic(PICTOS[cle] ?? 'etincelle')}</span>`);
 const moteurIA = () => ui.claude?.ia?.choisi ?? SRV.moteurs?.ia_choisie ?? 'claude';
-const nomIA = (m = moteurIA()) => (m === 'codex' ? 'Codex' : 'Claude');
+const NOMS_IA = {claude: 'Claude', codex: 'Codex', gemini: 'Gemini'};
+const COMPTES_IA = {claude: {compte: 'Avec ton compte Claude (Pro ou Max).', relie: 'connecté à Claude'}, codex: {compte: 'Avec ton compte ChatGPT (Plus, Pro ou Business).', relie: 'connecté à ChatGPT'},
+  gemini: {compte: 'Avec ton compte Google (Gemini 4 Carbon et Argon, par la commande agy d’Antigravity).', relie: 'connecté à Google'}};
+const nomIA = (m = moteurIA()) => NOMS_IA[m] ?? 'Claude';
 const iaPrete = (m = moteurIA()) => !!ui.claude?.[m]?.ok;
 const qualiteIA = () => ui.claude?.ia?.qualite ?? 'max';
 const RESEAUX_UI = {tiktok: 'TikTok', youtube: 'YouTube Shorts', instagram: 'Instagram Reels', linkedin: 'LinkedIn'};
@@ -3967,6 +4025,18 @@ function ideesIA(suite) {
     ['Plus court', 'Raccourcis la vidéo : garde seulement les moments les plus forts.'],
     ['Autres formats', 'Fais-en aussi une version 16:9 pour YouTube et une version carrée pour Instagram.'],
     ['Sous-titres', 'Ajoute des sous-titres mot à mot, bien lisibles, avec les mots importants en couleur.'],
+    ...son, ...charte,
+  ];
+  if (modeProjet() === 'motion') return [
+    ['Une annonce', 'Fais une animation de 15 secondes qui annonce … (le quoi, la date, le lieu) : un titre qui claque, trois infos clés, puis un carton de fin.'],
+    ['Un sujet expliqué', 'Explique en 30 secondes, en motion design : … Cherche des chiffres récents, anime-les (compteurs, barres, schéma), et cite tes sources à la fin.'],
+    ['Un logo animé', 'Anime mon logo (je te le joins) en 5 secondes : une belle entrée, un son court, sur un fond à ma couleur.'],
+    ...charte,
+  ];
+  if (modeProjet() === 'extraits' && P.medias.length) return [
+    ['3 extraits forts', 'Trouve les 3 meilleurs moments et fais-en 3 clips verticaux de 30 à 45 secondes, chacun avec une première phrase qui accroche, des sous-titres et un titre.'],
+    ['Tous les bons moments', 'Découpe tout ce qui mérite un clip : un clip par idée, de 20 à 60 secondes, sous-titré, avec son titre.'],
+    ['Un teaser', 'Fais un teaser de 30 secondes qui donne envie de voir la vidéo entière, avec les phrases les plus fortes.'],
     ...son, ...charte,
   ];
   if (P.medias.length && P.medias.every((m) => m.type === 'audio')) return [
@@ -4226,12 +4296,20 @@ function majTravail(c) {
 setInterval(() => { const el = $('#cl-temps'); if (el && ui.claude?.en_cours && ui.clDebut) el.textContent = minSec((Date.now() - ui.clDebut) / 1000); }, 1000);
 
 const hauteurTexte = (ta) => { ta.style.height = 'auto'; ta.style.height = `${Math.min(220, Math.max(64, ta.scrollHeight))}px`; };
-const majEnvoi = () => { const b = $('#cl-envoyer'); if (b) b.disabled = !(ui.brouillon.trim() || piecesEnAttente().length) || !iaPrete() || !!ui.claude?.en_cours; };
+const majEnvoi = () => { const b = $('#cl-envoyer'); if (b) b.disabled = !(ui.brouillon.trim() || piecesEnAttente().length || ui.reglagesIA.length) || !iaPrete() || !!ui.claude?.en_cours; };
+$('#claude').addEventListener('click', (e) => {
+  const i = e.target.closest('[data-reglage-i]')?.dataset.reglageI;
+  if (i == null) return;
+  ui.reglagesIA.splice(Number(i), 1);
+  rendreBlocsIA();
+  rendreClaude();
+});
 
 const elementMenu = (act, icone, txt) => `<button data-cl="${act}" role="menuitem">${ic(icone)}<span>${txt}</span></button>`;
 /** Le menu « … » de la colonne : tout ce qui n'est pas la conversation. */
 const menuIA = (c, suite) => `<div class="ia-menu" role="menu">
   ${elementMenu('connexions', 'prise', 'Connexions')}
+  ${elementMenu('profil', 'profil', 'Mon profil de créateur')}
   ${elementMenu('brief', 'texte', 'Brief et format')}
   ${elementMenu('studio', 'onde', 'Créer avec ElevenLabs')}
   ${elementMenu('creer', 'rendu', 'Créer la vidéo sans IA')}
@@ -4256,7 +4334,7 @@ function rendreClaude() {
   const depart = !peutSuivre ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
   const attente = piecesEnAttente();
   const envoyees = piecesEnvoyees();
-  const cle = JSON.stringify([m, pret, qualiteIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs]);
+  const cle = JSON.stringify([modeProjet(), ui.reglagesIA.map((r) => r.texte), m, pret, qualiteIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs]);
   if (box.dataset.cle === cle) return majTravail(c);
   const ancien = $('#cl-texte', box);
   const focus = !!ancien && document.activeElement === ancien;
@@ -4278,9 +4356,14 @@ function rendreClaude() {
     <button class="icone-btn${ui.clMenu ? ' actif' : ''}" data-cl="menu" title="Plus : connexions, brief, créer sans IA…">${ic('points')}</button>
     ${ui.clMenu ? menuIA(c, suite) : ''}</div>`;
   const recus = ui.clRecus && envoyees.length ? `<div class="ia-recus-liste">${envoyees.map(lignePiece).join('')}<small>L’IA les retrouve à chaque message, avec tes créations ElevenLabs.</small></div>` : '';
-  const brancher = pret ? '' : `<div class="ia-brancher"><div class="logos">${logo('claude', 38)}${logo('codex', 38)}</div><b>Branche ton IA</b><p>Claude (avec ton compte Claude) ou Codex (avec ton compte ChatGPT). Un clic pour l’installer, un pour te connecter.</p><button class="btn principal" data-cl="connexions">${ic('prise')}Connexions</button></div>`;
-  const accueil = suite || c.en_cours ? '' : !P.medias.length && !c.pieces.length
-    ? `<div class="ia-accueil">${ill('rushes')}<h2>D’abord, ta matière</h2><p>Dépose tes vidéos, tes sons ou tes photos sur la fenêtre, ou joins-les à ton message avec le trombone.</p><button class="btn principal" data-a="importer">${ic('plus')}Importer</button></div>`
+  const brancher = pret ? '' : `<div class="ia-brancher"><div class="logos">${logo('claude', 38)}${logo('codex', 38)}${logo('gemini', 38)}</div><b>Branche ton IA</b><p>Claude (avec ton compte Claude), Codex (avec ton compte ChatGPT) ou Gemini (avec ton compte Google). Un clic pour l’installer, un pour te connecter.</p><button class="btn principal" data-cl="connexions">${ic('prise')}Connexions</button></div>`;
+  const modeP = modeProjet();
+  const matiere = {extraits: 'Dépose ta longue vidéo ou ton podcast, en entier : ton IA en tirera les meilleurs moments.', son: 'Dépose ta musique, ta voix ou ton podcast : ton IA crée les images qui vont avec.'}[modeP]
+    ?? 'Dépose tes vidéos, tes sons ou tes photos sur la fenêtre, ou joins-les à ton message avec le trombone.';
+  const accueil = suite || c.en_cours ? '' : modeP === 'motion' && !P.medias.length
+    ? `<div class="ia-accueil">${ill('motion')}<h2>Décris ton animation</h2><p>Pas besoin de vidéo : le sujet, les mots à afficher, la durée, le style. Joins ton logo ou ta charte si tu en as.</p>${pret ? blocIdees(false) : ''}</div>`
+    : !P.medias.length && !c.pieces.length
+    ? `<div class="ia-accueil">${ill(DESSINS_MODE[modeP] === 'claude' ? 'rushes' : DESSINS_MODE[modeP])}<h2>D’abord, ta matière</h2><p>${matiere}</p><button class="btn principal" data-a="importer">${ic('plus')}Importer</button></div>`
     : `<div class="ia-accueil">${ill('claude')}<h2>Qu’est-ce qu’on monte&nbsp;?</h2><p>Écris ce que tu veux. Joins tes références, ta charte ou ton logo si tu en as.</p>${pret ? blocIdees(false) : ''}</div>`;
   const fil = suite || c.en_cours ? `<div class="cl-fil">${c.echanges.map((x) => bulleClaude(x, c)).join('')}${c.en_cours ? bulleTravail(c) : ''}</div>` : '';
   const reprendre = suite && c.decoupe_ia && !c.en_cours
@@ -4294,8 +4377,10 @@ function rendreClaude() {
   const qui = nomIA(m);
   const texteVide = !pret ? 'Branche d’abord ton IA (Connexions)…' : c.en_cours ? `${qui} travaille. Tu peux préparer ton prochain message…`
     : attente.length ? `Dis à ${qui} quoi en faire, ou envoie tel quel…`
-      : suite ? 'Une retouche, une question, une autre vidéo, « publie-la »…' : 'Exemple : fais 3 clips de 20 secondes pour TikTok, dans le style de ma référence…';
+      : suite ? 'Une retouche, une question, une autre vidéo, « publie-la »…'
+        : modeP === 'motion' ? 'Exemple : une animation de 20 secondes qui présente notre atelier du samedi, avec nos couleurs…' : 'Exemple : fais 3 clips de 20 secondes pour TikTok, dans le style de ma référence…';
   const compose = `<div class="cl-compose${attente.length ? ' avec-pj' : ''}" id="cl-compose">
+    ${ui.reglagesIA.length ? `<div class="cl-reglages"><small>${ic('reglages')}${ui.reglagesIA.length} réglage${ui.reglagesIA.length > 1 ? 's' : ''} sur la table de montage, envoyé${ui.reglagesIA.length > 1 ? 's' : ''} avec ton message</small>${ui.reglagesIA.map((r, i) => `<span class="bloc-regle" title="${esc(r.texte)}"><b>${esc(r.nom)}</b> ${esc(r.texte)}<button data-reglage-i="${i}" title="Retirer ce réglage">${ic('fermer')}</button></span>`).join('')}</div>` : ''}
     ${attente.length ? `<div class="cl-pjs">${attente.map(pucePiece).join('')}</div>` : ''}
     <textarea id="cl-texte" rows="2" spellcheck="true" placeholder="${esc(texteVide)}"${pret ? '' : ' disabled'}></textarea>
     <div class="cl-envoi"><button class="cl-joindre" data-cl="joindre" title="Joindre des fichiers : références, vidéos, charte graphique, logo, polices, zip… Tu peux aussi les glisser ou les coller ici.">${ic('trombone')}</button>${c.drive?.synchronise ? `<button class="cl-joindre" data-cl="joindre-drive" title="Joindre depuis ton Google Drive">${logo('drive', 16)}</button>` : ''}
@@ -4323,15 +4408,18 @@ async function envoyerDemande() {
   const pj = piecesEnAttente();
   if (!c || c.en_cours) return;
   if (!iaPrete()) return feuilleConnexions();
-  if (!texte && !pj.length) return $('#cl-texte')?.focus();
+  const reglages = texteReglages();
+  if (!texte && !pj.length && !reglages) return $('#cl-texte')?.focus();
   const peutSuivre = c.echanges.length > 0 && !!c.session;
   const depart = !peutSuivre ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
   const b = $('#cl-envoyer');
   if (b) b.disabled = true;
   try {
     await sauver(true);
-    await api('POST', '/api/claude/demander', {message: texte, pieces: pj.map((x) => x.id), moteur: moteurIA(), qualite: qualiteIA(), nouveau: depart === 'nouveau'});
+    const message = [texte || (reglages ? 'Applique ces réglages sur ta vidéo, sans rien changer d’autre.' : ''), reglages].filter(Boolean).join('\n\n');
+    await api('POST', '/api/claude/demander', {message, pieces: pj.map((x) => x.id), moteur: moteurIA(), qualite: qualiteIA(), nouveau: depart === 'nouveau'});
     ui.brouillon = '';
+    ui.reglagesIA = [];
     ui.depart = null;
     await chargerClaude();
   } catch (err) { note(err.message, true); majEnvoi(); }
@@ -4409,6 +4497,7 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'recus') { ui.clRecus = !ui.clRecus; return rendreClaude(); }
     if (act === 'choisir-ia') return feuilleChoixIA();
     if (act === 'connexions') return feuilleConnexions();
+    if (act === 'profil') return CR.ouvrir();
     if (act === 'publier') return feuillePublier(e.target.closest('[data-nom]').dataset.nom);
     if (act === 'analyser') return PUB.ouvrir(e.target.closest('[data-nom]').dataset.nom, 'analyse');
     if (act === 'partager') return PUB.ouvrir(e.target.closest('[data-nom]').dataset.nom, 'partage');
@@ -4488,9 +4577,9 @@ function carteIA(d, m) {
     : occupe ? `<span class="etiq">${anneau(0.5)}Installation…</span>`
       : x.installable ? `<button class="btn bleu petit" data-cx="${m}/installer">Installer</button>`
         : x.connectable ? `<button class="btn bleu petit" data-cx="${m}/connecter">Me connecter</button>` : '';
-  const compte = m === 'codex' ? 'Avec ton compte ChatGPT (Plus, Pro ou Business).' : 'Avec ton compte Claude (Pro ou Max).';
-  const sous = x.ok ? `${esc(x.nom ?? '')} · ${m === 'codex' ? 'connecté à ChatGPT' : 'connecté à Claude'}` : `${esc(x.pourquoi ?? '')} ${compte}`;
-  return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: m === 'codex' ? 'Codex' : 'Claude', sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? '<small class="dim">Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.</small>' : '')});
+  const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
+  const aide = m === 'gemini' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google dans la page qui suit, ferme le terminal, puis reviens ici.' : 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.';
+  return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: nomIA(m), sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? `<small class="dim">${aide}</small>` : '')});
 }
 /** Les vrais sons : la bibliothèque (remplie avec Openverse), Real SFX pour les poser, Earshot pour écouter. */
 function sectionSons(d) {
@@ -4520,7 +4609,7 @@ async function feuilleConnexions() {
     const maj = d.maj ?? {};
     const reseaux = `<div class="cx-reseaux">${['tiktok', 'youtube', 'instagram', 'linkedin'].map((k) => logo(k, 22)).join('')}</div>`;
     f.innerHTML = `<div class="cx-tete"><div><h3>Connexions</h3><p class="sous-titre">Tout ce dont Dérush a besoin, branché ici en un clic. Rien n’est partagé sans toi.</p></div><span class="marque-iabai"><span>Dérush</span><small>par</small><img src="/marque/iabai.png" alt="IABAI"></span></div>
-    <section class="cx-section"><h4>${ic('etincelle', 'plein')}Ton IA, celle qui monte</h4><div class="cx-grille deux">${carteIA(d, 'claude')}${carteIA(d, 'codex')}</div>
+    <section class="cx-section"><h4>${ic('etincelle', 'plein')}Ton IA, celle qui monte</h4><div class="cx-grille trois">${carteIA(d, 'claude')}${carteIA(d, 'codex')}${carteIA(d, 'gemini')}</div>
       <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(d.qualites ?? {}).map(([k, q]) => `<button data-cx="ia/choisir" data-qualite="${k}"${k === d.qualite ? ' class="actif"' : ''} title="${esc(q.aide)}">${esc(q.nom)}</button>`).join('')}</div><small>${esc(d.qualites?.[d.qualite]?.aide ?? '')}</small></div></section>
     <section class="cx-section"><h4>${ic('onde')}Créer le son, les images, les plans</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(el.ok, el.attente), lg: logo('elevenlabs', 42), titre: 'ElevenLabs', sous: esc(el.ok ? 'Branché : musiques, voix, bruitages, images et plans vidéo.' : el.attente ? 'Autorise Dérush dans la page ElevenLabs ouverte dans ton navigateur.' : 'Musiques, voix off, bruitages, doublage, images et plans vidéo (crédits ElevenLabs).'), actions: el.ok ? `<span class="etiq ok">${ic('coche')}Branché</span>` : el.attente ? `<span class="etiq">${anneau(0.5)}En attente…</span>` : '<button class="btn bleu petit" data-cx="elevenlabs/brancher">Brancher</button>'})}</div></section>
@@ -4528,8 +4617,8 @@ async function feuilleConnexions() {
     <section class="cx-section"><h4>${ic('nuage')}Tes fichiers</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(dr.actif && (dr.synchronise || dr.connecteur?.etat === 'connecte')), lg: logo('drive', 42), titre: 'Google Drive', sous: esc(!dr.actif ? 'L’IA ne voit pas ton Drive.' : `${dr.synchronise ? `Dossier « ${dr.dossier} » synchronisé sur cet ordinateur.` : 'Le dossier Drive n’est pas synchronisé sur cet ordinateur (app Google Drive pour ordinateur).'} ${dr.connecteur?.etat === 'connecte' ? 'Le connecteur de ton compte Claude répond.' : 'Avec Claude, ajoute aussi le connecteur Google Drive dans claude.ai (Réglages › Connecteurs).'}`),
         actions: `<label class="interrupteur" title="Donner ton Drive à l’IA"><input type="checkbox" data-cx-bascule="drive/activer"${dr.actif ? ' checked' : ''}><i></i></label>`})}</div></section>
-    <section class="cx-section"><h4>${ic('publier')}Publier sur les réseaux</h4><div class="cx-grille">
-      ${carteCx({etat: etatCarte(treg.actif && treg.pret), lg: logo('treg', 42), titre: 'Treg', sous: esc(treg.pret ? `Relié${treg.jeton ? ' avec ta clé' : ' par le connecteur de ton compte Claude'}. Rien ne part sans ton clic.` : 'Le service qui publie tes vidéos à ta place sur TikTok, Instagram, YouTube et LinkedIn. Trois gestes, une seule fois : Dérush te guide.'),
+    <section class="cx-section"><h4>${ic('publier')}Tes réseaux : publier, lire, apprendre</h4><div class="cx-grille">
+      ${carteCx({etat: etatCarte(treg.actif && treg.pret), lg: logo('treg', 42), titre: 'Treg', sous: esc(treg.pret ? `Relié${treg.jeton ? ' avec ta clé' : ' par le connecteur de ton compte Claude'}. Rien ne part sans ton clic.` : 'Conseillé. Treg relie tes comptes à ton IA : elle publie à ta place, lit tes chiffres et tes commentaires, et apprend ce qui marche chez toi. Tu choisis les comptes, rien ne part sans ton clic. Trois gestes, une seule fois : Dérush te guide.'),
         plus: reseaux,
         actions: `<button class="btn ${treg.pret ? '' : 'bleu '}petit" data-guide-treg title="Trois gestes, une seule fois">${treg.pret ? 'Voir mes réseaux' : 'Relier mes réseaux'}</button><label class="interrupteur" title="Donner Treg à l’IA"><input type="checkbox" data-cx-bascule="treg/activer"${treg.actif ? ' checked' : ''}><i></i></label>`})}</div></section>
     <section class="cx-section"><h4>${ic('cube')}La 3D</h4><div class="cx-grille">
@@ -4547,7 +4636,7 @@ async function feuilleConnexions() {
   };
   const suivre = () => {
     clearTimeout(minuterieConnexions);
-    const attente = [d.claude?.action, d.codex?.action, d.blender_action, d.competences?.action, d.sons?.realsfx?.action, d.sons?.earshot?.action].some(enCours) || d.elevenlabs?.attente || ui.cxSuivre > Date.now();
+    const attente = [d.claude?.action, d.codex?.action, d.gemini?.action, d.blender_action, d.competences?.action, d.sons?.realsfx?.action, d.sons?.earshot?.action].some(enCours) || d.elevenlabs?.attente || ui.cxSuivre > Date.now();
     if (attente) minuterieConnexions = setTimeout(async () => { if (!f.isConnected) return; await relire(); suivre(); }, 3500);
   };
   rendre();
@@ -4571,7 +4660,7 @@ async function feuilleConnexions() {
     b.disabled = true;
     try {
       await api('POST', `/api/connexions/${action}`, corps);
-      if (/\/(installer|connecter|brancher)$/.test(action)) { ui.cxSuivre = Date.now() + 15 * 60000; note(/connecter|brancher/.test(action) ? 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.' : 'Installation lancée : ça prend une à deux minutes.'); }
+      if (/\/(installer|connecter|brancher)$/.test(action)) { ui.cxSuivre = Date.now() + 15 * 60000; note(action === 'gemini/connecter' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google, puis reviens ici.' : /connecter|brancher/.test(action) ? 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.' : 'Installation lancée : ça prend une à deux minutes.'); }
       if (action === 'maj/installer') { note('Mise à jour installée : Dérush redémarre…', false, true); return; }
       if (action === 'earshot/installer') note('Earshot s’installe : 2,5 Go, compte une dizaine de minutes. Tu peux continuer à travailler.');
     } catch (err) { note(err.message, true); }
@@ -4580,7 +4669,7 @@ async function feuilleConnexions() {
   });
 }
 
-/** « Qui monte ? » : Claude ou Codex, et le niveau de soin. */
+/** « Qui monte ? » : Claude, Codex ou Gemini, et le niveau de soin. */
 function feuilleChoixIA() {
   const c = ui.claude;
   if (!c) return feuilleConnexions();
@@ -4590,7 +4679,7 @@ function feuilleChoixIA() {
     return `<button class="ia-carte${choisi ? ' choisie' : ''}${x.ok ? '' : ' pas-prete'}" data-moteur="${m}">${logo(m, 44)}<span><b>${nomIA(m)}</b><small>${esc(c.ia?.noms?.[m]?.compte ?? '')}</small><small class="${x.ok ? 'ok' : 'attention'}">${esc(x.ok ? 'Prête' : x.pourquoi ?? '')}</small></span>${choisi ? `<i class="coche">${ic('coche')}</i>` : ''}</button>`;
   };
   const f = feuille(`<h3>Qui monte ta vidéo ?</h3><p class="sous-titre">Choisis ton IA et le niveau de soin. Tu peux changer à tout moment : la conversation continue avec la nouvelle.</p>
-    <div class="ia-cartes">${carte('claude')}${carte('codex')}</div>
+    <div class="ia-cartes trois">${carte('claude')}${carte('codex')}${carte('gemini')}</div>
     <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(c.qualites ?? {}).map(([k, q]) => `<button data-qualite="${k}"${k === qualiteIA() ? ' class="actif"' : ''}>${esc(q.nom)}</button>`).join('')}</div><small id="aide-qualite">${esc(c.qualites?.[qualiteIA()]?.aide ?? '')}</small></div>
     <div class="pied"><button class="btn" data-connexions>${ic('prise')}Connexions</button><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`);
   f.addEventListener('click', async (e) => {
@@ -4841,6 +4930,7 @@ function dureeClaudeTl() {
  * ensuite, la vidéo qu'il a livrée s'y affiche en bande d'images. Un clic la lit à cet endroit.
  */
 function rendreClaudePiste() {
+  rendreBlocsIA();
   const piste = $('#piste-claude');
   const c = ui.claude;
   const visible = !!P && !!c && (c.versions.length > 0 || !!c.en_cours);
@@ -4901,6 +4991,112 @@ function rendreClaudePiste() {
     piste.innerHTML = `${nom(nomIA(ui.claude?.en_cours?.moteur))}<div class="cl-bande attente" style="width:${Math.max(seq.duree, 12) * ui.pps}px"><span class="cl-bande-titre">${ill('bobine')}${nomIA(ui.claude?.en_cours?.moteur)} prépare le montage : son rendu s’affichera ici, en direct</span></div>`;
   }
 }
+// ——— La table de montage de l'IA : ce qu'elle pose sur la vidéo (plans, titres, effets, sons), en direct pendant son
+// travail, puis à régler bloc par bloc. Elle l'écrit dans rendu/timeline.json (voir tableIA dans lib/claude.mjs). ———
+const PISTES_IA = [['plan', 'Plans', 'film'], ['texte', 'Titres et textes', 'texte'], ['effet', 'Effets', 'etincelle'], ['son', 'Sons', 'onde']];
+const pisteDe = (b) => (b.piste === 'sous-titres' ? 'texte' : b.piste);
+const tempsFin = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0').replace('.', ',')}`;
+/** La table à montrer : celle du travail en cours (en direct), sinon celle de la version regardée. */
+function tableIA() {
+  const c = ui.claude;
+  if (!c) return null;
+  const direct = c.en_cours?.direct?.table;
+  if (direct?.blocs?.length) return {...direct, direct: true};
+  const v = c.versions.find((x) => x.n === ui.versionVue) ?? c.versions.at(-1);
+  if (c.en_cours || !v?.table?.blocs?.length) return null;
+  const k = ui.versionVue === v.n ? ui.videoVue ?? 0 : 0;
+  const blocs = v.table.blocs.filter((b) => b.video == null || b.video === k);
+  return blocs.length ? {...v.table, blocs, version: v.n, moteur: v.moteur} : null;
+}
+const blocIA = (id) => tableIA()?.blocs.find((b) => b.id === id) ?? null;
+function rendreBlocsIA() {
+  const piste = $('#piste-blocs');
+  const t = P && ui.claude ? tableIA() : null;
+  piste.classList.toggle('cache', !t);
+  $('#ecran-montage').classList.toggle('avec-blocs', !!t);
+  if (!t) { piste.dataset.cle = ''; piste.innerHTML = ''; return; }
+  const rangees = PISTES_IA.map(([k, nom, icone]) => [k, nom, icone, t.blocs.filter((b) => pisteDe(b) === k)]).filter((r) => r[3].length);
+  const cle = JSON.stringify([ui.pps, ui.blocIA, !!t.direct, t.version, t.blocs.map((b) => [b.id, b.debut_s, b.duree_s, b.nom]), ui.reglagesIA.map((r) => r.bloc)]);
+  if (piste.dataset.cle === cle) return;
+  piste.dataset.cle = cle;
+  const regles = new Set(ui.reglagesIA.map((r) => r.bloc));
+  piste.style.height = `${20 + rangees.length * 24}px`;
+  $('#ecran-montage').style.setProperty('--h-blocs', `${20 + rangees.length * 24}px`);
+  piste.innerHTML = `<span class="piste-nom">${ic('etincelle', 'plein')}${t.direct ? 'Ce que pose l’IA · en direct' : 'Ce qu’a posé l’IA · clique un bloc pour le régler'}</span>${rangees.map(([k, nom, icone, blocs], i) => `<div class="rangee-ia" style="top:${20 + i * 24}px" title="${nom}">${blocs.map((b) =>
+    `<button class="bloc-ia b-${k}${b.id === ui.blocIA ? ' actif' : ''}${regles.has(b.id) ? ' regle' : ''}" data-bloc="${esc(b.id)}" style="left:${b.debut_s * ui.pps}px;width:${Math.max(8, b.duree_s * ui.pps - 1)}px" title="${esc(`${b.nom} · ${tempsFin(b.debut_s)} → ${tempsFin(b.debut_s + b.duree_s)}${b.detail ? `\n${b.detail}` : ''}`)}">${ic(icone)}<span>${esc(b.nom)}</span></button>`).join('')}</div>`).join('')}`;
+}
+$('#piste-blocs').addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('[data-bloc]');
+  if (e.button !== 0 || !el) return;
+  e.stopPropagation();
+  const b = blocIA(el.dataset.bloc);
+  if (!b) return;
+  if (ui.sel || ui.multi.size) selectionner(null);
+  ui.blocIA = b.id;
+  // la vidéo de l'IA se place au début du bloc
+  const c = ui.claude;
+  if (!c?.en_cours && c?.versions.length) {
+    if (ui.vue !== 'claude') montrerVue('claude');
+    const vc = $('#v-claude');
+    vc.currentTime = Math.min(b.debut_s + 0.02, Number.isFinite(vc.duration) ? Math.max(0, vc.duration - 0.05) : b.debut_s);
+    majTete();
+  }
+  rendreBlocsIA();
+  rendreInspecteur();
+});
+/** Les réglages d'un bloc de l'IA, dans la colonne de droite : des gestes tout prêts, ou ses propres mots. */
+function rendreBlocIA(box, b) {
+  const k = pisteDe(b);
+  const [, nomPiste, icone] = PISTES_IA.find((p) => p[0] === k) ?? PISTES_IA[2];
+  const qui = nomIA(tableIA()?.moteur ?? ui.claude?.en_cours?.moteur ?? moteurIA());
+  const gestes = [['plus-tot', 'Plus tôt'], ['plus-tard', 'Plus tard'], ['plus-court', 'Plus court'], ['plus-long', 'Plus long'],
+    ...(k === 'son' ? [['moins-fort', 'Moins fort'], ['plus-fort', 'Plus fort']] : []), ...(k === 'texte' ? [['plus-gros', 'Plus gros'], ['plus-discret', 'Plus discret']] : []), ['retirer', 'Retirer']];
+  const deja = ui.reglagesIA.map((r, i) => [r, i]).filter(([r]) => r.bloc === b.id);
+  const n = ui.reglagesIA.length;
+  box.innerHTML = `${tete(`bloc-ia b-${k}`, icone, b.nom, `${nomPiste} · ${tempsFin(b.debut_s)} → ${tempsFin(b.debut_s + b.duree_s)} · ${dureeLisible(b.duree_s)}`)}
+    <div class="groupe-insp bloc-ia-fiche">
+      ${b.detail ? `<p class="bloc-detail selectionnable">${esc(b.detail)}</p>` : ''}
+      ${k === 'texte' && b.texte != null ? `<label class="champ"><span>Le texte à l’écran</span><textarea id="bloc-texte" rows="2">${esc(b.texte)}</textarea></label>` : ''}
+      <div class="champ"><span>Régler d’un geste</span><div class="bloc-gestes">${gestes.map(([g, nom]) => `<button class="btn petit" data-geste="${g}">${nom}</button>`).join('')}</div></div>
+      <label class="champ"><span>Ou dis-le avec tes mots</span><textarea id="bloc-demande" rows="2" placeholder="Exemple : en jaune, et qu’il arrive en glissant depuis la gauche"></textarea></label>
+      <div class="rangee"><button class="btn claude" data-bloc-act="ajouter">${ic('plus')}<span>Ajouter ce réglage</span></button></div>
+      ${deja.length ? `<div class="bloc-regles"><small>Réglages prêts pour ce bloc</small>${deja.map(([r, i]) => `<span class="bloc-regle">${esc(r.texte)}<button data-bloc-act="oter" data-i="${i}" title="Retirer ce réglage">${ic('fermer')}</button></span>`).join('')}</div>` : ''}
+      <p class="dim bloc-note">Tes réglages partent avec ton prochain message : ${esc(qui)} ne touche qu’aux blocs que tu as réglés.</p>
+      <div class="rangee"><button class="btn" data-bloc-act="fermer">Revenir à la conversation</button>${n ? `<button class="btn principal" data-bloc-act="envoyer">Envoyer ${n > 1 ? `les ${n} réglages` : 'le réglage'}</button>` : ''}</div>
+    </div>`;
+}
+const TEXTES_GESTE = {'plus-tot': 'fais-le commencer une demi-seconde plus tôt', 'plus-tard': 'fais-le commencer une demi-seconde plus tard', 'plus-court': 'raccourcis-le d’un tiers', 'plus-long': 'rallonge-le d’un tiers',
+  'moins-fort': 'baisse son volume d’environ 4 dB', 'plus-fort': 'monte son volume d’environ 3 dB', 'plus-gros': 'rends-le plus gros et plus visible', 'plus-discret': 'rends-le plus discret', retirer: 'retire-le'};
+function ajouterReglage(b, texte) {
+  ui.reglagesIA.push({bloc: b.id, nom: b.nom, de: b.debut_s, a: b.debut_s + b.duree_s, texte: String(texte).slice(0, 300)});
+  if (ui.reglagesIA.length > 20) ui.reglagesIA.shift();
+  rendreBlocsIA();
+  rendreInspecteur();
+}
+$('#inspecteur').addEventListener('click', (e) => {
+  const b = ui.blocIA ? blocIA(ui.blocIA) : null;
+  if (!b) return;
+  const g = e.target.closest('[data-geste]')?.dataset.geste;
+  if (g) return ajouterReglage(b, TEXTES_GESTE[g]);
+  const a = e.target.closest('[data-bloc-act]')?.dataset.blocAct;
+  if (!a) return;
+  if (a === 'ajouter') {
+    const demande = $('#bloc-demande').value.trim();
+    const texte = $('#bloc-texte')?.value.trim();
+    const lignes = [...(texte != null && texte !== (b.texte ?? '').trim() ? [`remplace le texte par « ${texte} »`] : []), ...(demande ? [demande] : [])];
+    if (!lignes.length) return $('#bloc-demande').focus();
+    return ajouterReglage(b, lignes.join(' ; '));
+  }
+  if (a === 'oter') { ui.reglagesIA.splice(Number(e.target.closest('[data-i]').dataset.i), 1); rendreBlocsIA(); return rendreInspecteur(); }
+  ui.blocIA = null;
+  rendreBlocsIA();
+  rendreInspecteur();
+  if (a === 'envoyer') envoyerDemande();
+});
+/** Les réglages demandés sur des blocs, écrits pour l'IA (ils s'ajoutent au message). */
+const texteReglages = () => (ui.reglagesIA.length
+  ? `Réglages demandés sur la table de montage (applique exactement ceux-ci, garde tout le reste à l’identique, puis remets rendu/timeline.json à jour) :\n${ui.reglagesIA.map((r) => `- bloc « ${r.nom} » [${r.bloc}] (${tempsFin(r.de)} → ${tempsFin(r.a)}) : ${r.texte}`).join('\n')}` : '');
+
 $('#piste-claude').addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   e.stopPropagation();
@@ -5308,6 +5504,13 @@ function demanderIA(texte) {
   if (zone) { zone.value = texte; zone.dispatchEvent(new Event('input', {bubbles: true})); majEnvoi(); zone.focus(); zone.scrollTop = zone.scrollHeight; }
   note(`Relis la demande, puis envoie-la à ${nomIA()}.`);
 }
+/** La mise en route et « Mon profil de créateur » (public/createur.js). */
+const CR = creerCreateur({
+  api, note, esc, ic, ill, logo,
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
+  nomIA: (m) => nomIA(m), moteurIA: () => moteurIA(),
+  connexions: () => feuilleConnexions(), guideTreg: (apres) => PUB.guideTreg(apres),
+});
 const PUB = creerPublication({
   api, note, esc, ic, ill, logo, JETON, NATIF, natif, copierTexte,
   feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
@@ -5369,6 +5572,7 @@ window.derush = {
     const projet = () => (P && ui.ecran === 'montage' ? true : (note('Ouvre d’abord un projet.'), false));
     const M = {
       reglages: () => feuilleReglages(), connexions: () => feuilleConnexions(), aide: () => feuilleAide(), tutoriel: () => tutoriel(),
+      profil: () => CR.ouvrir(), accueil: () => CR.accueil(),
       nouveau: async () => { if (P) { await sauver(true).catch(() => {}); } feuilleNouveauProjet(); },
       bibliotheque: () => { if (ui.ecran === 'montage') $('#b-biblio').click(); },
       importer: () => projet() && feuilleImporter(),
@@ -5379,7 +5583,7 @@ window.derush = {
       ia: () => projet() && montrerClaude(true),
       'tout-voir': () => projet() && toutVoir(),
     };
-    if (feuilleOuverte() && !['aide', 'tutoriel', 'reglages', 'connexions'].includes(action)) fermerFeuille();
+    if (feuilleOuverte() && !['aide', 'tutoriel', 'reglages', 'connexions', 'accueil'].includes(action)) fermerFeuille();
     return M[action]?.();
   },
 };
