@@ -2,9 +2,12 @@
 
 Ces compétences (« skills ») sont lues directement par l’IA qui monte, Claude comme Codex : Dérush les relie dans chaque dossier de travail (`.claude/skills/` et `.agents/skills/`).
 Les compétences Remotion (remotion-dev/skills) n’ont pas de licence de redistribution : Dérush les télécharge chez toi à l’installation, depuis leur dépôt officiel.
+Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pas livrés non plus : Dérush les télécharge chez toi, à la version qu’il a examinée (voir `lib/sons.mjs`).
 
 | Compétence | Domaine | Source | Licence | Auteur |
 |---|---|---|---|---|
+| `sons-openverse` | Montage | écrite pour Dérush (API Openverse, sans clé) | celle de Dérush | IABAI |
+| `derush-viralite` | Réseaux sociaux | écrite pour Dérush (grille d'analyse et repères datés, sources citées dans `reperes.md`) | celle de Dérush | IABAI |
 | `audio-production` | Montage | https://github.com/kajisho5/audio-production-skill | MIT | kajisho5 |
 | `blender-skill` | Montage | https://github.com/kajisho5/blender-skill | MIT | kajisho5 |
 | `color-grading` | Montage | https://github.com/kajisho5/color-grading-skill | MIT | kajisho5 |

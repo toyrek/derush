@@ -2,11 +2,13 @@
 
 # Dérush par IABAI
 
-**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 7.0
+**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 8.0
 
 Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude** ou **Codex**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
 
 Dérush tourne sur **macOS, Windows et Linux**. Tes vidéos restent sur ton ordinateur.
+
+**Nouveau dans la version 8.** Sur Mac, Dérush est une vraie application : son icône dans le Dock, ses menus, sa fenêtre (plus de Chrome). Une vidéo déposée s'affiche en moins d'une seconde et se monte tout de suite ; la timeline reste fluide à tous les zooms. À la première ouverture, un tutoriel animé montre les gestes. Et avant de publier : une **analyse de viralité** (ce qui retient les gens, ce qui les fait partir, quoi changer) puis un **plan de partage** (légendes, hashtags, bon moment) pour chaque réseau.
 
 > **Bêta privée.** Tu as été invité à tester : merci de ne pas partager ce dépôt. Dis-nous ce qui coince (onglet *Issues* du dépôt) : c'est le but de la bêta.
 
@@ -51,7 +53,7 @@ cd Derush
 node derush.mjs installer
 ```
 
-L'installateur fait le bilan de ta machine, installe ce qui manque (FFmpeg, les moteurs, les compétences Remotion) et pose un raccourci **Dérush** sur le Bureau. Options : `--leger` (sans Whisper, 2 Go de moins), `--blender` (ajoute Blender pour la 3D réaliste), `--bilan` (regarde sans rien installer). Il ne lance jamais de commande administrateur : s'il en faut une, il te l'écrit.
+L'installateur fait le bilan de ta machine, installe ce qui manque (FFmpeg, les moteurs, les compétences Remotion) et pose un raccourci **Dérush** sur le Bureau. Options : `--leger` (sans Whisper, 2 Go de moins), `--blender` (ajoute Blender pour la 3D réaliste), `--earshot` (ajoute Earshot, l'oreille de l'IA : 2,5 Go), `--bilan` (regarde sans rien installer). Il ne lance jamais de commande administrateur : s'il en faut une, il te l'écrit.
 
 Le détail, système par système, est dans [INSTALLER.md](INSTALLER.md).
 
@@ -66,8 +68,11 @@ Ouvre Dérush, puis **Connexions** (la prise, en haut à droite). Chaque carte s
 | <img src="public/logos/claude.svg" width="22"> | **Claude** | L'IA qui monte | *Installer*, puis *Me connecter* : ton compte Claude (Pro ou Max) |
 | 🖥 | **Codex** | L'IA qui monte | *Installer*, puis *Me connecter* : ton compte ChatGPT (Plus, Pro ou Business) |
 | <img src="public/logos/elevenlabs.svg" width="22"> | **ElevenLabs** | Musiques, voix off, bruitages, doublage, images, plans vidéo | *Brancher* : tu autorises Dérush dans ton navigateur |
+| <img src="public/logos/openverse.svg" width="22"> | **Bibliothèque de sons** | De vrais bruitages libres de droits (Openverse), rangés dans `Musique › Sons` avec leurs crédits | Un interrupteur |
+| 🔊 | **Real SFX** | Poser ces sons à l'image près, sous ta voix et ta musique | *Ajouter* (9 Mo) |
+| 👂 | **Earshot** | L'oreille de l'IA : écouter, choisir, fabriquer un son (facultatif) | *Ajouter* (2,5 Go) |
 | <img src="public/logos/googledrive.svg" width="22"> | **Google Drive** | Donner tes fichiers du Drive à l'IA, y envoyer tes vidéos | Un interrupteur (il faut Google Drive pour ordinateur) |
-| 🔗 | **Treg** | Publier sur les réseaux | Relie tes comptes sur treg.to, puis colle ta clé |
+| 🔗 | **Treg** | Publier sur les réseaux | *Relier mes réseaux* : trois gestes, Dérush te guide et te montre quels réseaux sont reliés |
 | <img src="public/logos/blender.svg" width="22"> | **Blender** | La 3D réaliste (facultatif) | *Installer* |
 
 Une seule IA suffit, mais tu peux brancher les deux et passer de l'une à l'autre à tout moment (le nom de l'IA, en haut de la conversation). Trois niveaux de qualité : **Rapide**, **Soigné**, **Maximum**.
@@ -87,13 +92,19 @@ Deux réglages au-dessus de la timeline :
 - **Le format** : `9:16`, `16:9`, `1:1`, `4:5`, ou **Auto** (le format de ta première vidéo). Tu peux mélanger des vidéos de formats différents : chacune est recadrée pour remplir l'image, en suivant les visages. Tu peux aussi demander à l'IA plusieurs formats d'un coup (« fais-en aussi une version 16:9 »).
 - **Les sous-titres** : aucun tant que tu ne les demandes pas. Un clic sur *Sous-titres* les met sur tout le film ; leur style se règle dans *Habiller*.
 
-Le manuel complet (tous les gestes, les effets, le studio ElevenLabs) est dans [docs/MANUEL.md](docs/MANUEL.md).
+**De vrais sons.** Allume *Bibliothèque de sons* dans Connexions : pour ses bruitages (whoosh, impacts, clics, pops…), l'IA prend de vrais enregistrements libres de droits au lieu de sons de synthèse. Elle en cherche d'autres sur [Openverse](https://openverse.org) quand il en manque, ne garde que ceux qu'on a le droit de poser sur une vidéo commerciale, et te donne sous sa réponse les **crédits à coller** dans ta description quand une licence le demande.
+
+Le manuel complet (tous les gestes, les effets, le studio ElevenLabs, les vrais sons) est dans [docs/MANUEL.md](docs/MANUEL.md).
 
 ---
 
-## 4. Publier
+## 4. Analyser, puis partager
 
-Sous chaque vidéo livrée, le bouton **Publier** : choisis les réseaux, et l'IA vérifie la vidéo, écrit le titre, la légende et les hashtags de chaque réseau, puis publie avec [Treg](https://treg.to). Tu peux aussi l'écrire dans la conversation (« publie-la sur TikTok et YouTube »).
+Sous chaque vidéo livrée (et à la fin de « Créer la vidéo »), deux boutons ouvrent l'écran **Avant de publier**.
+
+**Analyser.** Dérush mesure la vidéo finie (format, durée, niveau du son, coupes, première parole, débit, blancs), puis ton IA lit ce qui est dit, regarde les images, relit ses repères datés sur TikTok, Instagram et YouTube, et cherche ce qui marche en ce moment sur ton sujet. Tu obtiens une note sur 100, une note par réseau, huit points regardés (accroche, histoire, rythme, son, textes à l'écran, format, fin, originalité) avec la preuve de chaque constat, et trois choses à faire en premier. Un clic sur *Demander* met la correction dans ton message à l'IA. C'est une estimation pour améliorer la vidéo : personne ne peut promettre des vues.
+
+**Partager.** Choisis tes réseaux : l'IA écrit pour chacun la légende, les hashtags, le bon moment, l'image de couverture, et une stratégie pour faire circuler la vidéo. Tu relis, tu corriges, tu copies, ou tu publies d'un clic avec [Treg](https://treg.to). Tu peux aussi l'écrire dans la conversation (« publie-la sur TikTok et YouTube »), ou publier tout de suite sans plan (menu ⋯ de la vidéo).
 
 | Réseau | Ce qui se passe |
 |---|---|
@@ -120,12 +131,13 @@ Tes projets, tes moteurs et tes clés ne sont pas touchés (ils sont rangés ail
 
 ## Les compétences
 
-Dérush livre **78 compétences** que l'IA lit avant de travailler, et en télécharge 13 de plus (Remotion) à l'installation :
+Dérush livre **80 compétences** que l'IA lit avant de travailler, et en télécharge 15 de plus (Remotion, Real SFX, le guide d'Earshot) à l'installation ou depuis Connexions :
 
 - **Montage** : FFmpeg (42 outils), étalonnage, mixage du son, sous-titres et traduction, contrôle qualité, motion design, miniatures, images, 3D avec Blender, passage vers Premiere Pro ou DaVinci Resolve ;
 - **Son et voix** : les sept compétences ElevenLabs (voix off, bruitages, musique, doublage, transcription…) ;
+- **Vrais sons** : `sons-openverse` (chercher des sons libres et noter leurs crédits), Real SFX (les poser à l'image près), Earshot (écouter et fabriquer un son) ;
 - **Réseaux** : accroches, scripts TikTok / Reels / Shorts, légendes, hashtags, tendances, carrousels, stratégie, croissance ;
-- **Publication** : `derush-publier` (TikTok, YouTube, Instagram, LinkedIn avec Treg).
+- **Publication** : `derush-viralite` (analyser une vidéo avant de la publier, avec des repères datés et sourcés) et `derush-publier` (TikTok, YouTube, Instagram, LinkedIn avec Treg).
 
 Elles sont dans [competences/](competences/), avec leurs sources et leurs licences ([competences/LICENCES.md](competences/LICENCES.md)).
 
@@ -136,6 +148,7 @@ Elles sont dans [competences/](competences/), avec leurs sources et leurs licenc
 | | macOS | Windows | Linux |
 |---|---|---|---|
 | Tes projets | `~/Movies/Dérush` | `Vidéos\Dérush` | `~/Videos/Dérush` |
+| Tes sons | `~/Music/Sons` | `Musique\Sons` | `~/Music/Sons` |
 | Moteurs, clés, réglages | `~/Library/Application Support/Dérush` | `%APPDATA%\Dérush` | `~/.local/share/derush` |
 | Le programme | le dossier que tu as cloné | idem | idem |
 
@@ -145,10 +158,13 @@ Rien d'autre n'est installé ailleurs, sauf ce que tu acceptes (FFmpeg, Blender,
 
 ## Ce qu'il faut savoir sur cette bêta
 
-- **Windows et Linux** : Dérush a été écrit pour les trois systèmes, mais il n'a été essayé pour de vrai que sur Mac (puce Apple). Sur Windows et Linux, attends-toi à des accrocs : dis-les-nous.
+- **Windows et Linux** : Dérush a été écrit pour les trois systèmes, mais il n'a été essayé pour de vrai que sur Mac (puce Apple). Sur Windows et Linux, attends-toi à des accrocs : dis-les-nous. La vraie application (sans navigateur) n'existe que sur Mac pour l'instant ; ailleurs, Dérush s'ouvre dans une fenêtre de Chrome, Edge ou Brave.
+- **Sur Mac, la première ouverture** : l'app n'est pas encore signée auprès d'Apple. Si macOS dit qu'il ne peut pas vérifier le développeur : *Réglages Système → Confidentialité et sécurité → Ouvrir quand même*, une seule fois.
+- **L'analyse de viralité** est une estimation faite par ton IA à partir de mesures et de repères publics : elle aide à améliorer une vidéo, elle ne prédit pas ses vues. Elle utilise ton abonnement Claude ou ChatGPT (une à trois minutes par analyse).
 - **Sur Mac seulement** : le recadrage qui suit les visages et le titre « derrière la personne » (ils utilisent Apple Vision).
 - **Codex** travaille dans un bac à sable : il écrit dans le dossier du projet, et Dérush fait les rendus pour lui. Claude, lui, travaille directement.
 - **La publication** dépend de Treg et de tes comptes : TikTok en brouillon seulement, YouTube limité à quelques envois par jour, Instagram par un lien public temporaire. Elle n'a pas encore été essayée en vrai sur tous les réseaux.
+- **Les vrais sons** viennent d'Openverse (Freesound, Wikimedia Commons…). Dérush ne garde que les licences qui permettent une vidéo commerciale (domaine public et CC BY) et note chaque crédit, mais Openverse relaie la licence indiquée par la source sans la garantir : pour une publicité ou un client important, ouvre la page du son avant de publier. 200 recherches par jour au plus. Real SFX et Earshot n'ont été essayés que sur Mac.
 - **Remotion**, le moteur de rendu, est gratuit pour les particuliers et les structures de trois personnes au plus ; au-delà, il faut une licence (https://remotion.dev/license).
 - **ElevenLabs et Treg** sont des services en ligne : ce que l'IA crée ou publie avec eux utilise tes crédits et tes comptes.
 

@@ -7,6 +7,8 @@ import {
 import {
   CATALOGUE, CATEGORIES, LOOKS, PLATEFORMES, POLICES_TITRES, STYLES_SOUS_TITRES, creerHabillage, decoupeA, preparerEtat, reglagesDe, resumeEffet, styleComplet,
 } from '/moteur.js';
+import {creerPublication} from '/publication.js';
+import {creerTutoriel} from '/tuto.js';
 
 const JETON = document.querySelector('meta[name="derush-jeton"]').content;
 // Chaque fenêtre a son identifiant : le serveur sait laquelle est la principale, et quand la dernière se ferme.
@@ -16,6 +18,33 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const ic = (nom, cls = '') => `<svg class="ic ${cls}"><use href="#i-${nom}"/></svg>`;
 const DPR = () => window.devicePixelRatio || 1;
+// Dans l'app Mac native (outils/coque-mac.swift), la page parle à sa fenêtre : la boîte « Ouvrir » du Mac, le Dock,
+// la couleur de la barre de titre. Ailleurs (fenêtre de Chrome, Windows, Linux), ces appels ne font rien.
+const NATIF = !!(window.__derushNatif && window.webkit?.messageHandlers?.derush);
+const natif = (a, d = {}) => { if (NATIF) { try { window.webkit.messageHandlers.derush.postMessage({a, ...d}); } catch { /* fenêtre fermée */ } } };
+const demanderNatif = (a, d = {}) => window.webkit.messageHandlers.derushDemande.postMessage({a, ...d});
+document.documentElement.classList.toggle('natif', NATIF);
+/** Copie un texte dans le presse-papiers (par la fenêtre native quand elle est là). */
+async function copierTexte(texte) {
+  if (NATIF) return natif('copier', {texte});
+  try { await navigator.clipboard.writeText(texte); } catch {
+    const z = Object.assign(document.createElement('textarea'), {value: texte});
+    document.body.append(z);
+    z.select();
+    document.execCommand('copy');
+    z.remove();
+  }
+}
+/**
+ * La fenêtre « Ouvrir » de l'ordinateur. Dans l'app native elle est attachée à la fenêtre de Dérush ; sinon le serveur
+ * ouvre celle du système. Renvoie {chemins} ou {indisponible}.
+ */
+async function choisirSurOrdinateur(usage = null) {
+  if (!NATIF) return api('POST', '/api/choisir', usage ? {usage} : undefined);
+  const r = await api('POST', '/api/choisir', {usage, natif: true});
+  if (!r.natif) return r;
+  return {chemins: await demanderNatif('choisir', {invite: r.natif.invite, depart: r.natif.depart, plusieurs: true})};
+}
 // l'adresse d'un média porte la clé du projet : le « M1 » d'un projet n'est jamais confondu avec celui d'un autre
 const urlMedia = (id, quoi) => `/media/${id}/${quoi}?j=${JETON}&p=${ui.cleProjet ?? ''}`;
 
@@ -110,12 +139,14 @@ const ilYa = (iso) => {
   if (s < 86400) return `il y a ${Math.round(s / 3600)} h`;
   return new Date(iso).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long'});
 };
+/** La version de la planche de vignettes d'un rush : provisoire (une image, puis les images clés), puis exacte. */
+const cleVignettes = (v) => `${v.n}${v.provisoire ? 'p' : ''}${v.v ?? ''}`;
 function styleVignette(m, t, H) {
   const v = m.vignettes;
   if (!v) return '';
   const k = borner(Math.round(t / v.pas), 0, v.n - 1);
   const L = (v.l * H) / v.h;
-  return `background-image:url('${urlMedia(m.id, 'vignettes')}&n=${v.n}');background-size:${v.n * L}px ${H}px;background-position:${-k * L}px 0;width:${L}px;height:${H}px`;
+  return `background-image:url('${urlMedia(m.id, 'vignettes')}&n=${cleVignettes(v)}');background-size:${v.n * L}px ${H}px;background-position:${-k * L}px 0;width:${L}px;height:${H}px`;
 }
 function anneau(p) {
   const r = 6;
@@ -152,7 +183,7 @@ function sprite(m) {
   if (!img) {
     img = new Image();
     img.onload = () => dessinerBande();
-    img.src = `${urlMedia(m.id, 'vignettes')}&n=${m.vignettes.n}`;
+    img.src = `${urlMedia(m.id, 'vignettes')}&n=${cleVignettes(m.vignettes)}`;
     C.sprites.set(m.id, img);
   }
   return img.complete && img.naturalWidth ? img : null;
@@ -175,6 +206,8 @@ function fermerFeuille() {
 }
 $('#voile').addEventListener('pointerdown', (e) => { if (e.target.id === 'voile') fermerFeuille(); });
 const feuilleOuverte = () => !$('#voile').classList.contains('cache');
+/** Une fenêtre ou un écran posé par-dessus l'éditeur (« Avant de publier », le tutoriel) : les raccourcis du montage attendent. */
+const ecranOuvert = () => feuilleOuverte() || !!document.querySelector('.pub-atelier, .tuto');
 
 // =====================================================================
 // Bibliothèque
@@ -186,12 +219,15 @@ async function afficherBibliotheque() {
   const B = $('#ecran-biblio');
   B.classList.remove('cache');
   document.title = 'Dérush';
+  natif('teinte', {couleur: '#121214'});
+  natif('progression', {p: null});
   let d;
   try { d = await api('GET', '/api/bibliotheque'); } catch (e) { return note(e.message, true); }
   const format = (k) => FORMATS[k]?.ratio ?? '';
   B.innerHTML = `<div class="biblio-interieur">
     <div class="biblio-tete"><img src="/icone.svg" alt=""><div><h1 class="marque">Dérush <small>par</small> <img class="iabai" src="/marque/iabai.png" alt="IABAI"></h1><p>Tu donnes la matière. Ton IA fait le montage. <span class="beta">Bêta privée</span></p></div><span class="espace"></span>
       <button class="btn bouton-cx" data-b="connexions" title="Ton IA, ElevenLabs, Google Drive, Treg, Blender">${logo('claude', 18)}${logo('codex', 18)}${logo('elevenlabs', 18)}<span>Connexions</span></button>
+      <button class="icone-btn" data-b="tutoriel" title="Revoir le tutoriel">${ic('aide')}</button>
       <button class="icone-btn" data-b="reglages" title="Réglages et moteurs">${ic('reglages')}</button>
       <button class="icone-btn" data-b="quitter" title="Quitter Dérush">${ic('quitter')}</button></div>
     ${d.projets.length < 3 ? `<div class="biblio-guide">${guideGestes()}</div>` : ''}
@@ -205,11 +241,15 @@ async function afficherBibliotheque() {
     </div>
     <div class="biblio-pied">${ic('dossier')}<span>Projets rangés dans ${esc(d.racine)}</span><span class="espace"></span><button class="btn petit" data-b="autre">Ouvrir un autre dossier…</button></div>
   </div>`;
-  // premier lancement : aucune IA branchée, on ouvre les connexions une fois
-  if (!ui.cxMontree) {
-    ui.cxMontree = true;
-    api('GET', '/api/connexions').then((x) => { if (!x.claude?.ok && !x.codex?.ok && ui.ecran === 'biblio' && !feuilleOuverte()) feuilleConnexions(); }).catch(() => {});
-  }
+  // première ouverture : le tutoriel animé, puis (aucune IA branchée) les connexions, une fois
+  if (!SRV.reglages?.tuto_vu && !ui.tutoMontre) return tutoriel(true);
+  proposerConnexions();
+}
+/** Aucune IA branchée : on ouvre les Connexions une fois, depuis la bibliothèque. */
+function proposerConnexions() {
+  if (ui.cxMontree) return;
+  ui.cxMontree = true;
+  api('GET', '/api/connexions').then((x) => { if (!x.claude?.ok && !x.codex?.ok && ui.ecran === 'biblio' && !ecranOuvert()) feuilleConnexions(); }).catch(() => {});
 }
 $('#ecran-biblio').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-b]')?.dataset.b;
@@ -217,8 +257,13 @@ $('#ecran-biblio').addEventListener('click', async (e) => {
   if (b === 'nouveau') return feuilleNouveauProjet();
   if (b === 'connexions') return feuilleConnexions();
   if (b === 'reglages') return feuilleReglages();
+  if (b === 'tutoriel') return tutoriel();
   if (b === 'quitter') return quitter();
-  if (b === 'autre') return feuilleParcourir({dossiers: true});
+  if (b === 'autre') {
+    if (!NATIF) return feuilleParcourir({dossiers: true});
+    const [dossier] = await demanderNatif('choisir', {dossiers: true, invite: 'Choisis le dossier d’un projet Dérush (ou un dossier vide pour en créer un).'}).catch(() => []);
+    return dossier ? ouvrirProjet(dossier) : null;
+  }
   if (carte && b === 'corbeille') {
     if (!confirm('Mettre ce projet à la corbeille ? Tes rushes d’origine ne sont pas touchés.')) return;
     try { await api('POST', '/api/projets/corbeille', {dossier: carte.dataset.dossier}); note('Projet mis à la corbeille.'); afficherBibliotheque(); } catch (err) { note(err.message, true); }
@@ -273,6 +318,7 @@ function feuilleNouveauProjet() {
   champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') f.querySelector('[data-f="creer"]').click(); });
 }
 async function quitter() {
+  if (NATIF) return natif('quitter');
   if (SRV.file?.en_cours && !confirm('Un traitement est en cours. Quitter quand même ?')) return;
   try { await sauver(true); } catch { /* rien */ }
   await api('POST', '/api/quitter').catch(() => {});
@@ -286,6 +332,7 @@ async function quitter() {
 async function demarrerEditeur() {
   const e = await api('GET', '/api/etat');
   SRV = e;
+  completerMoteurs();
   if (e.mode !== 'projet') return afficherBibliotheque();
   P = e.projet;
   P.superpositions ??= [];
@@ -294,6 +341,7 @@ async function demarrerEditeur() {
   seq = sequence(P);
   invaliderEtat();
   ui.ecran = 'montage';
+  natif('teinte', {couleur: '#1c1c1f'});
   ui.sel = null;
   ui.annuler = [];
   ui.refaire = [];
@@ -469,6 +517,7 @@ function majTaches() {
   if (f.en_cours) parts.push(`${anneau(f.en_cours.progression)}<span>${esc(f.en_cours.nom)} · ${Math.round(f.en_cours.progression * 100)} %</span>`);
   if (f.attente.length) parts.push(`<span class="dim">+${f.attente.length}</span>`);
   box.innerHTML = parts.join('');
+  natif('progression', {p: f.en_cours && ['rendu', 'export'].includes(f.en_cours.meta?.type) ? f.en_cours.progression : null});
 }
 
 // ——— Médias (panneau de gauche, comme CapCut) ———
@@ -481,7 +530,7 @@ function rendreRushes() {
   const usage = (id) => [...P.montage, ...P.superpositions].filter((it) => it.media === id).length;
   // on ne refait la grille que si quelque chose a changé (sinon le survol clignoterait)
   const cle = JSON.stringify([ui.mode, ui.src.id, enCours?.meta?.media, Math.round((enCours?.progression ?? 0) * 20),
-    P.medias.map((m) => [m.id, m.etat, m.transcription?.mots, m.voix?.cree_le, m.vignettes?.n, usage(m.id)])]);
+    P.medias.map((m) => [m.id, m.etat, m.transcription?.mots, m.voix?.cree_le, m.vignettes && cleVignettes(m.vignettes), usage(m.id)])]);
   if (L.dataset.cle === cle) return;
   L.dataset.cle = cle;
   if (!P.medias.length) {
@@ -493,12 +542,13 @@ function rendreRushes() {
     const etat = [];
     if (tache) etat.push(`<span>${anneau(tache.progression)}${tache.meta.type === 'transcription' ? 'texte' : tache.meta.type === 'voix' ? 'voix' : 'préparation'}</span>`);
     else if (m.etat === 'erreur') etat.push(`<span title="${esc(m.erreur)}">${ic('attention')}erreur</span>`);
-    else if (m.etat !== 'pret') etat.push('<span>en attente</span>');
+    // un rush qui a déjà son image se regarde et se monte : sa préparation continue derrière, sans le bloquer
+    else if (m.etat !== 'pret') etat.push(m.vignettes || m.type !== 'video' ? `<span class="en-prep" title="Tu peux déjà le regarder et le monter : sa préparation continue.">${anneau(0.28)}</span>` : '<span>en attente</span>');
     else if (m.transcription) etat.push(`<span title="${m.transcription.mots} mots">${ic('texte')}texte</span>`);
     const n = usage(m.id);
     const video = m.type !== 'audio'; // vidéo ou photo : on montre l'image
     const image = video && m.vignettes ? `<div style="${styleVignette(m, m.duree / 2, H_VIGNETTE)}"></div>` : ic(video ? 'film' : 'onde');
-    const prepare = m.etat !== 'pret' && m.etat !== 'erreur';
+    const prepare = m.etat !== 'pret' && m.etat !== 'erreur' && m.type === 'video' && !m.vignettes;
     return `<div class="carte-media${video ? '' : ' son'}${ui.mode === 'rush' && ui.src.id === m.id ? ' actif' : ''}${prepare ? ' prepare' : ''}" data-id="${m.id}" draggable="true" title="${esc(`${m.nom}\nClique pour le regarder, glisse-le dans la timeline.`)}">
       <div class="vignette"${m.type === 'video' && m.vignettes ? ` data-skim="${m.id}"` : ''}>${image}<span class="duree-mini">${m.type === 'image' ? 'photo' : dureeCourte(m)}</span>${n ? `<span class="utilise" title="Utilisé ${n} fois dans le montage">${n}×</span>` : ''}<div class="etat">${etat.join('')}</div>
         <button class="plus-menu" data-act="menu" title="Texte, voix, retirer…">${ic('points', 'plein')}</button><button class="ajouter" data-act="ajouter" title="Ajouter au montage">${ic('plus')}</button></div>
@@ -1758,10 +1808,23 @@ const ppsDepuisZoom = (v) => ZMIN * (ZMAX / ZMIN) ** (v / 100);
 const zoomDepuisPps = (p) => (100 * Math.log(p / ZMIN)) / Math.log(ZMAX / ZMIN);
 const TL = $('#tl');
 const tempsDepuisX = (clientX) => (clientX - $('#tl-interieur').getBoundingClientRect().left) / ui.pps;
-function rendreTimeline() {
+/**
+ * La partie de la timeline qu'on dessine : ce qui est à l'écran, plus un écran de marge de chaque côté. Zoomée à fond,
+ * la timeline mesure plus d'un million de pixels : tout dessiner (graduations, vignettes, ondes) bloquait l'app.
+ */
+let vueDessinee = {x0: 0, x1: 0};
+function vueTl() {
+  const w = TL.clientWidth || 1200;
+  return {x0: Math.max(0, TL.scrollLeft - w), x1: TL.scrollLeft + 2 * w};
+}
+const largeurTl = () => {
   const finDessus = Math.max(0, ...P.superpositions.map((s) => s.debut + s.sortie - s.entree), ...P.indications.map((i) => i.fin));
-  const largeur = Math.max(seq.duree + 20, finDessus + 10, dureeClaudeTl() + 10, 30) * ui.pps + 200;
+  return Math.max(seq.duree + 20, finDessus + 10, dureeClaudeTl() + 10, 30) * ui.pps + 200;
+};
+function rendreTimeline() {
+  const largeur = largeurTl();
   $('#tl-interieur').style.width = `${largeur}px`;
+  vueDessinee = vueTl();
   rendreRegle(largeur);
   rendreIndications();
   rendreDessus();
@@ -1773,11 +1836,14 @@ function rendreRegle(largeur) {
   const pas = [1 / F(), 2 / F(), 5 / F(), 10 / F(), 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800].find((p) => p * ui.pps >= 84) ?? 3600;
   const petit = pas / 5;
   let html = '';
-  const fin = largeur / ui.pps;
-  for (let t = 0; t <= fin; t += pas) {
+  // seulement les graduations de la partie visible
+  const k0 = Math.floor(vueDessinee.x0 / ui.pps / pas);
+  const k1 = Math.ceil(Math.min(largeur, vueDessinee.x1) / ui.pps / pas);
+  for (let k = k0; k <= k1; k++) {
+    const t = k * pas;
     const label = pas < 1 ? tc(t, F()) : t >= 3600 ? tc(t, F()).slice(0, 8) : tc(t, F()).slice(3, 8);
     html += `<div class="trait" style="left:${t * ui.pps}px">${label}</div>`;
-    if (petit * ui.pps >= 12) for (let k = 1; k < 5; k++) html += `<div class="trait petit" style="left:${(t + k * petit) * ui.pps}px"></div>`;
+    if (petit * ui.pps >= 12) for (let j = 1; j < 5; j++) html += `<div class="trait petit" style="left:${(t + j * petit) * ui.pps}px"></div>`;
   }
   const repere = $('#fin-montage');
   repere.style.left = `${seq.duree * ui.pps}px`;
@@ -1837,12 +1903,7 @@ function rendreMontage() {
       if (!m) continue;
       const sonSeul = m.type === 'audio';
       const fixe = m.type === 'image';
-      let images = '';
-      if (!sonSeul && m.vignettes) {
-        const lw = (m.vignettes.l * 40) / m.vignettes.h;
-        const n = Math.min(200, Math.max(1, Math.ceil(L / lw)));
-        for (let j = 0; j < n; j++) images += `<div style="${styleVignette(m, it.entree + ((j + 0.5) / n) * (it.sortie - it.entree), 40)}"></div>`;
-      }
+      const images = sonSeul ? '' : vignettesVisibles(it, m, s.debut * ui.pps, L);
       const ext = extraitPlan(it, sonSeul ? 220 : 120);
       const version = versionSon(it);
       const badges = `${it.essentiel ? `<span class="etoile" title="Essentiel : l’IA doit le garder">${ic('etoile', 'plein')}</span>` : ''}${fixe ? '<span>photo</span>' : ''}`;
@@ -1865,30 +1926,90 @@ function rendreMontage() {
     if (C.ondes.has(m.id)) dessinerOndeClip(it);
     else charger('ondes', m).then(() => dessinerOndeClip(it));
   }
+
   // le texte des plans arrive après coup : on réaffiche une fois chargé
   if (aCharger.size) Promise.all([...aCharger].map((m) => charger('mots', m))).then(() => { rendreMontage(); if (!prog.lecture) progAfficher(); });
 }
+/** Les vignettes d'un plan, seulement là où la timeline est visible (gauche : le bord du plan, L : sa largeur, en px). */
+function vignettesVisibles(it, m, gauche, L) {
+  if (!m.vignettes) return '';
+  const lw = (m.vignettes.l * 40) / m.vignettes.h;
+  const n = Math.max(1, Math.ceil(L / lw));
+  const j0 = Math.max(0, Math.floor((vueDessinee.x0 - gauche) / lw));
+  const j1 = Math.min(n - 1, Math.floor((vueDessinee.x1 - gauche) / lw));
+  let html = '';
+  for (let j = j0; j <= j1; j++) html += `<div style="left:${j * lw}px;${styleVignette(m, it.entree + ((j + 0.5) / n) * (it.sortie - it.entree), 40)}"></div>`;
+  return html;
+}
+/** L'onde d'un plan : dessinée seulement sur sa partie visible (la toile ne couvre que cette partie). */
 function dessinerOndeClip(it) {
   const cv = $(`canvas[data-onde="${it.id}"]`);
   const m = media(it.media);
   const o = m && C.ondes.get(m.id);
-  if (!cv || !o) return;
-  const W = Math.min(8000, Math.round(cv.clientWidth * DPR()));
-  const H = Math.round(cv.clientHeight * DPR());
-  if (!W || !H) return;
+  const s = seq.segs.find((x) => x.it.id === it.id);
+  if (!cv || !o || !s) return;
+  const gauche = s.debut * ui.pps;
+  const L = Math.max(3, (s.fin - s.debut) * ui.pps);
+  const a = Math.max(0, vueDessinee.x0 - gauche);
+  const b = Math.min(L, vueDessinee.x1 - gauche);
+  if (b <= a) { cv.style.width = '0px'; return; }
+  cv.style.left = `${a}px`;
+  cv.style.width = `${b - a}px`;
+  const W = Math.max(1, Math.round((b - a) * DPR()));
+  const H = Math.round((cv.clientHeight || 16) * DPR());
+  if (!H) return;
   cv.width = W;
   cv.height = H;
   const g = cv.getContext('2d');
   g.fillStyle = m.type === 'video' ? 'rgba(255,170,160,0.85)' : '#64d2ff';
+  const duree = it.sortie - it.entree;
+  g.beginPath();
   for (let x = 0; x < W; x++) {
-    const t0 = it.entree + (x / W) * (it.sortie - it.entree);
-    const t1 = it.entree + ((x + 1) / W) * (it.sortie - it.entree);
+    const t0 = it.entree + ((a + (x / W) * (b - a)) / L) * duree;
+    const t1 = it.entree + ((a + ((x + 1) / W) * (b - a)) / L) * duree;
     let mx = 0;
-    for (let i = Math.floor(t0 * o.pps); i < Math.max(Math.floor(t0 * o.pps) + 1, Math.ceil(t1 * o.pps)) && i < o.niveaux.length; i++) if (o.niveaux[i] > mx) mx = o.niveaux[i];
+    const i0 = Math.floor(t0 * o.pps);
+    const i1 = Math.max(i0 + 1, Math.ceil(t1 * o.pps));
+    for (let i = i0; i < i1 && i < o.niveaux.length; i++) if (o.niveaux[i] > mx) mx = o.niveaux[i];
     const hh = Math.max(0.5, (mx / 100) * (H - 2));
-    g.fillRect(x, H - hh, 1, hh);
+    g.rect(x, H - hh, 1, hh);
+  }
+  g.fill();
+}
+/** On a fait défiler la timeline hors de la partie dessinée : on dessine la nouvelle (graduations, vignettes, ondes). */
+function dessinerPartieVisible() {
+  if (!P || ui.ecran !== 'montage') return;
+  vueDessinee = vueTl();
+  rendreRegle(parseFloat($('#tl-interieur').style.width) || largeurTl());
+  for (const s of seq.segs) {
+    const it = s.it;
+    if (it.type !== 'plan') continue;
+    const m = media(it.media);
+    const el = m && $(`#piste-montage .clip[data-id="${it.id}"]`);
+    if (!el) continue;
+    if (m.type !== 'audio') el.querySelector('.images').innerHTML = vignettesVisibles(it, m, s.debut * ui.pps, Math.max(3, (s.fin - s.debut) * ui.pps));
+    dessinerOndeClip(it);
   }
 }
+/** Une seule fois par image affichée (et quand même si la fenêtre est cachée, où les images ne passent plus). */
+function prochaineImage(fn) {
+  let fait = false;
+  const go = () => { if (!fait) { fait = true; fn(); } };
+  requestAnimationFrame(go);
+  setTimeout(go, 48);
+}
+let defilementPrevu = false;
+TL.addEventListener('scroll', () => {
+  if (defilementPrevu) return;
+  defilementPrevu = true;
+  prochaineImage(() => {
+    defilementPrevu = false;
+    const w = TL.clientWidth || 1200;
+    // encore un demi-écran d'avance de chaque côté : rien à faire
+    if ((TL.scrollLeft - vueDessinee.x0 >= w * 0.5 || vueDessinee.x0 <= 0) && vueDessinee.x1 - (TL.scrollLeft + w) >= w * 0.5) return;
+    dessinerPartieVisible();
+  });
+}, {passive: true});
 function suivreTete() {
   const x = prog.t * ui.pps;
   if (x < TL.scrollLeft + 20 || x > TL.scrollLeft + TL.clientWidth - 60) TL.scrollLeft = Math.max(0, x - TL.clientWidth * 0.15);
@@ -2336,20 +2457,37 @@ function coller() {
   const s = segmentA(seq, prog.t);
   inserer(ui.pressePapiers, s ? s.k + 1 : P.montage.length);
 }
+let zoomVoulu = null; // {v, centre, x} : le zoom demandé, appliqué à la prochaine image
 function zoomer(v, centre = prog.t) {
-  const x = centre * ui.pps - TL.scrollLeft;
-  ui.pps = ppsDepuisZoom(borner(v, 0, 100));
-  $('#zoom').value = borner(v, 0, 100);
+  v = borner(v, 0, 100);
+  $('#zoom').value = v;
+  // plusieurs crans dans la même image (molette, pincement) : on garde le point d'ancrage du premier, le zoom du dernier
+  if (zoomVoulu) { zoomVoulu.v = v; return; }
+  zoomVoulu = {v, centre, x: centre * ui.pps - TL.scrollLeft};
+  prochaineImage(appliquerZoom);
+}
+function appliquerZoom() {
+  const z = zoomVoulu;
+  zoomVoulu = null;
+  if (!z || !P) return;
+  ui.pps = ppsDepuisZoom(z.v);
+  // la largeur d'abord, puis la position, puis le dessin de ce qui est visible à cette position
+  $('#tl-interieur').style.width = `${largeurTl()}px`;
+  TL.scrollLeft = Math.max(0, z.centre * ui.pps - z.x);
   rendreTimeline();
-  TL.scrollLeft = Math.max(0, centre * ui.pps - x);
 }
 function toutVoir() {
+  zoomVoulu = null;
   ui.pps = borner((TL.clientWidth - 80) / Math.max(seq.duree, 5), ZMIN, ZMAX);
   $('#zoom').value = zoomDepuisPps(ui.pps);
-  rendreTimeline();
   TL.scrollLeft = 0;
+  rendreTimeline();
 }
 $('#zoom').addEventListener('input', (e) => zoomer(Number(e.target.value)));
+let pince = null;
+TL.addEventListener('gesturestart', (e) => { pince = {zoom: Number($('#zoom').value), t: tempsDepuisX(e.clientX)}; });
+TL.addEventListener('gesturechange', (e) => { if (pince && e.scale > 0) zoomer(pince.zoom + Math.log2(e.scale) * 24, pince.t); });
+TL.addEventListener('gestureend', () => { pince = null; });
 TL.addEventListener('wheel', (e) => {
   if (!(e.ctrlKey || e.metaKey || e.altKey)) return;
   e.preventDefault();
@@ -2519,7 +2657,7 @@ async function actionRefs(e) {
   if (act === 'choisir-refs') {
     const cible = e.target.closest('[data-cible]')?.dataset.cible || null;
     let r;
-    try { r = await api('POST', '/api/choisir', {usage: 'reference'}); } catch (err) { return note(err.message, true); }
+    try { r = await choisirSurOrdinateur('reference'); } catch (err) { return note(err.message, true); }
     if (!r.chemins?.length) return true;
     try { P.references = (await api('POST', '/api/references', {chemins: r.chemins, cible})).references; } catch (err) { return note(err.message, true); }
     note(`${r.chemins.length} fichier${r.chemins.length > 1 ? 's' : ''} donné${r.chemins.length > 1 ? 's' : ''} à l’IA.`);
@@ -2646,9 +2784,9 @@ async function importerChemins(chemins) {
 /** « Importer » : la vraie fenêtre du Finder (les fichiers restent à leur place). Sinon, le navigateur de Dérush. */
 async function feuilleImporter() {
   let r;
-  const indice = setTimeout(() => note('Choisis tes vidéos dans la fenêtre « Ouvrir » de ton ordinateur.'), 1500);
+  const indice = NATIF ? 0 : setTimeout(() => note('Choisis tes vidéos dans la fenêtre « Ouvrir » de ton ordinateur.'), 1500);
   try {
-    r = await api('POST', '/api/choisir');
+    r = await choisirSurOrdinateur();
   } catch (e) {
     note(e.message, true);
     return feuilleParcourir();
@@ -2813,7 +2951,7 @@ function afficherExport(t) {
     <textarea class="message-ia" readonly>${esc(message)}</textarea>
     <div class="pied"><button class="btn" data-finder>${ic('finder')}Afficher dans le dossier</button><span class="espace"></span><button class="btn" data-copier>Copier le message</button><button class="btn principal" data-fermer>OK</button></div>`);
   f.querySelector('[data-fermer]').onclick = fermerFeuille;
-  f.querySelector('[data-copier]').onclick = async () => { await navigator.clipboard.writeText(message); note('Message copié : colle-le dans ton IA.'); };
+  f.querySelector('[data-copier]').onclick = async () => { await copierTexte(message); note('Message copié : colle-le dans ton IA.'); };
   f.querySelector('[data-finder]').onclick = () => api('POST', '/api/ouvrir', {chemin: r.dossier}).catch((e) => note(e.message, true));
 }
 
@@ -2948,6 +3086,7 @@ function feuilleAide() {
     ['Bords d’un plan', 'Raccourcir ou rallonger (l’aimant colle à la tête de lecture ; ⌘ pour s’en passer)'],
     ['Glisser un plan', 'Changer l’ordre'],
     ['B · N', 'Case à créer · note pour l’IA, à la tête de lecture'],
+    ['⌘K', 'Écrire à l’IA'],
     ['⌘↵', 'Dans la conversation avec l’IA : envoyer la demande'],
     ['Texte du montage', 'Glisser sur des mots puis ⌫ : ils sortent du montage'],
     ['Texte d’un média', 'Glisser sur des phrases puis « Ajouter au montage »'],
@@ -2958,7 +3097,10 @@ function feuilleAide() {
     ['+ · − · 0', 'Zoom de la timeline, tout voir (⌘ + molette aussi)'],
     ['Échap', 'Quitter les ciseaux, revenir au montage, désélectionner'],
   ];
-  feuille(`<h3>Raccourcis</h3><table class="aide-tableau">${l.map(([k, v]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(v)}</td></tr>`).join('')}</table><div class="pied"><button class="btn principal" data-fermer>OK</button></div>`).querySelector('[data-fermer]').onclick = fermerFeuille;
+  feuille(`<h3>Raccourcis</h3><table class="aide-tableau">${l.map(([k, v]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(v)}</td></tr>`).join('')}</table><div class="pied"><button class="btn" data-tuto>${ic('lire', 'plein')}Revoir le tutoriel</button><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`).addEventListener('click', (e) => {
+    if (e.target.closest('[data-fermer]')) fermerFeuille();
+    if (e.target.closest('[data-tuto]')) { fermerFeuille(); tutoriel(); }
+  });
 }
 
 // =====================================================================
@@ -3048,7 +3190,7 @@ document.addEventListener('keydown', (e) => {
   }
   const cmd = e.metaKey || e.ctrlKey;
   if (cmd && e.key.toLowerCase() === 's') { e.preventDefault(); sauver(true); return note('Enregistré.'); }
-  if (champ || feuilleOuverte()) return;
+  if (champ || ecranOuvert()) return;
   // les raccourcis habituels (CapCut, OpenReel)
   if (cmd) {
     const k = e.key.toLowerCase();
@@ -3059,6 +3201,7 @@ document.addEventListener('keydown', (e) => {
     if (k === 'v') { e.preventDefault(); return coller(); }
     if (k === 'd') { e.preventDefault(); return dupliquer(); }
     if (k === 'a') { e.preventDefault(); return toutSelectionner(); }
+    if (k === 'k') { e.preventDefault(); return montrerClaude(true); }
     return;
   }
   switch (e.key) {
@@ -3093,6 +3236,16 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ——— Un logiciel, pas une page web ———
+// Pas de menu de navigateur, pas d'image ni de lien qu'on emporte en glissant, pas de zoom de la page : seuls les
+// champs de texte et les réponses de l'IA se sélectionnent et se copient (le reste est réglé dans style.css).
+const zoneDeTexte = (el) => !!el?.closest?.('input, textarea, select, [contenteditable], .selectionnable, .cl-texte-b');
+document.addEventListener('contextmenu', (e) => { if (!zoneDeTexte(e.target)) e.preventDefault(); });
+document.addEventListener('dragstart', (e) => { if (!e.target.closest?.('[draggable="true"]')) e.preventDefault(); });
+window.addEventListener('wheel', (e) => { if (e.ctrlKey && !e.target.closest?.('#tl')) e.preventDefault(); }, {passive: false});
+for (const geste of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(geste, (e) => e.preventDefault());
+document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && ['+', '-', '=', '0'].includes(e.key)) e.preventDefault(); }, true);
+
 // ——— Glisser-déposer depuis le Finder ———
 // Les fichiers restent à leur place : Dérush les retrouve sur le disque (Spotlight), même s'ils pèsent des dizaines de Go.
 // S'il ne les trouve pas (disque non indexé…), il les copie dans le projet.
@@ -3117,11 +3270,23 @@ function televerser(f, {usage = null, cible = null} = {}) {
 }
 /** Où sont ces fichiers sur le disque ? (null pour ceux que Spotlight ne connaît pas) */
 async function localiser(fichiers) {
-  try {
-    return (await api('POST', '/api/localiser', {fichiers: fichiers.map((f) => ({nom: f.name, taille: f.size, modifie: f.lastModified}))})).chemins;
-  } catch {
-    return fichiers.map(() => null);
+  // dans l'app native, la fenêtre a noté le vrai chemin de ce qu'on vient de glisser : rien à chercher sur le disque
+  const depot = window.__derushDepot;
+  const res = fichiers.map(() => null);
+  if (depot?.chemins?.length && Date.now() - depot.t < 120000) {
+    const libres = depot.chemins.map((c) => ({c, nom: c.split('/').pop().normalize('NFC')}));
+    fichiers.forEach((f, i) => {
+      const k = libres.findIndex((x) => x.nom === f.name.normalize('NFC'));
+      if (k >= 0) res[i] = libres.splice(k, 1)[0].c;
+    });
+    if (res.every(Boolean)) return res;
   }
+  try {
+    const manquants = fichiers.map((f, i) => ({f, i})).filter((x) => !res[x.i]);
+    const trouves = (await api('POST', '/api/localiser', {fichiers: manquants.map(({f}) => ({nom: f.name, taille: f.size, modifie: f.lastModified}))})).chemins;
+    manquants.forEach(({i}, k) => { res[i] = trouves[k] ?? null; });
+  } catch { /* introuvables : ils seront copiés */ }
+  return res;
 }
 /** Des vidéos, sons ou images glissés depuis le Finder : importés sur place, sinon copiés. Renvoie les ids des médias. */
 async function deposerMedias(fichiers) {
@@ -3675,12 +3840,16 @@ function afficherRendu(t) {
     <div class="resultat-video${r.largeur > r.hauteur ? ' large' : ''}"><video src="/video?nom=${encodeURIComponent(r.nom)}&j=${JETON}" controls playsinline></video>
       <div class="verifs" style="margin:0">${r.controles.map((c) => `<div class="verif petit ${c.ok ? (c.info ? 'info' : 'ok') : 'attention'}">${ic(c.ok ? 'ok' : 'attention')}<div class="espace">${esc(c.t)}${c.d ? `<small>${esc(c.d)}</small>` : ''}</div></div>`).join('')}
       ${(r.avertissements ?? []).map((a) => `<div class="verif petit attention">${ic('attention')}<div class="espace">${esc(a)}</div></div>`).join('')}</div></div>
-    <div class="pied"><button class="btn" data-finder>${ic('finder')}Afficher dans le dossier</button><span class="espace"></span><button class="btn claude" data-ia>${ic('etincelle', 'plein')}<span>Aller plus loin avec l’IA</span></button><button class="btn principal" data-fermer>OK</button></div>`, true);
+    <div class="apres-rendu"><div><b>Et maintenant ?</b><small>Avant de la publier, fais-la analyser : ton IA te dit ce qui retient les gens et ce qui les fait partir. Puis partage-la avec les bonnes légendes et les bons hashtags.</small></div>
+      <button class="btn" data-analyser>${ic('eclair')}Analyser</button><button class="btn claude" data-partager>${ic('publier')}<span>Partager</span></button></div>
+    <div class="pied"><button class="btn" data-finder>${ic('finder')}Afficher dans le dossier</button><span class="espace"></span><button class="btn" data-ia>${ic('etincelle', 'plein')}Aller plus loin avec l’IA</button><button class="btn principal" data-fermer>OK</button></div>`, true);
   const vid = f.querySelector('video');
   vid.addEventListener('loadedmetadata', () => { vid.currentTime = Math.min(1.5, vid.duration / 3); }, {once: true});
   f.querySelector('[data-fermer]').onclick = fermerFeuille;
   f.querySelector('[data-finder]').onclick = () => api('POST', '/api/ouvrir', {chemin: r.video}).catch((e) => note(e.message, true));
   f.querySelector('[data-ia]').onclick = () => { fermerFeuille(); montrerClaude(true); };
+  f.querySelector('[data-analyser]').onclick = () => { vid.pause(); fermerFeuille(); PUB.ouvrir(r.nom, 'analyse'); };
+  f.querySelector('[data-partager]').onclick = () => { vid.pause(); fermerFeuille(); PUB.ouvrir(r.nom, 'partage'); };
 }
 
 // =====================================================================
@@ -3702,8 +3871,8 @@ const guideGestes = () => `<div class="guide">${geste('rushes', '01', 'Dépose',
 
 // ——— l'IA qui monte : Claude (compte Claude) ou Codex (compte ChatGPT) ———
 // Les logos viennent de Simple Icons (CC0, public/logos) ; les marques absentes de Simple Icons ont un picto neutre.
-const LOGOS = {claude: 'claude', anthropic: 'anthropic', elevenlabs: 'elevenlabs', drive: 'googledrive', tiktok: 'tiktok', youtube: 'youtubeshorts', instagram: 'instagram', blender: 'blender', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', linux: 'linux'};
-const PICTOS = {codex: 'codex', linkedin: 'mallette', treg: 'relais', remotion: 'film', maj: 'maj', competences: 'outil', windows: 'fenetre'};
+const LOGOS = {openverse: 'openverse', claude: 'claude', anthropic: 'anthropic', elevenlabs: 'elevenlabs', drive: 'googledrive', tiktok: 'tiktok', youtube: 'youtubeshorts', instagram: 'instagram', blender: 'blender', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', linux: 'linux'};
+const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', codex: 'codex', linkedin: 'mallette', treg: 'relais', remotion: 'film', maj: 'maj', competences: 'outil', windows: 'fenetre'};
 /** Un logo sur sa pastille claire : les logos noirs (TikTok, GitHub…) restent lisibles sur le fond sombre. */
 const logo = (cle, taille = 22, cls = '') => (LOGOS[cle]
   ? `<span class="logo ${cls}" style="--t:${taille}px"><img src="/logos/${LOGOS[cle]}.svg" alt="" draggable="false"></span>`
@@ -3755,6 +3924,7 @@ function apresClaude(avant) {
   if (avant?.en_cours && !c.en_cours) {
     const dernier = c.echanges.at(-1);
     const qui = nomIA(dernier?.moteur);
+    natif('attention');
     if (dernier?.role === 'claude' && dernier.version) {
       const n = c.versions.find((x) => x.n === dernier.version)?.videos.length ?? 1;
       note(n > 1 ? `Tes ${n} vidéos sont prêtes. Regarde-les, puis dis à ${qui} ce qu’il faut changer.` : `Ta vidéo est prête. Regarde-la, puis dis à ${qui} ce qu’il faut changer.`, false, true);
@@ -3896,7 +4066,7 @@ async function deposerPieces(fichiers) {
 /** Le trombone : la fenêtre « Ouvrir » du Mac (n'importe quel fichier), sinon celle du navigateur. */
 async function joindreFichiers() {
   let r = null;
-  try { r = await api('POST', '/api/choisir', {usage: 'piece'}); } catch { /* pas de fenêtre du Mac */ }
+  try { r = await choisirSurOrdinateur('piece'); } catch { /* pas de fenêtre du Mac */ }
   if (r && !r.indisponible) return joindreChemins(r.chemins);
   const champ = $('#f-pieces');
   champ.value = '';
@@ -3935,6 +4105,10 @@ function vignetteVideo(x, H) {
   return `<span class="vig" data-n="${s.n}" data-w="${w}" style="width:${w}px;height:${H}px;background-image:url('${urlVideo(x.nom.replace(/\.mp4$/, '.vignettes.jpg'))}');background-size:${s.n * w}px ${H}px;background-position:-${k * w}px 0"><i>${ic('lire', 'plein')}</i></span>`;
 }
 /** Ce que l'IA a publié : un réseau par ligne, son état, son lien, et la légende à copier. */
+/** Les crédits des sons d'une vidéo (licence CC BY) : une ligne, et un bouton pour les copier dans la description. */
+function creditsHtml(c) {
+  return `<div class="ia-pubs"><div class="ia-pub">${logo('sons', 20)}<span><b>Crédits des sons</b><small>${c.nombre} son${c.nombre > 1 ? 's' : ''} à citer dans ta description</small></span><button class="icone-btn" data-cl="copier" data-texte="${esc(c.texte)}" title="Copier les crédits">${ic('copier')}</button></div></div>`;
+}
 function publicationsHtml(pubs) {
   return `<div class="ia-pubs">${pubs.map((p) => {
     const texte = [p.titre, p.legende, (p.hashtags ?? []).join(' ')].filter(Boolean).join('\n\n');
@@ -3950,11 +4124,13 @@ function carteVideo(v, k) {
   const titre = x.titre ?? (seule ? `Version ${v.n}` : `Vidéo ${k + 1}`);
   const infos = [x.duree ? dureeLisible(x.duree) : null, x.largeur ? ratioDe(x.largeur, x.hauteur) : null].filter(Boolean).join(' · ');
   const menu = ui.clMenuVideo === x.nom ? `<div class="ia-menu bas" role="menu">
+    <button data-cl="publier" data-nom="${esc(x.nom)}" role="menuitem">${ic('publier')}<span>Publier tout de suite, sans plan</span></button>
     <button data-cl="aux-medias" data-nom="${esc(x.nom)}" role="menuitem">${ic('importer')}<span>Mettre dans mes médias</span></button>
     ${ui.claude?.drive?.synchronise ? `<button data-cl="vers-drive" data-nom="${esc(x.nom)}" role="menuitem">${ic('nuage')}<span>Envoyer sur mon Google Drive</span></button>` : ''}
     <button data-cl="finder" data-nom="${esc(x.nom)}" role="menuitem">${ic('dossier')}<span>Afficher dans le dossier</span></button></div>` : '';
   return `<div class="cl-video-bloc"><div class="cl-video${active ? ' active' : ''}${seule ? ' seule' : ''}" data-version="${v.n}" data-video="${k}" title="${esc(detail)}">${vignetteVideo(x, seule ? 64 : 76)}<div class="txt"><b>${esc(titre)}</b><small>${esc(infos)}</small><small class="${soucis ? 'attention' : 'ok'}">${soucis ? `${soucis} point${soucis > 1 ? 's' : ''} à voir` : 'Contrôles OK'}</small></div>
-    <div class="act"><button class="btn petit publier" data-cl="publier" data-nom="${esc(x.nom)}" title="Publier sur TikTok, YouTube, Instagram ou LinkedIn">${ic('publier')}<span>Publier</span></button><button class="icone-btn" data-cl="menu-video" data-nom="${esc(x.nom)}" title="Plus">${ic('points')}</button>${menu}</div></div>
+    <div class="act"><button class="icone-btn" data-cl="menu-video" data-nom="${esc(x.nom)}" title="Plus">${ic('points')}</button>${menu}</div></div>
+    <div class="cl-avant-pub"><button class="btn petit" data-cl="analyser" data-nom="${esc(x.nom)}" title="Avant de publier : ton IA note l’accroche, le rythme, le son… et te dit quoi améliorer">${ic('eclair')}<span>Analyser</span></button><button class="btn petit publier" data-cl="partager" data-nom="${esc(x.nom)}" title="Légendes, hashtags, bon moment et publication sur TikTok, Instagram, YouTube, LinkedIn">${ic('publier')}<span>Partager</span></button></div>
     ${(x.publications ?? []).length ? publicationsHtml(x.publications) : ''}</div>`;
 }
 const cartesVideos = (v) => (v.videos.length > 1
@@ -3969,7 +4145,7 @@ function bulleClaude(x, c) {
   const v = x.version ? c.versions.find((y) => y.n === x.version) : null;
   const long = x.texte.length > 520;
   const m = x.moteur ?? 'claude';
-  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${v ? cartesVideos(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}</div>`;
+  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${v ? cartesVideos(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
 }
 /** La bulle de l'IA au travail : la bobine tourne, une ligne dit ce qu'elle fait, son rendu passe en petit ; le détail se déplie. */
 function bulleTravail(c) {
@@ -4226,8 +4402,10 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'choisir-ia') return feuilleChoixIA();
     if (act === 'connexions') return feuilleConnexions();
     if (act === 'publier') return feuillePublier(e.target.closest('[data-nom]').dataset.nom);
+    if (act === 'analyser') return PUB.ouvrir(e.target.closest('[data-nom]').dataset.nom, 'analyse');
+    if (act === 'partager') return PUB.ouvrir(e.target.closest('[data-nom]').dataset.nom, 'partage');
     if (act === 'lien-pub') { const l = e.target.closest('[data-lien]').dataset.lien; if (/^https:\/\//.test(l)) window.open(l, '_blank', 'noopener'); return; }
-    if (act === 'copier') { await navigator.clipboard.writeText(e.target.closest('[data-texte]').dataset.texte); return note('Copié : colle-le dans l’app du réseau.'); }
+    if (act === 'copier') { await copierTexte(e.target.closest('[data-texte]').dataset.texte); return note('Copié : colle-le dans l’app du réseau.'); }
     if (act === 'finder') return await api('POST', '/api/ouvrir', {chemin: c.versions.flatMap((v) => v.videos).find((x) => x.nom === e.target.closest('[data-nom]').dataset.nom)?.chemin});
     if (act === 'aux-medias') {
       await api('POST', '/api/claude/videos/medias', {nom: e.target.closest('[data-nom]').dataset.nom});
@@ -4239,7 +4417,7 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'envoyer') return envoyerDemande();
     if (act === 'joindre') return joindreFichiers();
     if (act === 'joindre-drive') {
-      const r = await api('POST', '/api/choisir', {usage: 'drive'});
+      const r = await choisirSurOrdinateur('drive');
       return r.indisponible ? note('La fenêtre « Ouvrir » de l’ordinateur n’a pas pu s’ouvrir.', true) : joindreChemins(r.chemins);
     }
     if (act === 'vers-drive') {
@@ -4306,11 +4484,24 @@ function carteIA(d, m) {
   const sous = x.ok ? `${esc(x.nom ?? '')} · ${m === 'codex' ? 'connecté à ChatGPT' : 'connecté à Claude'}` : `${esc(x.pourquoi ?? '')} ${compte}`;
   return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: m === 'codex' ? 'Codex' : 'Claude', sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? '<small class="dim">Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.</small>' : '')});
 }
+/** Les vrais sons : la bibliothèque (remplie avec Openverse), Real SFX pour les poser, Earshot pour écouter. */
+function sectionSons(d) {
+  const s = d.sons ?? {};
+  const rs = s.realsfx ?? {};
+  const ea = s.earshot ?? {};
+  const pret = `<span class="etiq ok">${ic('coche')}Prêt</span>`;
+  const ajouter = (action, a, titre) => (enCours(a) ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : `<button class="btn petit" data-cx="${action}" title="${titre}">Ajouter</button>`);
+  const combien = s.nombre ? `${s.nombre} son${s.nombre > 1 ? 's' : ''} libre${s.nombre > 1 ? 's' : ''}` : 'Encore vide';
+  return `<section class="cx-section"><h4>${ic('vague')}De vrais sons dans tes vidéos</h4><div class="cx-grille">
+      ${carteCx({etat: etatCarte(s.actif && s.nombre > 0, s.actif), lg: logo('openverse', 42), titre: 'Bibliothèque de sons', sous: esc(s.actif ? `${combien} dans « ${s.nom} ». L’IA y prend ses bruitages, en cherche d’autres sur Openverse s’il en manque, et note les crédits.` : 'L’IA fabrique ses bruitages elle-même. Allume pour qu’elle prenne de vrais sons libres de droits, rangés dans ta bibliothèque avec leurs crédits.'),
+        actions: `${s.actif ? '<button class="btn petit" data-cx="sons/ouvrir" title="Ouvrir le dossier de tes sons">Ouvrir</button>' : ''}<label class="interrupteur" title="Donner de vrais sons à l’IA"><input type="checkbox" data-cx-bascule="sons/activer"${s.actif ? ' checked' : ''}><i></i></label>`})}
+      ${carteCx({etat: etatCarte(rs.ok, enCours(rs.action)), lg: logo('realsfx', 42), titre: 'Real SFX', sous: esc(rs.ok ? 'Pose les sons à l’image près, sous ta voix et ta musique, puis note son propre travail.' : 'Pose les sons à l’image près, sous ta voix et ta musique. À ajouter une fois (9 Mo).'), actions: rs.ok ? pret : ajouter('realsfx/installer', rs.action, 'Real SFX se télécharge depuis son dépôt officiel'), plus: erreurAction(rs.action)})}
+      ${carteCx({etat: etatCarte(ea.ok, enCours(ea.action)), lg: logo('earshot', 42), titre: 'Earshot', sous: esc(ea.ok ? `L’oreille de l’IA : elle écoute, choisit et fabrique des sons, sur ton ordinateur.${ea.deja ? ' Déjà installé chez toi.' : ''}` : 'Facultatif. L’oreille de l’IA : elle écoute, choisit et fabrique des sons, sur ton ordinateur (2,5 Go).'), actions: ea.ok ? pret : ea.installable ? ajouter('earshot/installer', ea.action, 'Earshot et ses deux modèles : 2,5 Go, une dizaine de minutes') : '', plus: erreurAction(ea.action)})}</div></section>`;
+}
 async function feuilleConnexions() {
   let d;
   try { d = await api('GET', '/api/connexions'); } catch (e) { return note(e.message, true); }
   ui.cxMontree = true;
-  let cleTreg = '';
   const f = feuille('', true);
   f.classList.add('connexions');
   const rendre = () => {
@@ -4325,13 +4516,14 @@ async function feuilleConnexions() {
       <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(d.qualites ?? {}).map(([k, q]) => `<button data-cx="ia/choisir" data-qualite="${k}"${k === d.qualite ? ' class="actif"' : ''} title="${esc(q.aide)}">${esc(q.nom)}</button>`).join('')}</div><small>${esc(d.qualites?.[d.qualite]?.aide ?? '')}</small></div></section>
     <section class="cx-section"><h4>${ic('onde')}Créer le son, les images, les plans</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(el.ok, el.attente), lg: logo('elevenlabs', 42), titre: 'ElevenLabs', sous: esc(el.ok ? 'Branché : musiques, voix, bruitages, images et plans vidéo.' : el.attente ? 'Autorise Dérush dans la page ElevenLabs ouverte dans ton navigateur.' : 'Musiques, voix off, bruitages, doublage, images et plans vidéo (crédits ElevenLabs).'), actions: el.ok ? `<span class="etiq ok">${ic('coche')}Branché</span>` : el.attente ? `<span class="etiq">${anneau(0.5)}En attente…</span>` : '<button class="btn bleu petit" data-cx="elevenlabs/brancher">Brancher</button>'})}</div></section>
+    ${sectionSons(d)}
     <section class="cx-section"><h4>${ic('nuage')}Tes fichiers</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(dr.actif && (dr.synchronise || dr.connecteur?.etat === 'connecte')), lg: logo('drive', 42), titre: 'Google Drive', sous: esc(!dr.actif ? 'L’IA ne voit pas ton Drive.' : `${dr.synchronise ? `Dossier « ${dr.dossier} » synchronisé sur cet ordinateur.` : 'Le dossier Drive n’est pas synchronisé sur cet ordinateur (app Google Drive pour ordinateur).'} ${dr.connecteur?.etat === 'connecte' ? 'Le connecteur de ton compte Claude répond.' : 'Avec Claude, ajoute aussi le connecteur Google Drive dans claude.ai (Réglages › Connecteurs).'}`),
         actions: `<label class="interrupteur" title="Donner ton Drive à l’IA"><input type="checkbox" data-cx-bascule="drive/activer"${dr.actif ? ' checked' : ''}><i></i></label>`})}</div></section>
     <section class="cx-section"><h4>${ic('publier')}Publier sur les réseaux</h4><div class="cx-grille">
-      ${carteCx({etat: etatCarte(treg.actif && treg.pret), lg: logo('treg', 42), titre: 'Treg', sous: esc(treg.pret ? `Relié${treg.jeton ? ' avec ta clé' : ' par le connecteur de ton compte Claude'}. L’IA publie seulement quand tu le lui demandes.` : 'Relie une fois tes comptes sur treg.to, puis colle ta clé ici (elle sert à Claude comme à Codex). Avec Claude, le connecteur Treg de ton compte suffit aussi. L’IA écrit les légendes et publie quand tu le demandes.'),
-        plus: `${reseaux}${treg.jeton ? '' : `<div class="cx-etapes"><div><span class="num">1</span><span>Crée ton compte Treg et relie TikTok, YouTube, Instagram, LinkedIn.</span><button class="btn petit" data-lien="https://treg.to">Ouvrir treg.to</button></div><div><span class="num">2</span><input type="password" id="cx-treg-cle" placeholder="Ta clé Treg (trg_…)" autocomplete="off" spellcheck="false" value="${esc(cleTreg)}"><button class="btn bleu petit" data-cx="treg/jeton">Enregistrer</button></div></div>`}`,
-        actions: `${treg.jeton ? '<button class="btn petit" data-cx="treg/retirer" title="Retirer la clé de cet ordinateur">Retirer la clé</button>' : ''}<label class="interrupteur" title="Donner Treg à l’IA"><input type="checkbox" data-cx-bascule="treg/activer"${treg.actif ? ' checked' : ''}><i></i></label>`})}</div></section>
+      ${carteCx({etat: etatCarte(treg.actif && treg.pret), lg: logo('treg', 42), titre: 'Treg', sous: esc(treg.pret ? `Relié${treg.jeton ? ' avec ta clé' : ' par le connecteur de ton compte Claude'}. Rien ne part sans ton clic.` : 'Le service qui publie tes vidéos à ta place sur TikTok, Instagram, YouTube et LinkedIn. Trois gestes, une seule fois : Dérush te guide.'),
+        plus: reseaux,
+        actions: `<button class="btn ${treg.pret ? '' : 'bleu '}petit" data-guide-treg title="Trois gestes, une seule fois">${treg.pret ? 'Voir mes réseaux' : 'Relier mes réseaux'}</button><label class="interrupteur" title="Donner Treg à l’IA"><input type="checkbox" data-cx-bascule="treg/activer"${treg.actif ? ' checked' : ''}><i></i></label>`})}</div></section>
     <section class="cx-section"><h4>${ic('cube')}La 3D</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(bl.ok, enCours(d.blender_action)), lg: logo('blender', 42), titre: 'Blender', sous: esc(bl.ok ? `${bl.nom} : l’IA s’en sert pour la 3D réaliste.` : 'Facultatif : sans lui, l’IA fait la 3D dans la page (Three.js).'), actions: bl.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : enCours(d.blender_action) ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : '<button class="btn petit" data-cx="blender/installer">Installer</button>', plus: erreurAction(d.blender_action)})}</div></section>
     <section class="cx-section"><h4>${ic('outil')}Dérush</h4><div class="cx-grille deux">
@@ -4347,12 +4539,11 @@ async function feuilleConnexions() {
   };
   const suivre = () => {
     clearTimeout(minuterieConnexions);
-    const attente = [d.claude?.action, d.codex?.action, d.blender_action, d.competences?.action].some(enCours) || d.elevenlabs?.attente || ui.cxSuivre > Date.now();
+    const attente = [d.claude?.action, d.codex?.action, d.blender_action, d.competences?.action, d.sons?.realsfx?.action, d.sons?.earshot?.action].some(enCours) || d.elevenlabs?.attente || ui.cxSuivre > Date.now();
     if (attente) minuterieConnexions = setTimeout(async () => { if (!f.isConnected) return; await relire(); suivre(); }, 3500);
   };
   rendre();
   suivre();
-  f.addEventListener('input', (e) => { if (e.target.id === 'cx-treg-cle') cleTreg = e.target.value; });
   f.addEventListener('change', async (e) => {
     const b = e.target.dataset?.cxBascule;
     if (!b) return;
@@ -4361,6 +4552,7 @@ async function feuilleConnexions() {
   });
   f.addEventListener('click', async (e) => {
     if (e.target.closest('[data-fermer]')) { clearTimeout(minuterieConnexions); fermerFeuille(); if (ui.claude) chargerClaude(true); return; }
+    if (e.target.closest('[data-guide-treg]')) { clearTimeout(minuterieConnexions); return PUB.guideTreg(() => feuilleConnexions()); }
     const lien = e.target.closest('[data-lien]')?.dataset.lien;
     if (lien) return api('POST', '/api/lien', {url: lien}).catch((err) => note(err.message, true));
     const b = e.target.closest('[data-cx]');
@@ -4368,16 +4560,12 @@ async function feuilleConnexions() {
     const action = b.dataset.cx;
     const corps = {};
     if (action === 'ia/choisir') { if (b.dataset.moteur) corps.moteur = b.dataset.moteur; if (b.dataset.qualite) corps.qualite = b.dataset.qualite; }
-    if (action === 'treg/jeton') {
-      corps.cle = cleTreg.trim();
-      if (!corps.cle) return $('#cx-treg-cle', f)?.focus();
-    }
     b.disabled = true;
     try {
       await api('POST', `/api/connexions/${action}`, corps);
-      if (action === 'treg/jeton') { cleTreg = ''; note('Clé Treg enregistrée sur cet ordinateur.', false, true); }
       if (/\/(installer|connecter|brancher)$/.test(action)) { ui.cxSuivre = Date.now() + 15 * 60000; note(/connecter|brancher/.test(action) ? 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.' : 'Installation lancée : ça prend une à deux minutes.'); }
       if (action === 'maj/installer') { note('Mise à jour installée : Dérush redémarre…', false, true); return; }
+      if (action === 'earshot/installer') note('Earshot s’installe : 2,5 Go, compte une dizaine de minutes. Tu peux continuer à travailler.');
     } catch (err) { note(err.message, true); }
     await relire(!action.startsWith('ia/'));
     suivre();
@@ -4965,7 +5153,8 @@ async function rafraichirMedias() {
   if (P.sortie.auto && r.medias.some((m) => !avant.has(m.id) || (!avant.get(m.id).largeur && m.largeur))) appliquerFormatAuto();
   for (const m of P.medias) {
     const a = avant.get(m.id);
-    const change = !a || a.etat !== m.etat || JSON.stringify(a.etapes) !== JSON.stringify(m.etapes) || a.voix?.cree_le !== m.voix?.cree_le;
+    const change = !a || a.etat !== m.etat || JSON.stringify(a.etapes) !== JSON.stringify(m.etapes) || a.voix?.cree_le !== m.voix?.cree_le
+      || (a.vignettes && cleVignettes(a.vignettes)) !== (m.vignettes && cleVignettes(m.vignettes));
     const texte = a?.transcription?.cree_le !== m.transcription?.cree_le;
     if (change || texte) {
       oublier(m.id);
@@ -4976,6 +5165,11 @@ async function rafraichirMedias() {
           vRush.currentTime = t;
         }
         Promise.all(['ondes', 'analyse', 'mots', 'cadrage'].map((k) => charger(k, m))).then(() => { if (texte) rendreTexte(); majSourceUI(); });
+      }
+      // le proxy vient d'arriver : un lecteur qui n'avait pas pu lire l'original (format rare) le recharge
+      if (m.type === 'video' && m.etapes?.proxy === true && a?.etapes?.proxy !== true) {
+        for (const v of [...PV, vDessus]) if (v.error && v.dataset.media?.startsWith(`${m.id}:`)) delete v.dataset.media;
+        if (!prog.lecture && ui.mode === 'montage') progAfficher();
       }
       if ([...P.montage, ...P.superpositions].some((it) => it.media === m.id)) rendreTimeline();
       if (ui.sel) rendreInspecteur();
@@ -5073,10 +5267,20 @@ async function prendreLaMain() {
   });
 }
 
+/** L'état des moteurs (IA, Whisper…) n'était pas encore connu à l'ouverture : il arrive ici, sans rien bloquer. */
+function completerMoteurs() {
+  if (!SRV.moteurs_en_attente) return;
+  api('GET', '/api/moteurs').then((mo) => {
+    SRV.moteurs = mo;
+    SRV.moteurs_en_attente = false;
+    if (ui.ecran === 'montage' && P) { $('#grille-medias').dataset.cle = ''; rendreRushes(); }
+  }).catch(() => {});
+}
 async function demarrer() {
   await prendreLaMain();
   const e = await api('GET', '/api/etat');
   SRV = e;
+  completerMoteurs();
   if (e.mode === 'projet') await demarrerEditeur();
   else await afficherBibliotheque();
   setInterval(() => { if (!ui.remplacee && (SRV.file?.en_cours || SRV.file?.attente?.length || ui.exportTache || ui.renduTache)) suivreFile(); }, 900);
@@ -5084,6 +5288,46 @@ async function demarrer() {
   setInterval(() => { if (!ui.remplacee && ui.ecran === 'montage') chargerRetours(); }, 20000);
   requestAnimationFrame(boucle);
 }
+// ——— Avant de publier (analyse de viralité, partage, Treg) et le tutoriel : deux écrans à part (publication.js, tuto.js) ———
+/** Met une demande dans le message à l'IA (la personne la relit, puis l'envoie). */
+function demanderIA(texte) {
+  montrerClaude(true);
+  ui.brouillon = texte;
+  const zone = $('#cl-texte');
+  if (zone) { zone.value = texte; zone.dispatchEvent(new Event('input', {bubbles: true})); majEnvoi(); zone.focus(); zone.scrollTop = zone.scrollHeight; }
+  note(`Relis la demande, puis envoie-la à ${nomIA()}.`);
+}
+const PUB = creerPublication({
+  api, note, esc, ic, ill, logo, JETON, NATIF, natif, copierTexte,
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
+  prefs: {lire: (k, d) => prefs.lire(k, d), ecrire: (k, v) => prefs.ecrire(k, v)},
+  nomIA: () => nomIA(), iaPrete: () => iaPrete(), qualiteIA: () => qualiteIA(), nomQualite: () => (qualiteIA() === 'rapide' ? 'Rapide' : 'Soigné'), claude: () => ui.claude,
+  connexions: () => feuilleConnexions(),
+  demanderIA,
+  lirePressePapiers: () => (NATIF ? demanderNatif('coller') : navigator.clipboard.readText()),
+  /** Publie avec les textes relus dans « Partager » (le serveur reprend ceux du plan enregistré). */
+  publier: async ({video, reseaux, visibilite}) => {
+    await api('POST', '/api/claude/demander', {moteur: moteurIA(), qualite: qualiteIA(), publier: {video, reseaux, visibilite, avec_plan: true}});
+    montrerClaude();
+    note(`${nomIA()} publie ta vidéo : suis-le dans la colonne de droite.`);
+    await chargerClaude();
+  },
+  surFermeture: () => { if (ui.ecran === 'montage' && !ui.claude?.en_cours) chargerClaude(); },
+});
+const feuilleViralite = () => PUB.ouvrir(null, 'analyse');
+const feuillePartager = () => PUB.ouvrir(null, 'partage');
+const TUTO = creerTutoriel({api, esc, ic, ill, logo, nomIA: () => nomIA()});
+/** Le tutoriel animé : à la première ouverture, puis quand on le redemande (menu Aide, bouton « ? »). */
+function tutoriel(auto = false) {
+  if (auto && (SRV.reglages?.tuto_vu || ui.tutoMontre || feuilleOuverte())) return;
+  ui.tutoMontre = true;
+  TUTO.ouvrir({surFin: () => {
+    api('POST', '/api/reglages/interface', {tuto_vu: true}).catch(() => {});
+    SRV.reglages = {...(SRV.reglages ?? {}), tuto_vu: true};
+    if (ui.ecran === 'biblio') proposerConnexions();
+  }});
+}
+
 // Une petite porte d'entrée pour piloter l'interface depuis la console du navigateur (essais, automatisation).
 window.derush = {
   aller: (t) => { progPause(); if (ui.mode !== 'montage') definirMode('montage'); progPositionner(t); },
@@ -5093,7 +5337,40 @@ window.derush = {
   importer: async (chemins) => { const r = await api('POST', '/api/medias', {chemins}); await rafraichirMedias(); return r; },
   claude: () => ui.claude, ecrire: (texte) => { montrerClaude(); ui.brouillon = texte; const ta = $('#cl-texte'); if (ta) { ta.value = texte; majEnvoi(); } }, envoyer: () => envoyerDemande(),
   vue: (v, n, k) => montrerVue(v, n, k), ui: () => ui,
+  publication: (nom, onglet) => PUB.ouvrir(nom, onglet), guideTreg: () => PUB.guideTreg(), tutoriel: () => tutoriel(),
+  api: (methode, url, corps) => api(methode, url, corps), // les appels au serveur, comme l'interface les fait (essais)
+  // le zoom appliqué tout de suite (pour mesurer son coût dans les essais)
+  zoomer: (v, centre) => { zoomer(v, centre); appliquerZoom(); },
   joindre: (chemins) => joindreChemins(chemins), studio: () => ui.studio, creerOnglet: () => choisirPanneau('creer'),
+  // — pour la fenêtre native (outils/coque-mac.swift) —
+  /** Avant de quitter : on enregistre, et on dit si un travail est en cours (rendu, IA). */
+  avantDeQuitter: async () => {
+    try { if (P) await sauver(true); } catch { /* rien à enregistrer */ }
+    let occupe = !!(SRV.file?.en_cours || SRV.file?.attente?.length || ui.claude?.en_cours);
+    try { occupe = !!(await fetch('/api/ping').then((r) => r.json())).occupe; } catch { /* serveur arrêté */ }
+    return {occupe};
+  },
+  eteindre: () => api('POST', '/api/quitter').catch(() => {}),
+  /** Des fichiers posés sur l'icône de Dérush : importés dans le projet ouvert. */
+  ouvrirFichiers: (chemins) => (P && ui.ecran === 'montage' ? importerChemins(chemins) : note('Ouvre d’abord un projet : tes fichiers iront dedans.')),
+  /** Les menus de l'app (Fichier, Présentation, Aide…). */
+  menu: (action) => {
+    const projet = () => (P && ui.ecran === 'montage' ? true : (note('Ouvre d’abord un projet.'), false));
+    const M = {
+      reglages: () => feuilleReglages(), connexions: () => feuilleConnexions(), aide: () => feuilleAide(), tutoriel: () => tutoriel(),
+      nouveau: async () => { if (P) { await sauver(true).catch(() => {}); } feuilleNouveauProjet(); },
+      bibliotheque: () => { if (ui.ecran === 'montage') $('#b-biblio').click(); },
+      importer: () => projet() && feuilleImporter(),
+      'creer-video': () => projet() && feuilleCreer(),
+      viralite: () => projet() && feuilleViralite(),
+      partager: () => projet() && feuillePartager(),
+      dossier: () => projet() && api('POST', '/api/ouvrir', {chemin: SRV.racine}).catch((e) => note(e.message, true)),
+      ia: () => projet() && montrerClaude(true),
+      'tout-voir': () => projet() && toutVoir(),
+    };
+    if (feuilleOuverte() && !['aide', 'tutoriel', 'reglages', 'connexions'].includes(action)) fermerFeuille();
+    return M[action]?.();
+  },
 };
 demarrer().catch((err) => {
   document.body.innerHTML = `<div style="padding:40px;color:#fff;font:15px -apple-system,system-ui">Dérush n’a pas pu démarrer : ${esc(err.message)}</div>`;

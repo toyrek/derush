@@ -1,4 +1,4 @@
-# Dérush 7 — le manuel
+# Dérush 8 — le manuel
 
 > **À lire d'abord.** Dans ce manuel, « Claude » désigne l'IA qui monte : **Claude** (compte Claude) ou **Codex** (compte ChatGPT), selon ton choix dans **Connexions**. L'installation, les connexions, la publication et les mises à jour sont dans le [README](../README.md) et dans [INSTALLER.md](../INSTALLER.md). Ce manuel décrit l'écran et les gestes ; les chemins cités (`~/Movies`, `~/Library/…`) sont ceux du Mac, et leurs équivalents sur Windows et Linux sont dans le README.
 
@@ -14,8 +14,10 @@ Ton montage est un **squelette**, pas une contrainte : tu marques ce qui est ess
 
 ## Ouvrir Dérush
 
-- **Double-clic sur « Dérush »** : sur le Bureau (Mac, Windows, Linux) ou dans le menu des applications. Dérush s'ouvre dans sa propre fenêtre et s'arrête tout seul quelques secondes après sa fermeture (après la fin d'un travail en cours, comme un montage par l'IA).
-- **Une seule fenêtre à la fois.** Un nouveau double-clic ouvre une fenêtre neuve : l'ancienne enregistre tout, puis se ferme d'elle-même.
+- **Double-clic sur « Dérush »** : sur le Bureau (Mac, Windows, Linux) ou dans le menu des applications.
+- **Sur Mac, c'est une vraie application** : son icône reste dans le Dock, elle a ses menus (Fichier, Édition, Présentation, Aide), et tu peux poser des vidéos sur son icône pour les importer. Quand tu la fermes pendant un travail (un rendu, ton IA qui monte), elle te propose de **laisser finir** : la fenêtre se ferme et Dérush se quitte tout seul à la fin ; un clic sur son icône la rouvre.
+- **Sur Windows et Linux**, Dérush s'ouvre dans une fenêtre de Chrome, Edge ou Brave, et s'arrête tout seul quelques secondes après sa fermeture (après la fin d'un travail en cours). Un nouveau double-clic ouvre une fenêtre neuve : l'ancienne enregistre tout, puis se ferme d'elle-même.
+- **Le tutoriel.** À la première ouverture, six petites scènes animées montrent les gestes : déposer, demander à l'IA, retoucher, habiller, analyser, partager. Tu le revois quand tu veux : le « ? » de la bibliothèque, la fenêtre des raccourcis, ou le menu Aide.
 - **En ligne de commande :** `node derush.mjs` ouvre la bibliothèque, et `node derush.mjs <dossier>` ouvre directement un projet.
 
 ## L'écran
@@ -173,12 +175,34 @@ Tout est enregistré tout de suite, et `⌘Z` annule. La touche `?` montre tous 
 
 Ce que tu poses ici, Claude le reçoit et le garde, sauf si tu lui demandes autre chose.
 
+## Tes vidéos sont utilisables tout de suite
+
+Dès que tu déposes une vidéo, elle a une image (en moins d'une seconde), puis ses vignettes et sa courbe de son (une à deux secondes, même en 4K). Tu peux la regarder et la poser dans la timeline sans attendre : sa préparation complète (une copie légère pour se déplacer à l'image près, l'analyse, le recadrage) continue derrière, et un petit cercle tourne sur sa vignette tant qu'elle n'est pas finie. Plusieurs vidéos déposées ensemble apparaissent ensemble.
+
+## Avant de publier : analyser et partager
+
+Sous chaque vidéo de l'IA, et à la fin de « Créer la vidéo », les boutons **Analyser** et **Partager** ouvrent le même écran, avec la vidéo à gauche et ce que Dérush a mesuré dessus (format, durée, première parole, débit, blancs, coupes, niveau du son).
+
+**L'analyse.** Ton IA regarde la vidéo finie : elle lit ce qui est dit, regarde les trois premières secondes, l'ensemble et la fin, relit ses repères datés sur TikTok, Instagram et YouTube, et cherche ce qui marche en ce moment sur ton sujet. Tu obtiens :
+- une **note sur 100** (calculée par Dérush à partir des huit notes, toujours de la même façon) et une note par réseau ;
+- **à faire en premier** : trois changements au plus, classés par effet ;
+- **les huit points regardés** : accroche, histoire, rythme, son, textes à l'écran, format, fin, originalité, chacun avec ce qui est constaté (et sa preuve) et quoi changer ;
+- **ce qui marche en ce moment**, seulement quand l'IA a trouvé une source datée ;
+- **ce que l'analyse ne sait pas** (elle ne peut pas écouter le grain d'une voix, ne connaît ni ton compte ni ton public).
+
+Chaque bouton *Demander* met la correction dans ton message à l'IA : tu relis, tu envoies, elle refait. Puis *Refaire l'analyse* pour voir la différence. C'est une estimation pour améliorer la vidéo, pas une promesse de vues.
+
+**Le partage.** Choisis tes réseaux (TikTok, Instagram Reels, YouTube Shorts, LinkedIn) et, si tu veux, un mot pour l'IA. Elle écrit la stratégie (l'angle, l'ordre des réseaux, le rythme, quoi faire dans l'heure qui suit) et, pour chaque réseau : la légende, les hashtags, le bon moment, l'image de couverture, un premier commentaire. Tout se corrige sur place (c'est enregistré tout seul) et se copie d'un clic. *Publier* envoie tes textes relus, tels quels, avec Treg ; si tes réseaux ne sont pas reliés, tu peux tout copier et publier toi-même.
+
+**Relier ses réseaux.** Connexions → Treg → *Relier mes réseaux* : crée ton compte Treg, relie tes réseaux dans Treg, puis copie ta clé et clique sur *Coller ma clé*. Dérush vérifie la clé auprès de Treg et te montre quels réseaux sont reliés. Avec Claude, le connecteur Treg de ton compte Claude suffit aussi.
+
 ## Créer la vidéo sans IA
 
 « Autres façons de finir » → « Créer la vidéo sans IA » fabrique le MP4 final sur ton Mac : le montage, les effets, les titres, les sous-titres et les bruitages.
 - Le son est réglé au niveau des réseaux (−14 LUFS).
 - À la fin, Dérush affiche la vidéo et ses **contrôles** : format, durée, niveau du son, couleurs, textes hors des zones cachées.
 - La vidéo est rangée dans le dossier `vidéos` du projet, avec une planche de contrôle.
+- Sous les contrôles, « Et maintenant ? » propose de l'**analyser** et de la **partager** (voir plus haut).
 
 ## Le son
 
@@ -186,6 +210,20 @@ Pour chaque plan, dans le panneau de droite :
 - **Garder ou couper** le son d'origine, et régler le **volume**.
 - **Isoler la voix** avec Demucs, sur le Mac. Tu choisis ensuite « Original », « Voix seule » ou « Sans la voix ».
 - **Débordements** : le son peut commencer avant l'image (J-cut) ou continuer après (L-cut).
+
+## De vrais sons (bibliothèque, Real SFX, Earshot)
+
+Par défaut, l'IA fabrique ses bruitages : sons de synthèse du kit, sons calculés, ou sons générés par ElevenLabs. Tu peux lui donner de **vrais enregistrements**, libres de droits. Tout se règle dans **Connexions**, partie « De vrais sons dans tes vidéos ».
+
+- **Bibliothèque de sons** (un interrupteur) : un dossier `Sons` dans ta Musique, avec un dossier par type (`whoosh`, `impact`, `pop`, `click`…), un fichier `CREDITS.md` et un catalogue. Quand il manque un son, l'IA le cherche sur [Openverse](https://openverse.org), un moteur de recherche de contenus libres, sans compte ni clé. Elle ne garde que ce qu'on a le droit de poser sur une vidéo commerciale : le domaine public, et la licence CC BY (qui demande un crédit). Tu peux aussi y glisser tes propres sons. *Ouvrir* montre le dossier.
+- **Real SFX** (*Ajouter*, 9 Mo) : il choisit les sons dans ta bibliothèque, les pose à l'image près sous ta voix et ta musique, mesure le résultat et corrige ses trois plus gros défauts. Sans lui, l'IA pose les sons elle-même.
+- **Earshot** (*Ajouter*, facultatif, 2,5 Go) : l'IA n'entend pas. Earshot écoute pour elle, sur ton ordinateur : il décrit un son, classe plusieurs candidats, vérifie le niveau et la synchro d'une vidéo, et fabrique des sons en code. Rien ne part en ligne.
+
+**Les crédits.** Quand une vidéo utilise un son sous licence CC BY, une ligne « Crédits des sons » apparaît sous la réponse de l'IA, avec un bouton pour les copier : colle-les dans la description de ta vidéo. Si l'IA publie pour toi, elle les ajoute à la légende.
+
+**Dans la conversation**, tu peux le dire simplement : « mets de vrais bruitages », « trouve un bruit de foule », « écoute la vidéo et dis-moi si le son est trop fort », « fabrique un clic plus doux ».
+
+À savoir : Openverse limite à 200 recherches par jour (Dérush compte pour toi) ; il relaie la licence indiquée par la source sans la garantir, alors pour une publicité importante, ouvre la page du son avant de publier ; les sons de Freesound arrivent en MP3.
 
 ## ElevenLabs : le studio du son (et des images)
 
@@ -279,7 +317,7 @@ node derush.mjs construire-app --zip ~/Desktop
 - `transcrire` lance Whisper sur un rush ; `voix` sépare la voix du reste.
 - `demander` fait monter la vidéo par Claude, comme le bouton. `--modele opus|fable|sonnet`, `--effort max|high|medium`, `--nouveau` pour repartir du montage.
 - `exporter` crée le dossier de montage ; `rendre` crée la vidéo sans IA.
-- `installer whisper` (ou `voix`, `detourage`, `rendu`) installe un moteur.
+- `installer whisper` (ou `voix`, `detourage`, `rendu`, `real-sfx`, `earshot`) installe un moteur.
 - `construire-app` refait `Dérush.app` et l'alias du Bureau ; avec `--zip`, il fabrique le zip de l'app à partager.
 
 ## Limites connues
@@ -290,3 +328,5 @@ node derush.mjs construire-app --zip ~/Desktop
 - Dans l'aperçu, le flou des transitions est un flou simple ; la vidéo a un vrai flou de zoom ou de filé.
 - Le détourage garde une seule personne, la plus grande dans l'image.
 - Testé sur un Mac à puce Apple avec macOS 26. Whisper (MLX) exige une puce Apple.
+- L'analyse de viralité s'appuie sur le texte dit : sans Whisper (Réglages), elle se fait sur les images et les mesures seulement.
+- La vraie application (sans navigateur) n'existe que sur Mac ; elle demande macOS 13 ou plus.

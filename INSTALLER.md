@@ -16,7 +16,7 @@ Note le système (macOS, Windows, Linux), le processeur (`uname -m`, ou `echo %P
 
 | Ce qu'il faut | Minimum | Confortable |
 |---|---|---|
-| Place sur le disque | 2 Go (`--leger`) | 8 Go (avec Whisper et Blender) |
+| Place sur le disque | 2 Go (`--leger`) | 11 Go (avec Whisper, Blender et Earshot) |
 | Mémoire | 8 Go | 16 Go ou plus |
 | Système | macOS 13, Windows 10 (64 bits), une distribution Linux récente avec bureau | |
 
@@ -64,7 +64,7 @@ Lis le bilan (✓ présent, ✗ manque et nécessaire, · facultatif), puis lanc
 node derush.mjs installer
 ```
 
-Options : `--leger` (sans Whisper), `--blender` (avec Blender, pour la 3D réaliste : propose-le si la personne fait de la 3D ou si la machine est confortable). Compte 5 à 15 minutes selon la connexion ; Whisper pèse environ 2 Go.
+Options : `--leger` (sans Whisper), `--blender` (avec Blender, pour la 3D réaliste : propose-le si la personne fait de la 3D ou si la machine est confortable), `--earshot` (avec Earshot, l'oreille de l'IA pour le son : 2,5 Go ; propose-le si la machine est confortable et que la personne soigne ses bruitages). Compte 5 à 15 minutes selon la connexion ; Whisper pèse environ 2 Go.
 
 Ce qu'il fait, et quoi faire si une ligne échoue :
 
@@ -75,13 +75,19 @@ Ce qu'il fait, et quoi faire si une ligne échoue :
 | **Python de Dérush** | Un environnement Python isolé, dans le dossier de Dérush (pour les compétences). | Vérifie que `uv` répond. |
 | **Moteur de rendu** | Remotion et ses modules (npm), et un Chrome sans fenêtre pour dessiner les images. | Linux : il manque souvent des bibliothèques pour ce Chrome. Sur Debian ou Ubuntu : `sudo apt install -y libnss3 libatk-bridge2.0-0 libcups2 libgbm1 libasound2t64 libxkbcommon0 libxdamage1 libxrandr2 libpango-1.0-0` (`libasound2` sur les versions plus anciennes) : à montrer d'abord. |
 | **Compétences Remotion** | Téléchargées depuis leur dépôt officiel (elles n'ont pas de licence de redistribution). | Pas grave : bouton « Ajouter Remotion » dans Connexions, plus tard. |
+| **Real SFX** | Téléchargé depuis son dépôt officiel, à la version que Dérush a examinée (9 Mo). Il pose de vrais sons à l'image près. | Pas grave : Connexions › Real SFX › *Ajouter*, plus tard. |
+| **Earshot** (option) | Un Python à part, torch en version processeur, puis ses deux modèles (2,5 Go en tout). S'il est déjà sur la machine, Dérush le reprend. | Long sur une petite connexion : laisse-le pour plus tard (Connexions › Earshot › *Ajouter*). Dérush marche sans lui. |
 | **Whisper** | Le modèle qui écrit le texte des vidéos (2 Go). | Passe en `--leger` si la place ou la connexion manque. |
 | **Blender** (option) | macOS : `brew install --cask blender`. Windows : winget. Linux : Flatpak, pour la personne seule. | Sinon https://www.blender.org/download/ ; Dérush marche sans lui. |
-| **Raccourci** | macOS : `~/Applications/Dérush.app` et un alias sur le Bureau. Windows : Bureau et menu Démarrer. Linux : menu des applications et Bureau. | Dis à la personne qu'elle peut toujours lancer `node derush.mjs --app` dans le dossier. |
+| **Raccourci** | macOS : `~/Applications/Dérush.app` (une vraie app Mac : icône dans le Dock, menus, fenêtre à elle) et un alias sur le Bureau. Windows : Bureau et menu Démarrer. Linux : menu des applications et Bureau. | Dis à la personne qu'elle peut toujours lancer `node derush.mjs --app` dans le dossier. |
 
 Sur **macOS**, au premier double-clic, le système peut dire qu'il ne peut pas vérifier le développeur : *Réglages Système → Confidentialité et sécurité → Ouvrir quand même* (une seule fois).
 
-Il n'y a pas besoin de Chrome, d'Edge ou de Brave, mais s'il y en a un, Dérush s'ouvre dans sa propre fenêtre (sinon dans le navigateur par défaut).
+Sur **macOS**, Dérush n'a besoin d'aucun navigateur : il a sa propre fenêtre. Sa partie native est déjà compilée dans le dépôt (`outils/coque-mac`, pour les Mac Apple Silicon et Intel) ; si ce fichier manque, `construire-app` la compile avec Swift (outils de développement Apple), et sinon l'app s'ouvre comme avant dans une fenêtre de Chrome. Une ancienne installation (avant la version 8) se transforme toute seule en app native à son premier lancement après la mise à jour.
+
+Sur **Windows et Linux**, il n'y a pas besoin de Chrome, d'Edge ou de Brave, mais s'il y en a un, Dérush s'ouvre dans sa propre fenêtre (sinon dans le navigateur par défaut).
+
+Pour donner Dérush à quelqu'un sans passer par GitHub (Mac) : `node derush.mjs construire-app --dmg` fabrique une image disque (on l'ouvre, on glisse Dérush dans Applications), `--zip` un zip. Il faut quand même Node.js et FFmpeg sur la machine : l'app le dit clairement s'il en manque un.
 
 ## 4. L'IA qui monte
 
@@ -101,14 +107,14 @@ Tout ce qui est nécessaire doit être coché. Puis ouvre Dérush une fois pour 
 node derush.mjs --app
 ```
 
-La fenêtre « Dérush par IABAI » doit apparaître. Si rien ne s'ouvre, regarde le journal : `~/Library/Logs/Dérush.log` (macOS), `%APPDATA%\Dérush\derush.log` (Windows), `~/.local/share/derush/derush.log` (Linux).
+La fenêtre de Dérush doit apparaître (sur Mac, ouvre plutôt l'app : `open ~/Applications/Dérush.app`). À la toute première ouverture, un tutoriel animé se lance : c'est normal. Si rien ne s'ouvre, regarde le journal : `~/Library/Logs/Dérush.log` (macOS), `%APPDATA%\Dérush\derush.log` (Windows), `~/.local/share/derush/derush.log` (Linux).
 
 ## 6. Dis-le à la personne
 
 En trois lignes :
 
 1. Dérush est installé : double-clique sur « Dérush » (Bureau).
-2. Ouvre **Connexions** (la prise en haut à droite) : branche ton IA, puis ElevenLabs et Treg si tu veux le son et la publication.
+2. Ouvre **Connexions** (la prise en haut à droite) : branche ton IA, puis ElevenLabs si tu veux le son, « Relier mes réseaux » (Treg) si tu veux publier, et allume « Bibliothèque de sons » si tu veux de vrais bruitages libres de droits.
 3. Dépose une vidéo et écris ce que tu veux.
 
 Ajoute ce qui n'a pas pu être installé, et la commande exacte que la personne doit lancer elle-même s'il y en a une.
@@ -116,5 +122,5 @@ Ajoute ce qui n'a pas pu être installé, et la commande exacte que la personne 
 ## Plus tard
 
 - **Mettre à jour** : dans Dérush, Connexions → Version → *Vérifier* ; ou `node derush.mjs mettre-a-jour` dans le dossier.
-- **Ajouter un moteur** : `node derush.mjs installer whisper` (ou `voix`, `blender`, `remotion`, `rendu`, `outils`).
+- **Ajouter un moteur** : `node derush.mjs installer whisper` (ou `voix`, `blender`, `remotion`, `rendu`, `outils`, `real-sfx`, `earshot`).
 - **Désinstaller** : supprimer le dossier `Derush`, le dossier des moteurs (macOS `~/Library/Application Support/Dérush`, Windows `%APPDATA%\Dérush`, Linux `~/.local/share/derush`) et le raccourci. Les projets (`Movies/Dérush`, `Vidéos\Dérush`) restent : c'est à la personne de décider.

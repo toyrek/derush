@@ -39,3 +39,4 @@ sont citées ci-dessous.
 | `figma.svg` | Figma | #F24E1E | https://www.figma.com/using-the-figma-brand/ |
 | `spotify.svg` | Spotify | #1ED760 | https://developer.spotify.com/documentation/general/design-and-branding/#using-our-logo |
 | `soundcloud.svg` | SoundCloud | #FF5500 |  |
+| `openverse.svg` | Openverse | #FFE033 (dessiné en noir, pour rester lisible) | https://www.figma.com/file/GIIQ4sDbaToCfFQyKMvzr8/Openverse-Design-Library?node-id=312%3A487 |
