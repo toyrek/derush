@@ -1,0 +1,50 @@
+/* Dérush — enregistrer sa voix (micro) ou se filmer (webcam) : le bouton, le choix, le panneau de la voix off, la caméra. */
+.enregistrer-grand { margin-top: 8px; border-style: solid; border-color: rgba(255, 255, 255, .1); }
+.enregistrer-grand .ic { color: #ff453a; }
+.enregistrer-grand:hover .ic { animation: none; transform: scale(1.12); }
+.btn.rouge { background: linear-gradient(180deg, #ff5a50, #e5352b); color: #fff; font-weight: 650; box-shadow: 0 1px 0 rgba(255, 255, 255, .2) inset, 0 4px 14px rgba(255, 69, 58, .3); }
+.btn.rouge:hover { background: linear-gradient(180deg, #ff6a61, #ef3d33); }
+.btn.rouge .ic { width: 15px; height: 15px; }
+
+/* le choix : ma voix, ou me filmer */
+.enr-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 6px 0 4px; }
+.enr-carte { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px 16px 18px; border: 0; border-radius: 16px; text-align: left; background: rgba(255, 255, 255, .055); color: var(--texte); transition: transform .18s var(--ressort), background .15s; }
+.enr-carte:hover { background: rgba(255, 255, 255, .1); transform: translateY(-2px); }
+.enr-carte b { font-size: 15px; }
+.enr-carte small { color: var(--dim); font-size: 12px; line-height: 1.45; }
+.enr-rond { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle at 30% 25%, #ff7a6e, #d92b22); box-shadow: 0 6px 18px rgba(255, 69, 58, .35); margin-bottom: 4px; }
+.enr-rond .ic { width: 22px; height: 22px; color: #fff; }
+
+/* la voix off : un panneau posé au-dessus de la timeline, qui laisse voir l'écran */
+.enr { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 60; width: min(560px, calc(100vw - 32px)); padding: 12px 14px 14px; border-radius: 18px; background: rgba(28, 28, 32, .94); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 18px 50px rgba(0, 0, 0, .55); animation: apparait .25s ease-out; }
+.enr-tete { display: flex; align-items: center; gap: 9px; font-size: 13.5px; }
+.enr-tete .espace { flex: 1; }
+.enr-voyant { width: 10px; height: 10px; border-radius: 50%; background: #5a5a63; }
+.enr.en-cours .enr-voyant { background: #ff453a; box-shadow: 0 0 0 0 rgba(255, 69, 58, .6); animation: enr-bat 1.2s ease-out infinite; }
+@keyframes enr-bat { to { box-shadow: 0 0 0 9px rgba(255, 69, 58, 0); } }
+.enr-temps { font-variant-numeric: tabular-nums; font-family: ui-monospace, 'SF Mono', Menlo, monospace; color: var(--dim); }
+.enr.en-cours .enr-temps { color: #ff6a61; }
+.enr-corps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; align-items: center; margin: 10px 0 12px; }
+.enr-corps select { min-width: 0; -webkit-appearance: none; appearance: none; height: 30px; padding: 0 26px 0 10px; border-radius: 8px; border: 1px solid var(--ligne-forte); background: rgba(0, 0, 0, .3) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%23aaa' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>") no-repeat right 9px center / 9px; font-size: 12.5px; color: var(--texte); outline: none; text-overflow: ellipsis; }
+.enr-corps select:focus { border-color: var(--bleu); }
+.enr-option input { accent-color: #ff453a; width: 15px; height: 15px; flex: none; }
+.enr-option { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--texte); }
+.enr-aide { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--dim); }
+.enr-pied { display: flex; justify-content: center; }
+.enr-pied .btn { min-width: 170px; height: 38px; justify-content: center; border-radius: 19px; }
+.enr.prepare .enr-pied .btn { opacity: .6; }
+/* le niveau du micro : une barre qui suit la voix */
+.enr-niveau { position: relative; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, .09); overflow: hidden; }
+.enr-niveau i { position: absolute; inset: 0; transform-origin: left center; transform: scaleX(var(--n, 0)); background: linear-gradient(90deg, #30d158, #ffd60a 70%, #ff453a); transition: transform .06s linear; }
+.enr-niveau.fort { box-shadow: 0 0 0 1.5px #ff453a; }
+
+/* la webcam */
+.enr-cam { position: relative; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; margin: 4px 0 12px; }
+.enr-cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.enr-cam-temps { position: absolute; top: 10px; left: 10px; padding: 3px 9px; border-radius: 9px; background: rgba(0, 0, 0, .55); font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12.5px; }
+.enr-en-cours .enr-cam-temps { background: #e5352b; }
+.enr-cam .enr-niveau { position: absolute; left: 10px; right: 10px; bottom: 10px; }
+
+/* une voix (ou un son) posée par-dessus le montage : verte, comme les sons */
+.dessus.son { background: #0f2e1c; box-shadow: inset 0 0 0 1px rgba(48, 209, 88, .6); color: #c9f7d6; }
+.dessus.voix-off { background: linear-gradient(90deg, #14402a, #0f2e1c); }

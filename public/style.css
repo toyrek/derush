@@ -251,6 +251,9 @@ html.natif .biblio { background-image: linear-gradient(var(--fond), rgba(18, 18,
 .pastille-type.indic { background: rgba(255, 214, 10, .14); color: var(--jaune); }
 .pastille-type.dessus { background: rgba(10, 132, 255, .16); color: var(--bleu); }
 .pastille-type.projet { background: rgba(255, 255, 255, .08); color: var(--texte); }
+/* « indic » et « dessus » sont aussi les noms des clips de la timeline : la pastille de la fiche n'en prend pas le placement */
+.pastille-type.indic, .pastille-type.dessus { position: static; padding: 0; cursor: default; overflow: visible; }
+.pastille-type.dessus.son { background: rgba(48, 209, 88, .16); color: #30d158; }
 .insp-tete b { font-size: 15px; display: block; }
 .insp-tete span { color: var(--dim); font-size: 11.5px; font-family: var(--tc); }
 .lignes-info { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; align-items: center; }
@@ -500,7 +503,7 @@ h3.cat-transition .ic, h3.cat-titre .ic, h3.cat-ambiance .ic, h3.cat-son .ic { c
 .info-detourage { font-size: 11.5px; color: var(--dim); background: rgba(100, 210, 255, .08); border-radius: 8px; padding: 7px 9px; margin-bottom: 10px; line-height: 1.4; }
 
 /* nouveau projet : le genre de vidéo */
-.modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 2px 0 14px; }
+.modes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 2px 0 14px; }
 .mode-carte { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 10px 13px; border: 0; border-radius: 15px; text-align: center; background: rgba(255, 255, 255, .055); color: var(--texte); transition: transform .16s var(--ressort), background .15s, box-shadow .15s; }
 .mode-carte:hover { background: rgba(255, 255, 255, .1); transform: translateY(-2px); }
 .mode-carte.actif { box-shadow: inset 0 0 0 2px var(--accent-2); background: rgba(255, 69, 58, .1); }

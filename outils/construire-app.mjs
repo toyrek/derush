@@ -225,6 +225,8 @@ ${native ? `  <key>NSPrincipalClass</key><string>NSApplication</string>
   <dict>
     <key>NSAllowsLocalNetworking</key><true/>
   </dict>
+  <key>NSMicrophoneUsageDescription</key><string>Dérush enregistre ta voix quand tu le demandes (voix off, podcast). Elle reste sur ton ordinateur.</string>
+  <key>NSCameraUsageDescription</key><string>Dérush te filme quand tu le demandes (podcast, face caméra). La vidéo reste sur ton ordinateur.</string>
   <key>NSDesktopFolderUsageDescription</key><string>${lecture}</string>
   <key>NSDocumentsFolderUsageDescription</key><string>${lecture}</string>
   <key>NSDownloadsFolderUsageDescription</key><string>${lecture}</string>

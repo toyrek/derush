@@ -432,6 +432,13 @@ final class Coque: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
     return nil
   }
   func webViewDidClose(_ webView: WKWebView) { demanderAQuitter() }
+  /// Le micro et la caméra (voix off, podcast) : la page qui demande est Dérush lui-même, à son adresse locale. On ne
+  /// repose pas la question dans la fenêtre à chaque prise ; macOS, lui, demande une fois l'accord pour l'app
+  /// (Réglages Système › Confidentialité et sécurité › Micro, Caméra). Tout autre demandeur est refusé.
+  func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+    let locale = frame.isMainFrame && origin.protocol == "http" && origin.host == adresse?.host && origin.port == (adresse?.port ?? -1)
+    decisionHandler(locale ? .grant : .deny)
+  }
 
   // les boîtes de dialogue de la page deviennent celles du Mac
   func decouper(_ message: String) -> (String, String) {

@@ -24,6 +24,8 @@ const PORT = 9341;
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
   '--headless=new', '--hide-scrollbars', `--user-data-dir=${path.join(ICI, 'derush-essai-chrome')}`, '--force-device-scale-factor=1', `--window-size=${largeur},${hauteur}`,
+  // un faux micro et une fausse caméra, acceptés sans question : pour essayer « Enregistrer » sans matériel
+  '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
   '--autoplay-policy=no-user-gesture-required', `--remote-debugging-port=${PORT}`, url,
 ], {stdio: 'ignore'});
 try {

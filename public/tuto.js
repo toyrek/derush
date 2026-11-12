@@ -15,14 +15,14 @@ export function creerTutoriel(o) {
   const SCENES = [
     {
       titre: ['Choisis', 'ta façon de créer'],
-      texte: 'Quatre façons de commencer. Montage : tu déposes tes vidéos. Motion design : rien à déposer, tu décris et ton IA cherche, écrit et anime tout. Extraits courts : une longue vidéo devient plusieurs clips. Sur un son : une musique ou une voix devient une vidéo.',
+      texte: 'Cinq façons de commencer. Montage : tu déposes tes vidéos. Motion design : rien à déposer, tu décris et ton IA cherche, écrit et anime tout. Extraits courts : une longue vidéo devient plusieurs clips. Voix off : tu racontes tes images, ta voix guide le film. Sur un son : une musique ou une voix devient une vidéo.',
       astuce: ['Bouton « Nouveau projet »', 'tu changes de mode quand tu veux'],
-      scene: () => `<div class="ts ts-modes">${[['claude', 'Montage'], ['motion', 'Motion design'], ['extraits', 'Extraits courts'], ['son', 'Sur un son']].map(([d, n], i) => `<div class="ts-mode m${i + 1}">${ill(d)}<b>${n}</b></div>`).join('')}</div>`,
+      scene: () => `<div class="ts ts-modes">${[['claude', 'Montage'], ['motion', 'Motion design'], ['extraits', 'Extraits courts'], ['voix', 'Voix off'], ['son', 'Sur un son']].map(([d, n], i) => `<div class="ts-mode m${i + 1}">${ill(d)}<b>${n}</b></div>`).join('')}</div>`,
     },
     {
       titre: ['Dépose', 'ta matière'],
-      texte: 'Glisse tes vidéos, tes sons et tes photos dans la fenêtre. Ils restent à leur place sur ton ordinateur : rien n’est copié, même les très gros fichiers. Et tu peux t’en servir tout de suite.',
-      astuce: ['Glisser-déposer', 'ou le bouton Importer'],
+      texte: 'Glisse tes vidéos, tes sons et tes photos dans la fenêtre. Ils restent à leur place sur ton ordinateur : rien n’est copié, même les très gros fichiers. Tu peux aussi enregistrer ta voix ou ta webcam, sans quitter Dérush.',
+      astuce: ['Glisser-déposer', 'ou les boutons Importer et Enregistrer'],
       scene: () => `<div class="ts ts-depot">
         <div class="ts-finder"><header><i></i><i></i><i></i><span>Mes rushes</span></header>
           <div class="ts-fichiers"><span class="f f1">${ic('film')}</span><span class="f f2">${ic('film')}</span><span class="f f3">${ic('onde')}</span></div></div>

@@ -10,6 +10,7 @@ import {
 import {creerPublication} from '/publication.js';
 import {creerTutoriel} from '/tuto.js';
 import {creerCreateur} from '/createur.js';
+import {creerEnregistreur} from '/enregistrer.js';
 
 const JETON = document.querySelector('meta[name="derush-jeton"]').content;
 // Chaque fenêtre a son identifiant : le serveur sait laquelle est la principale, et quand la dernière se ferme.
@@ -292,8 +293,8 @@ function tuilesFormat(actif, avecAuto = false) {
   }).join('')}</div>`;
 }
 /** Le dessin de chaque mode de création (voir MODES dans commun.mjs). */
-const DESSINS_MODE = {montage: 'claude', motion: 'motion', extraits: 'extraits', son: 'son'};
-const TITRES_MODE = {montage: 'Nouveau montage', motion: 'Nouvelle animation', extraits: 'Mes extraits', son: 'Nouveau clip'};
+const DESSINS_MODE = {montage: 'claude', motion: 'motion', extraits: 'extraits', voix: 'voix', son: 'son'};
+const TITRES_MODE = {montage: 'Nouveau montage', motion: 'Nouvelle animation', extraits: 'Mes extraits', voix: 'Ma voix off', son: 'Nouveau clip'};
 const modeProjet = () => (MODES[P?.mode] ? P.mode : 'montage');
 function feuilleNouveauProjet() {
   let format = 'auto';
@@ -439,6 +440,9 @@ function afficherVide() {
         extraits: `<div><p class="guide-titre">Une longue vidéo, <em>plusieurs clips</em></p><p class="guide-sous">Dépose ta vidéo ou ton podcast en entier : ton IA trouve les meilleurs moments et fait un clip de chacun.</p>
           <div class="guide">${geste('rushes', '01', 'Dépose', 'La vidéo entière, sans rien couper.')}${FLECHE}${geste('extraits', '02', 'Elle choisit', 'Les passages forts, un clip par idée.')}${FLECHE}${geste('claude', '03', 'Tu publies', 'Chaque clip a son titre et ses sous-titres.')}</div>
           <div class="guide-actions"><button class="btn principal" data-a="importer">${ic('plus')}Importer</button></div></div>`,
+        voix: `<div><p class="guide-titre">Tu filmes, <em>tu racontes</em></p><p class="guide-sous">Dépose tes vidéos, puis enregistre ta voix pendant qu’elles défilent. Ton IA nettoie la voix, la sous-titre et remonte les images dessus.</p>
+          <div class="guide">${geste('rushes', '01', 'Dépose', 'Tes vidéos de voyage, de sortie, de projet.')}${FLECHE}${geste('voix', '02', 'Raconte', 'Enregistre ta voix au micro, ou importe-la.')}${FLECHE}${geste('claude', '03', 'Elle monte dessus', 'Voix propre, sous-titres, images calées sur tes mots.')}</div>
+          <div class="guide-actions"><button class="btn principal" data-a="importer">${ic('plus')}Importer</button><button class="btn" data-a="enregistrer">${ic('micro')}Enregistrer ma voix</button></div></div>`,
         son: `<div><p class="guide-titre">Un son, <em>une vidéo</em></p><p class="guide-sous">Dépose ta musique, ta voix ou ton podcast : ton IA crée les images qui vont avec.</p>
           <div class="guide">${geste('son', '01', 'Dépose', 'Le son, tel quel.')}${FLECHE}${geste('motion', '02', 'Elle anime', 'Des images calées sur le rythme ou sur les mots.')}${FLECHE}${geste('claude', '03', 'Tu règles', 'Demande une retouche, un autre style.')}</div>
           <div class="guide-actions"><button class="btn principal" data-a="importer">${ic('plus')}Importer</button></div></div>`,
@@ -721,6 +725,7 @@ const vRush = $('#v-rush');
 const PV = [$('#v-a'), $('#v-b')];
 const vDessus = $('#v-dessus');
 const aSon = $('#a-son');
+const aVoix = $('#a-voix'); // un son posé par-dessus le montage : une voix off, une musique
 function definirMode(mode) {
   if (ui.vue !== 'montage' && mode === 'rush') montrerVue('montage');
   if (mode === ui.mode && ui.modeFixe) return majVue();
@@ -917,7 +922,7 @@ function poserMedia(id, cible = null) {
   let nouveau;
   if (cible?.type === 'dessus') {
     modifier(() => {
-      nouveau = {id: nouvelId(P, 'S'), media: m.id, entree: p.a, sortie: p.b, debut: surGrille(cible.t ?? prog.t, F()), titre: '', notes: '', cadre: 'plein', son: {actif: false, gain_db: 0, version: 'original', avant_s: 0, apres_s: 0}};
+      nouveau = {id: nouvelId(P, 'S'), media: m.id, entree: p.a, sortie: p.b, debut: surGrille(cible.t ?? prog.t, F()), titre: '', notes: '', cadre: 'plein', son: {actif: m.type === 'audio', gain_db: 0, version: 'original', avant_s: 0, apres_s: 0}};
       P.superpositions.push(nouveau);
       ui.sel = {type: 'dessus', id: nouveau.id};
     });
@@ -1668,12 +1673,13 @@ function afficherSegment(s, decalage, jouer) {
     const cible = s.it.entree + decalage;
     if (Math.abs((v.currentTime || 0) - cible) > 0.5 / F() || v.readyState === 0) v.currentTime = cible;
     const version = versionSon(s.it);
-    v.muted = s.it.son?.actif === false || !!version;
+    v.muted = ui.sourdine || s.it.son?.actif === false || !!version;
     v.volume = borner(10 ** ((s.it.son?.gain_db ?? 0) / 20), 0, 1);
     if (version && s.it.son?.actif !== false) {
       mettreMedia(aSon, m, version);
       if (Math.abs((aSon.currentTime || 0) - cible) > 0.08) aSon.currentTime = cible;
       aSon.volume = v.volume;
+      aSon.muted = !!ui.sourdine;
       if (jouer) aSon.play().catch(() => {}); else aSon.pause();
     } else aSon.pause();
     if (m.type === 'video') placer(v, m, cible);
@@ -1692,7 +1698,20 @@ function afficherSegment(s, decalage, jouer) {
 /** Plan posé par-dessus le montage au temps t (le premier s'il y en a plusieurs). */
 function majDessus(jouer) {
   const t = prog.t;
-  const sp = P.superpositions.find((s) => t >= s.debut && t < s.debut + (s.sortie - s.entree));
+  const ici = P.superpositions.filter((s) => t >= s.debut && t < s.debut + (s.sortie - s.entree));
+  // un son posé par-dessus (une voix off, une musique) : il se joue en plus, sans rien cacher
+  const sv = ui.mode === 'montage' ? ici.find((s) => media(s.media)?.type === 'audio' && s.son?.actif !== false) : null;
+  if (!sv) aVoix.pause();
+  else {
+    mettreMedia(aVoix, media(sv.media));
+    const c = sv.entree + (t - sv.debut);
+    if (!jouer || Math.abs((aVoix.currentTime || 0) - c) > 0.25) aVoix.currentTime = c;
+    aVoix.volume = borner(10 ** ((sv.son?.gain_db ?? 0) / 20), 0, 1);
+    aVoix.muted = !!ui.sourdine;
+    if (jouer && aVoix.paused) aVoix.play().catch(() => {});
+    if (!jouer) aVoix.pause();
+  }
+  const sp = ici.find((s) => media(s.media)?.type !== 'audio');
   if (!sp || ui.mode !== 'montage') {
     vDessus.pause();
     vDessus.classList.add('cache');
@@ -1703,7 +1722,7 @@ function majDessus(jouer) {
   mettreMedia(vDessus, m);
   const cible = sp.entree + (t - sp.debut);
   if (!jouer || Math.abs((vDessus.currentTime || 0) - cible) > 0.25) vDessus.currentTime = cible;
-  vDessus.muted = !sp.son?.actif;
+  vDessus.muted = ui.sourdine || !sp.son?.actif;
   vDessus.classList.toggle('incrustation', sp.cadre === 'incrustation');
   if (sp.cadre !== 'incrustation') placer(vDessus, m, cible);
   vDessus.classList.remove('cache');
@@ -1921,7 +1940,8 @@ function rendreDessus() {
   piste.innerHTML = `<span class="piste-nom">${ic('calques')}Par-dessus</span>${P.superpositions.map((s) => {
     const m = media(s.media);
     const sel = ui.sel?.type === 'dessus' && ui.sel.id === s.id;
-    return `<div class="dessus${sel ? ' sel' : ''}" data-id="${s.id}" style="left:${s.debut * ui.pps}px;width:${Math.max(6, (s.sortie - s.entree) * ui.pps)}px;top:${6 + res.get(s.id) * 28}px" title="${esc(`${s.id} · ${m?.nom ?? ''}`)}"><span class="poignee g"></span><b>${esc(s.id)}</b> ${esc(s.titre || m?.nom || '')}${s.cadre === 'incrustation' ? ' · incrustation' : ''}<span class="poignee d"></span></div>`;
+    const son = m?.type === 'audio';
+    return `<div class="dessus${son ? ' son' : ''}${s.voix_off ? ' voix-off' : ''}${sel ? ' sel' : ''}" data-id="${s.id}" style="left:${s.debut * ui.pps}px;width:${Math.max(6, (s.sortie - s.entree) * ui.pps)}px;top:${6 + res.get(s.id) * 28}px" title="${esc(`${s.id} · ${m?.nom ?? ''}`)}"><span class="poignee g"></span><b>${esc(s.id)}</b> ${esc(s.titre || (s.voix_off ? 'Voix off' : m?.nom) || '')}${!son && s.cadre === 'incrustation' ? ' · incrustation' : ''}<span class="poignee d"></span></div>`;
   }).join('')}`;
 }
 function rendreMontage() {
@@ -2634,10 +2654,12 @@ function rendreInspecteur() {
     if (!s) return;
     const m = media(s.media);
     const f = fpsSrc(m);
-    box.innerHTML = `${tete('dessus', 'calques', `Par-dessus ${s.id}`, `${tc(s.debut, F())} → ${tc(s.debut + s.sortie - s.entree, F())}`)}
-      <p class="dim" style="margin:-4px 0 12px">Un plan posé au-dessus du montage (plan de coupe, réaction, illustration). Il ne change pas la durée.</p>
-      <div class="groupe-insp"><label class="champ"><span>Titre</span><input data-champ="titre" value="${esc(s.titre)}" placeholder="Réaction, plan de coupe…"></label>
-        <div class="segmente" style="width:100%;margin-bottom:12px">${[['plein', 'Plein écran'], ['incrustation', 'Incrustation']].map(([k, t]) => `<button style="flex:1" data-cadre="${k}"${s.cadre === k ? ' class="actif"' : ''}>${t}</button>`).join('')}</div>
+    const son = m?.type === 'audio';
+    box.innerHTML = `${tete(son ? 'dessus son' : 'dessus', son ? 'micro' : 'calques', son ? (s.voix_off ? `Voix off ${s.id}` : `Son par-dessus ${s.id}`) : `Par-dessus ${s.id}`, `${tc(s.debut, F())} → ${tc(s.debut + s.sortie - s.entree, F())}`)}
+      <p class="dim" style="margin:-4px 0 12px">${son ? 'Un son posé sur le montage (ta voix, une musique). Glisse-le, raccourcis-le par ses bords, coupe-le : il ne change pas la durée.' : 'Un plan posé au-dessus du montage (plan de coupe, réaction, illustration). Il ne change pas la durée.'}</p>
+      <div class="groupe-insp"><label class="champ"><span>Titre</span><input data-champ="titre" value="${esc(s.titre)}" placeholder="${son ? 'Voix off, musique…' : 'Réaction, plan de coupe…'}"></label>
+        ${son ? `<label class="enr-option" style="margin-bottom:12px"><input type="checkbox" data-voix-off${s.voix_off ? ' checked' : ''}><span>C’est ma voix off : ton IA la garde comme fil du film (elle peut la nettoyer, la sous-titrer, remonter les images dessus)</span></label>`
+    : `<div class="segmente" style="width:100%;margin-bottom:12px">${[['plein', 'Plein écran'], ['incrustation', 'Incrustation']].map(([k, t]) => `<button style="flex:1" data-cadre="${k}"${s.cadre === k ? ' class="actif"' : ''}>${t}</button>`).join('')}</div>`}
         <dl class="lignes-info"><dt>Rush</dt><dd>${esc(m.nom)}</dd>
           <dt>Pose</dt><dd><input class="tc-champ" data-tc="debut" value="${tc(s.debut, F())}"></dd>
           <dt>Début rush</dt><dd><input class="tc-champ" data-tc="entree" value="${tc(s.entree, f)}"></dd>
@@ -2726,6 +2748,8 @@ $('#inspecteur').addEventListener('click', async (e) => {
   if (version && obj) return modifier(() => { obj.son = {...obj.son, version}; });
   const cadre = e.target.closest('[data-cadre]')?.dataset.cadre;
   if (cadre && obj) return modifier(() => { obj.cadre = cadre; });
+  const vo = e.target.closest('input[data-voix-off]');
+  if (vo && obj) return modifier(() => { obj.voix_off = vo.checked; });
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (!act) return;
   if (act === 'supprimer') supprimer();
@@ -3124,6 +3148,7 @@ async function feuilleRetours() {
 function feuilleAide() {
   const l = [
     ['Glisser des fichiers sur la fenêtre', 'Importer (les fichiers restent à leur place, même très lourds) ; sur la timeline, ils se posent là'],
+    ['Bouton « Enregistrer »', 'Ta voix sur ton montage (une voix off), ou toi devant ta webcam (un podcast) : tout reste sur ton ordinateur'],
     ['Glisser une vignette', 'La poser dans la timeline (en bas : le montage ; plus haut : par-dessus)'],
     ['+ sur une vignette', 'L’ajouter au montage, à la tête de lecture'],
     ['Espace', 'Lecture / pause'],
@@ -3208,6 +3233,7 @@ const ACTIONS = {
   'zoom-': () => zoomer(Number($('#zoom').value) - 10),
   'zoom+': () => zoomer(Number($('#zoom').value) + 10),
   importer: feuilleImporter,
+  enregistrer: () => ENR.ouvrir(),
   'fermer-apercu': fermerApercu,
   'effacer-choix': effacerChoix,
 };
@@ -4030,6 +4056,12 @@ function ideesIA(suite) {
     ['Plus court', 'Raccourcis la vidéo : garde seulement les moments les plus forts.'],
     ['Autres formats', 'Fais-en aussi une version 16:9 pour YouTube et une version carrée pour Instagram.'],
     ['Sous-titres', 'Ajoute des sous-titres mot à mot, bien lisibles, avec les mots importants en couleur.'],
+    ...son, ...charte,
+  ];
+  if (modeProjet() === 'voix') return [
+    ['Monte sur ma voix', 'Ma voix off est le fil du film : remonte mes images sur ce que je dis (le bon plan au bon mot), nettoie ma voix, mets des sous-titres et une musique discrète qui baisse quand je parle.'],
+    ['Nettoie ma voix', 'Améliore seulement ma voix off : enlève le bruit et l’écho, égalise le niveau. Ne touche pas à mon montage.'],
+    ['Sous-titres', 'Pose des sous-titres calés mot à mot sur ma voix off, bien lisibles sur téléphone. Ne change rien d’autre.'],
     ...son, ...charte,
   ];
   if (modeProjet() === 'motion') return [
@@ -5546,6 +5578,46 @@ const CR = creerCreateur({
   nomIA: (m) => nomIA(m), moteurIA: () => moteurIA(),
   connexions: () => feuilleConnexions(), guideTreg: (apres) => PUB.guideTreg(apres),
 });
+/** Coupe (ou rend) le son de l'aperçu : pendant qu'on enregistre sa voix sans casque, le micro l'entendrait. */
+function sourdine(oui) {
+  ui.sourdine = !!oui;
+  if (oui) for (const e of [...PV, vDessus, aSon, aVoix]) e.muted = true;
+  else progAfficher();
+}
+/** Un enregistrement vient d'arriver dans les médias : la voix se pose par-dessus le montage, la vidéo à sa suite. */
+async function apresEnregistrement({genre, media: id, debut, poser}) {
+  await rafraichirMedias();
+  choisirPanneau('medias');
+  const m = media(id);
+  if (!m) return note('L’enregistrement est dans tes médias.');
+  if (genre === 'voix') {
+    if (!poser) { chargerRush(id, null, null, false); return note('Ta voix est dans tes médias : glisse-la sur la piste « Par-dessus » quand ton montage sera là.'); }
+    let sp;
+    modifier(() => {
+      sp = {id: nouvelId(P, 'S'), media: m.id, entree: 0, sortie: m.duree, debut: surGrille(debut, F()), titre: 'Voix off', notes: '', cadre: 'plein', voix_off: true, son: {actif: true, gain_db: 0, version: 'original', avant_s: 0, apres_s: 0}};
+      P.superpositions.push(sp);
+      ui.sel = {type: 'dessus', id: sp.id};
+    });
+    progPositionner(sp.debut);
+    return note('Ta voix est posée par-dessus ton montage. Écoute-la, déplace-la, ou demande à ton IA de monter dessus.');
+  }
+  if (poser) return poserMedia(id, {k: P.montage.length});
+  chargerRush(id, null, null, false);
+  note('Ta vidéo est dans tes médias : glisse-la dans la timeline.');
+}
+/** Enregistrer sa voix (micro) ou se filmer (webcam), sans quitter Dérush (public/enregistrer.js). */
+const ENR = creerEnregistreur({
+  api, note, esc, ic,
+  poster: async (url, morceau) => {
+    const r = await fetch(url, {method: 'POST', headers: {'x-derush-jeton': JETON, 'x-derush-fenetre': FENETRE, 'content-type': 'application/octet-stream'}, body: morceau});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.erreur ?? j.message ?? `Dérush a répondu ${r.status}.`);
+    return j;
+  },
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(),
+  lecture: {t: () => prog.t, lire: () => { if (ui.mode !== 'montage') definirMode('montage'); progLire(); }, pause: () => progPause(), sourdine: (oui) => sourdine(oui), aDuMontage: () => seq.segs.length > 0},
+  surFini: (x) => apresEnregistrement(x),
+});
 const PUB = creerPublication({
   api, note, esc, ic, ill, logo, JETON, NATIF, natif, copierTexte,
   feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
@@ -5584,6 +5656,7 @@ window.derush = {
   ajouterEffet: (modele, t = null) => ajouterEffet(modele, t), selectionner: (id) => selectionner({type: indication(id) ? 'indic' : 'item', id}),
   projet: () => P, style: () => styleDuProjet(),
   importer: async (chemins) => { const r = await api('POST', '/api/medias', {chemins}); await rafraichirMedias(); return r; },
+  enregistrer: (genre) => (genre === 'camera' ? ENR.camera() : genre === 'voix' ? ENR.voix() : ENR.ouvrir()), enregistre: () => ENR.actif(),
   claude: () => ui.claude, ecrire: (texte) => { montrerClaude(); ui.brouillon = texte; const ta = $('#cl-texte'); if (ta) { ta.value = texte; majEnvoi(); } }, envoyer: () => envoyerDemande(),
   vue: (v, n, k) => montrerVue(v, n, k), ui: () => ui,
   publication: (nom, onglet) => PUB.ouvrir(nom, onglet), guideTreg: () => PUB.guideTreg(), tutoriel: () => tutoriel(),

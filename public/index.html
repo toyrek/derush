@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="/publication.css">
 <link rel="stylesheet" href="/tuto.css">
 <link rel="stylesheet" href="/createur.css">
+<link rel="stylesheet" href="/enregistrer.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -35,6 +36,8 @@
   <symbol id="i-film" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4"/></symbol>
   <symbol id="i-onde" viewBox="0 0 24 24"><path d="M3 12h1.5M7 9v6M11 5v14M15 8v8M19 10v4M21 12h.5"/></symbol>
   <symbol id="i-texte" viewBox="0 0 24 24"><path d="M5 6h14M5 11h14M5 16h9"/></symbol>
+  <symbol id="i-micro" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3M9 20.5h6"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6.5" width="12.5" height="11" rx="2.5"/><path d="M15.5 10.5l5-3v9l-5-3z"/></symbol>
   <symbol id="i-voix" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3"/></symbol>
   <symbol id="i-cadre" viewBox="0 0 24 24"><path d="M7 3v14h14"/><path d="M3 7h14v14"/></symbol>
   <symbol id="i-bulle" viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></symbol>
@@ -128,6 +131,12 @@
     <g class="ill-flotte" style="animation-delay:.5s"><rect x="68" y="62" width="28" height="46" rx="6" fill="#ffb340"/></g>
     <g class="ill-flotte" style="animation-delay:1s"><rect x="109" y="62" width="28" height="46" rx="6" fill="#64d2ff"/></g>
   </symbol>
+  <symbol id="ill-voix" viewBox="0 0 160 120">
+    <rect x="18" y="18" width="74" height="50" rx="9" fill="#23232a" stroke="#4a4a55" stroke-width="2"/>
+    <path d="M47 33l18 10-18 10z" fill="#ffb340" class="ill-scintille"/>
+    <g class="ill-flotte"><rect x="106" y="20" width="24" height="42" rx="12" fill="#ff453a"/><path d="M98 50a20 20 0 0 0 40 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M118 70v11M107 83h22" stroke="#fff" stroke-width="4" stroke-linecap="round"/></g>
+    <g fill="#fff"><rect x="18" y="98" width="6" height="8" rx="3"/><rect x="30" y="92" width="6" height="14" rx="3" class="ill-scintille"/><rect x="42" y="96" width="6" height="10" rx="3"/><rect x="54" y="89" width="6" height="17" rx="3" class="ill-scintille d2"/><rect x="66" y="95" width="6" height="11" rx="3"/><rect x="78" y="87" width="6" height="19" rx="3" class="ill-scintille"/><rect x="90" y="94" width="6" height="12" rx="3"/></g>
+  </symbol>
   <symbol id="ill-son" viewBox="0 0 160 120">
     <rect x="52" y="14" width="56" height="74" rx="10" fill="#23232a" stroke="#4a4a55" stroke-width="2"/>
     <g class="ill-flotte"><circle cx="80" cy="44" r="13" fill="#ffb340"/></g>
@@ -181,6 +190,7 @@
       </nav>
       <div id="p-medias" class="panneau-g">
         <button class="importer-grand" data-a="importer" title="Choisir des vidéos, des sons ou des photos sur ton ordinateur"><svg class="ic"><use href="#i-importer"/></svg><span><b>Importer</b><small>ou glisse tes fichiers ici</small></span></button>
+        <button class="importer-grand enregistrer-grand" data-a="enregistrer" title="Enregistrer ta voix (micro) ou te filmer (webcam), sans quitter Dérush"><svg class="ic"><use href="#i-micro"/></svg><span><b>Enregistrer</b><small>ta voix ou ta webcam</small></span></button>
         <div id="grille-medias" class="grille-medias"></div>
       </div>
       <div id="p-texte" class="panneau-g cache">
@@ -233,6 +243,7 @@
         <div id="direct" class="direct cache"><img id="direct-img" class="cache" alt=""><div id="direct-attente" class="direct-attente"></div>
           <div class="direct-haut"><span class="direct-badge"><i class="point-direct"></i>En direct</span><span id="direct-info"></span></div><div class="direct-barre"><i id="direct-jauge"></i></div></div>
         <audio id="a-son" preload="auto"></audio>
+        <audio id="a-voix" preload="auto"></audio>
         <canvas id="onde-grande" class="onde-grande cache"></canvas>
         <div id="cadre" class="cadre cache"></div>
         <div id="indic-ecran" class="indic-ecran"></div>

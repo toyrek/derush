@@ -43,6 +43,7 @@ const {exporterPack} = await import('./lib/pack.mjs');
 const {creerVideo, installerRendu, etatRendu} = await import('./lib/rendu.mjs');
 const {demander, etatDemande, etatIA, claudeTravaille, arreterToutesLesDemandes, MODELES} = await import('./lib/claude.mjs');
 const {arreterConseils, conseilEnCours} = await import('./lib/conseil.mjs');
+const {fermerEnregistrements, enregistrementEnCours} = await import('./lib/enregistrement.mjs');
 const {chargerCle} = await import('./lib/elevenlabs.mjs');
 chargerCle();
 const {demarrerServeur} = await import('./lib/serveur.mjs');
@@ -305,6 +306,8 @@ else if (!sansNavigateur) ouvrirFenetre(url);
     process.exit(0);
   };
   for (const s of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(s, arreter);
+  // une prise de voix ou de caméra pas terminée reste dans le projet, quel que soit le chemin de sortie
+  process.on('exit', () => { try { fermerEnregistrements(); } catch { /* rien à refermer */ } });
 }
 if (modeCoque) {
   // Elle tient aussi notre entrée ouverte : si elle disparaît sans prévenir (plantage), on finit le travail en cours,
@@ -323,7 +326,7 @@ if (modeCoque) {
   // du travail en cours. Un simple silence ne suffit pas : Chrome endort les fenêtres cachées pendant des heures.
   // Filets de sécurité : aucune fenêtre ouverte 10 min après le lancement, ou plus aucun signe de vie depuis 12 h.
   setInterval(() => {
-    if (file.enCours || file.attente.length || claudeTravaille()) return;
+    if (file.enCours || file.attente.length || claudeTravaille() || enregistrementEnCours()) return;
     const maintenant = Date.now();
     for (const [id, t] of ctx.fenetres) if (maintenant - t > 12 * 3600e3) ctx.fenetres.delete(id);
     const fermee = ctx.fermeeA && !ctx.fenetres.size && maintenant - ctx.fermeeA > 8000;

@@ -85,6 +85,8 @@ Sur **macOS**, au premier double-clic, le système peut dire qu'il ne peut pas v
 
 Sur **macOS**, Dérush n'a besoin d'aucun navigateur : il a sa propre fenêtre. Sa partie native est déjà compilée dans le dépôt (`outils/coque-mac`, pour les Mac Apple Silicon et Intel) ; si ce fichier manque, `construire-app` la compile avec Swift (outils de développement Apple), et sinon l'app s'ouvre comme avant dans une fenêtre de Chrome. Une ancienne installation (avant la version 8) se transforme toute seule en app native à son premier lancement après la mise à jour.
 
+Pour **enregistrer sa voix ou se filmer** dans Dérush, le système demande son accord pour le micro et la caméra à la première prise : la personne répond elle-même. Ne change jamais ces réglages de confidentialité à sa place.
+
 Sur **Windows et Linux**, il n'y a pas besoin de Chrome, d'Edge ou de Brave, mais s'il y en a un, Dérush s'ouvre dans sa propre fenêtre (sinon dans le navigateur par défaut).
 
 Pour donner Dérush à quelqu'un sans passer par GitHub (Mac) : `node derush.mjs construire-app --dmg` fabrique une image disque (on l'ouvre, on glisse Dérush dans Applications), `--zip` un zip. Il faut quand même Node.js et FFmpeg sur la machine : l'app le dit clairement s'il en manque un.

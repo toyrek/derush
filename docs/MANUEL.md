@@ -1,4 +1,4 @@
-# Dérush 9 — le manuel
+# Dérush 10 — le manuel
 
 > **À lire d'abord.** Dans ce manuel, « Claude » désigne l'IA qui monte : **Claude** (compte Claude), **Codex** (compte ChatGPT) ou **Gemini** (compte Google), selon ton choix dans **Connexions**. L'installation, les connexions, la publication et les mises à jour sont dans le [README](../README.md) et dans [INSTALLER.md](../INSTALLER.md). Ce manuel décrit l'écran et les gestes ; les chemins cités (`~/Movies`, `~/Library/…`) sont ceux du Mac, et leurs équivalents sur Windows et Linux sont dans le README.
 
@@ -6,7 +6,7 @@ Dérush est un logiciel de montage fait pour travailler avec une IA. Tu fais ce 
 
 Trois gestes :
 
-1. **Dépose** tes vidéos, tes sons, tes photos. Même sans rien trier.
+1. **Dépose** tes vidéos, tes sons, tes photos. Même sans rien trier. Ou **enregistre** ta voix, ta webcam, sans quitter Dérush.
 2. **Coupe, ou pas.** Comme dans CapCut : tu glisses, tu coupes, tu supprimes. Ou tu ne touches à rien, et Claude choisit les passages.
 3. **Demande.** Tu parles à Claude comme à un monteur, et tu lui joins ce qui l'aide : références, vidéos, charte graphique, logo, polices, zip. Il répond, ou il monte une ou plusieurs vidéos. Tu regardes son rendu **en direct**, dans le lecteur et sur la timeline.
 
@@ -25,7 +25,7 @@ Ton montage est un **squelette**, pas une contrainte : tu marques ce qui est ess
 - **En haut à droite**, la prise ouvre **Connexions** (ton IA, ElevenLabs, Google Drive, Treg, Blender, mises à jour), et l'engrenage les **Réglages** (les moteurs de l'ordinateur).
 - **Au-dessus de la timeline**, le bouton **Sous-titres** les met ou les enlève sur tout le film (aucun sous-titre tant que tu ne le demandes pas), et les boutons **9:16 · 16:9 · 1:1 · 4:5 · Auto** choisissent le format de la vidéo. « Auto » prend le format de ta première vidéo ; des vidéos de formats différents se mélangent dans le même montage, chacune recadrée pour remplir l'image.
 - **À gauche**, cinq onglets :
-  - **Médias** : tes vidéos, tes sons et tes photos en vignettes ;
+  - **Médias** : tes vidéos, tes sons et tes photos en vignettes, le bouton **Importer** et le bouton **Enregistrer** (ta voix ou ta webcam) ;
   - **Texte** : le texte du montage (pour couper en effaçant des mots) ou d'un média (pour choisir des phrases) ;
   - **Habiller** : le style de tout le film en un clic, ou des effets à poser un par un ;
   - **Créer** : musiques, voix off, dialogues, bruitages, voix nettoyées, doublages, images et vidéos, avec ElevenLabs ;
@@ -46,15 +46,37 @@ Ton montage est un **squelette**, pas une contrainte : tu marques ce qui est ess
 
 Pour chaque média, Dérush prépare tout seul une version légère pour la lecture, la forme du son, des vignettes, les coupes de caméra, les silences, le volume, le texte mot à mot (avec Whisper) et le **recadrage qui suit les visages**.
 
+## Enregistrer : ta voix, ta webcam
+
+Sous **Importer**, le bouton **Enregistrer** ouvre deux choix. Tout se passe sur ton ordinateur : rien n'est envoyé.
+
+**Ma voix (voix off).** Un petit panneau se pose au-dessus de la timeline.
+
+1. Place la tête de lecture là où ta voix doit commencer.
+2. Choisis ton micro. La barre bouge quand tu parles ; si son contour devient rouge, tu es trop fort : éloigne-toi un peu.
+3. Clique **Enregistrer** : ton montage défile, tu racontes ce que tu vois. Son son est coupé pendant la prise, pour que le micro ne l'enregistre pas ; avec un casque, décoche cette case pour l'entendre.
+4. Clique **Arrêter** : ta voix se pose en vert sur la piste *Par-dessus*, là où tu as commencé.
+
+Ensuite, c'est un clip comme un autre : tu le glisses, tu le raccourcis par ses bords, tu le coupes, tu le supprimes. Tu refais une prise autant de fois que tu veux. Dans sa fiche (un clic dessus), tu règles son volume, et la case « C'est ma voix off » dit à ton IA que cette voix est le fil du film. Si ton projet n'a pas encore de montage, la voix va seulement dans tes médias.
+
+**Me filmer (podcast, face caméra).** Une fenêtre montre ta webcam (en miroir, comme un selfie ; la vidéo enregistrée, elle, est à l'endroit). Choisis la caméra et le micro, clique **Enregistrer**, puis **Arrêter**. La vidéo arrive dans tes médias et, si la case est cochée, à la suite de ton montage.
+
+**Ce que ton IA sait en faire.** Demande-lui, par exemple : « Nettoie ma voix et enlève les blancs », « Mets des sous-titres mot à mot », « Remonte les images sur ce que je raconte », « Ajoute une musique douce sous ma voix ». En mode *Voix off*, elle sait d'avance que ta voix passe avant tout. Tu peux aussi le faire toi-même : dans la fiche du son, *Isoler la voix* ; dans l'onglet *Créer*, les outils d'ElevenLabs.
+
+**La première fois**, ton système demande si Dérush peut utiliser le micro (et la caméra) : réponds oui. Si tu as refusé, sur Mac : *Réglages Système › Confidentialité et sécurité › Micro* (ou *Caméra*), coche Dérush, puis rouvre Dérush.
+
+Les fichiers sont rangés dans le dossier `enregistrements` de ton projet (`voix-off-<date>.m4a`, `camera-<date>.mp4`). Si Dérush se ferme en pleine prise, ce qui a été enregistré y reste, dans un fichier dont le nom contient `brut` : importe-le comme n'importe quel fichier.
+
 ## Choisir sa façon de créer (les modes)
 
-À la création d'un projet, quatre cartes :
+À la création d'un projet, cinq cartes :
 
 | Mode | Ce que tu donnes | Ce que fait ton IA |
 |---|---|---|
 | **Montage** | Tes vidéos, tes sons, tes photos | Elle choisit les passages, monte, habille |
 | **Motion design** | Rien : une description (et ton logo, ta charte si tu en as) | Elle cherche sur le web, écrit un plan, anime tout dans Remotion, pose le son |
 | **Extraits courts** | Une longue vidéo, un podcast | Elle trouve les meilleurs moments et fait un clip de chacun |
+| **Voix off** | Tes images, et ta voix (enregistrée dans Dérush ou importée) | Elle garde ta voix comme fil du film, la nettoie et la sous-titre si tu le demandes, et remonte les images dessus |
 | **Sur un son** | Une musique, une voix | Elle crée les images qui vont avec |
 
 Le mode se change ensuite dans *Brief et format* (menu « … » de la conversation). Il est redit à l'IA à chaque message.
@@ -247,6 +269,8 @@ Pour chaque plan, dans le panneau de droite :
 - **Isoler la voix** avec Demucs, sur le Mac. Tu choisis ensuite « Original », « Voix seule » ou « Sans la voix ».
 - **Débordements** : le son peut commencer avant l'image (J-cut) ou continuer après (L-cut).
 
+Une voix off ou une musique posée *par-dessus* a les mêmes réglages (garder, volume, voix isolée), dans sa fiche.
+
 ## De vrais sons (bibliothèque, Real SFX, Earshot)
 
 Par défaut, l'IA fabrique ses bruitages : sons de synthèse du kit, sons calculés, ou sons générés par ElevenLabs. Tu peux lui donner de **vrais enregistrements**, libres de droits. Tout se règle dans **Connexions**, partie « De vrais sons dans tes vidéos ».
@@ -360,6 +384,7 @@ node derush.mjs construire-app --zip ~/Desktop
 
 - Claude a besoin d'Internet et de ton abonnement Claude. Si la limite de l'abonnement est atteinte, il s'arrête et le dit dans la conversation.
 - Pendant que ton IA travaille, Dérush empêche le Mac de s'endormir (l'écran peut s'éteindre). Un portable dont on ferme le capot s'endort quand même. Sous Windows et Linux, règle la mise en veille toi-même pour un long travail.
+- **Enregistrer** (voix, webcam) : essayé sur Mac, dans l'app et dans Chrome. Sur Windows et Linux, il passe par la fenêtre de Chrome ou d'Edge, qui pose sa propre question pour le micro et la caméra : pas encore essayé sur ces systèmes. Pendant une prise, tu ne t'entends pas dans le casque. Dans l'aperçu, un seul son posé par-dessus s'entend à la fois ; la vidéo finale, elle, les a tous.
 - Dans l'aperçu, les débordements de son (J-cut et L-cut) ne se chevauchent pas encore. Ils sont exacts dans la vidéo.
 - L'aperçu peut être décalé d'une image. La vidéo, elle, est exacte, car chaque plan est recoupé depuis le rush d'origine.
 - Dans l'aperçu, le flou des transitions est un flou simple ; la vidéo a un vrai flou de zoom ou de filé.

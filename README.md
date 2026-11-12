@@ -2,11 +2,16 @@
 
 # Dérush par IABAI
 
-**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 9.4
+**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 10
 
 Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude**, **Codex** ou **Gemini**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
 
 Dérush tourne sur **macOS, Windows et Linux**. Tes vidéos restent sur ton ordinateur.
+
+**Nouveau dans la version 10.**
+- **Le mode Voix off.** Tu as filmé ton voyage, ta journée, ton événement : tu racontes, et ta voix devient le fil du film. Ton IA la garde entière, peut la nettoyer, la sous-titrer, et remonte les images sur ce que tu dis. Ou tu fais ton montage toi-même : ta voix est un clip vert posé sur tes images, que tu glisses et que tu coupes.
+- **Enregistrer, sans quitter Dérush.** Un bouton sous *Importer* : *Ma voix* (tu parles pendant que ton montage défile ; son son est coupé pour que le micro ne l'entende pas) ou *Me filmer* (ta webcam et ton micro, pour un podcast ou un face caméra). L'enregistrement arrive tout de suite dans ton projet. Rien ne sort de ton ordinateur.
+- La première fois, ton système demande son accord pour le micro (et la caméra) : c'est normal.
 
 **Nouveau dans la version 9.**
 - **Quatre façons de créer** : *Montage* (tu déposes tes vidéos), *Motion design* (rien à déposer : tu décris, ton IA cherche, écrit et anime tout), *Extraits courts* (une longue vidéo devient plusieurs clips), *Sur un son* (une musique ou une voix devient une vidéo).
@@ -117,7 +122,7 @@ Le manuel complet (tous les gestes, les effets, le studio ElevenLabs, les vrais 
 
 ---
 
-**Les modes.** À la création d'un projet, choisis *Montage*, *Motion design*, *Extraits courts* ou *Sur un son*. Tu peux en changer ensuite (menu « … » › *Brief et format*).
+**Les modes.** À la création d'un projet, choisis *Montage*, *Motion design*, *Extraits courts*, *Voix off* ou *Sur un son*. Tu peux en changer ensuite (menu « … » › *Brief et format*).
 
 **Régler ce que l'IA a posé.** Sous sa vidéo, la timeline montre ses blocs : plans (gris), titres et textes (jaune), effets (violet), sons (vert). Clique un bloc : « Plus tôt », « Plus tard », « Plus gros », « Moins fort », « Retirer », ou tes propres mots. Les réglages partent avec ton prochain message.
 
