@@ -22,7 +22,7 @@ Ton montage est un **squelette**, pas une contrainte : tu marques ce qui est ess
 
 ## L'écran
 
-- **En haut à droite**, la prise ouvre **Connexions** (ton IA, ElevenLabs, Google Drive, Treg, Blender, mises à jour), et l'engrenage les **Réglages** (les moteurs de l'ordinateur).
+- **En haut à droite**, la prise ouvre **Connexions** (ton IA, ElevenLabs, Google Drive, Treg, Blender, la version et ses mises à jour), et l'engrenage les **Réglages** (les moteurs de l'ordinateur).
 - **Au-dessus de la timeline**, le bouton **Sous-titres** les met ou les enlève sur tout le film (aucun sous-titre tant que tu ne le demandes pas), et les boutons **9:16 · 16:9 · 1:1 · 4:5 · Auto** choisissent le format de la vidéo. « Auto » prend le format de ta première vidéo ; des vidéos de formats différents se mélangent dans le même montage, chacune recadrée pour remplir l'image.
 - **À gauche**, cinq onglets :
   - **Médias** : tes vidéos, tes sons et tes photos en vignettes, le bouton **Importer** et le bouton **Enregistrer** (ta voix ou ta webcam) ;
@@ -359,6 +359,17 @@ C'est ce que Dérush prépare pour Claude, et ce que « Pack pour une autre IA �
 | `MOTION.md` | Bien animer : le rythme, le texte, les transitions, la fin, le son, et ce qui trahit une vidéo faite par une machine. |
 | `decoupes/` | La personne détourée image par image, quand un titre passe derrière elle. |
 | `montage.otio` | Le montage au format OpenTimelineIO, lisible par DaVinci Resolve. |
+
+## Les mises à jour
+
+Dérush regarde tout seul s'il y a une nouvelle version : au lancement, puis toutes les six heures. Il lit seulement son dépôt sur GitHub ; rien n'est envoyé.
+
+- **Une nouvelle version est sortie** : une petite fenêtre l'annonce, en bas à gauche, avec ce qui change. *Mettre à jour* l'installe et Dérush redémarre (tes projets, tes réglages et tes clés ne bougent pas). *Plus tard* remet l'annonce au lendemain. Pendant que tu montes, l'annonce se replie en une pastille en haut de la fenêtre : un clic dessus la rouvre.
+- **Ton IA te le dit aussi**, une fois par version, à la fin de sa réponse. Elle ne l'installe pas elle-même.
+- **Pendant un travail** (ton IA monte, un export tourne, tu enregistres), la mise à jour attend : Dérush te le dit.
+- **Après la mise à jour**, à la première ouverture, Dérush te montre ce qui vient d'arriver.
+- **Ne plus être prévenu** : Connexions → Version, l'interrupteur. Le bouton *Vérifier* reste là.
+- Une copie de Dérush reçue en zip ou en image disque est prévenue aussi, mais ne se met pas à jour toute seule : recolle le message d'installation à ton IA.
 
 ## En ligne de commande
 

@@ -11,6 +11,7 @@ import {creerPublication} from '/publication.js';
 import {creerTutoriel} from '/tuto.js';
 import {creerCreateur} from '/createur.js';
 import {creerEnregistreur} from '/enregistrer.js';
+import {creerMaj} from '/maj.js';
 
 const JETON = document.querySelector('meta[name="derush-jeton"]').content;
 // Chaque fenêtre a son identifiant : le serveur sait laquelle est la principale, et quand la dernière se ferme.
@@ -72,6 +73,7 @@ async function api(methode, url, corps) {
 
 /** Un voile sur toute la fenêtre quand elle ne peut plus travailler : Dérush arrêté, redémarré, ou ouvert ailleurs. */
 function voileArret(type) {
+  if (ui.majRelance && type !== 'ailleurs') return voileMaj();
   if ($('#voile-arret') || (fenetreSignalee && type !== 'ailleurs')) return;
   const [titre, texte, bouton, action] = {
     arret: ['Dérush s’est arrêté', 'Ton travail est enregistré. Double-clique sur « Dérush » sur le Bureau pour le rouvrir.', 'Fermer cette fenêtre', () => window.close()],
@@ -86,6 +88,28 @@ function voileArret(type) {
   document.body.append(v);
   v.querySelector('button').focus();
   for (const el of $$('video, audio')) el.pause();
+}
+
+/** Dérush se met à jour : il s'arrête, repart, et la fenêtre se recharge dès qu'il répond de nouveau. */
+function voileMaj() {
+  if ($('#voile-arret')) return;
+  ui.majRelance = true;
+  const v = document.createElement('div');
+  v.id = 'voile-arret';
+  v.innerHTML = '<div class="carte-arret" role="alert"><h2>Dérush se met à jour</h2><p>Il se rouvre tout seul dans un instant. Ton travail est enregistré.</p><i class="maj-tourne"></i></div>';
+  document.body.append(v);
+  for (const el of $$('video, audio')) el.pause();
+  const debut = Date.now();
+  const essayer = () => fetch('/api/ping').then((r) => r.json()).then((j) => {
+    if (!j.derush || j.ne === SRV.ne) throw new Error('pas encore');
+    location.reload();
+  }).catch(() => {
+    if (Date.now() - debut < 90000) return setTimeout(essayer, 700);
+    v.remove();
+    ui.majRelance = false;
+    voileArret('arret');
+  });
+  setTimeout(essayer, 900);
 }
 
 /** Une autre fenêtre a pris la main : celle-ci n'écrit plus rien, se met en pause et se ferme. */
@@ -4745,7 +4769,7 @@ async function feuilleConnexions() {
       ${carteCx({etat: etatCarte(bl.ok, enCours(d.blender_action)), lg: logo('blender', 42), titre: 'Blender', sous: esc(bl.ok ? `${bl.nom} : l’IA s’en sert pour la 3D réaliste.` : 'Facultatif : sans lui, l’IA fait la 3D dans la page (Three.js).'), actions: bl.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : enCours(d.blender_action) ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : '<button class="btn petit" data-cx="blender/installer">Installer</button>', plus: erreurAction(d.blender_action)})}</div></section>
     <section class="cx-section"><h4>${ic('outil')}Dérush</h4><div class="cx-grille deux">
       ${carteCx({etat: etatCarte(d.competences?.remotion, enCours(d.competences?.action)), lg: logo('competences', 42), titre: `${d.competences?.nombre ?? 0} compétences`, sous: esc(`Montage, FFmpeg, étalonnage, sous-titres, son, motion design, TikTok, Reels, Shorts, publication${d.competences?.remotion ? ', Remotion' : ''} : l’IA les lit avant de travailler.`), actions: d.competences?.remotion ? `<span class="etiq ok">${ic('coche')}Prêtes</span>` : enCours(d.competences?.action) ? `<span class="etiq">${anneau(0.5)}Téléchargement…</span>` : '<button class="btn petit" data-cx="competences/remotion" title="Les compétences Remotion se téléchargent depuis leur dépôt officiel">Ajouter Remotion</button>', plus: erreurAction(d.competences?.action)})}
-      ${carteCx({etat: etatCarte(maj.possible !== false && !maj.en_retard, enCours(maj.action)), lg: logo('maj', 42), titre: `Version ${esc(d.version)}`, sous: esc(maj.possible === false ? maj.message : maj.en_retard ? `Nouvelle version${maj.version_distante ? ` ${maj.version_distante}` : ''} : ${maj.notes?.slice(0, 2).join(' · ') || `${maj.en_retard} changement(s)`}.` : maj.le ? 'Dérush est à jour.' : 'Bêta privée : les mises à jour arrivent par GitHub.'), actions: maj.en_retard ? '<button class="btn principal petit" data-cx="maj/installer">Mettre à jour</button>' : '<button class="btn petit" data-cx="maj/verifier">Vérifier</button>'})}</div></section>
+      ${carteCx({etat: etatCarte(maj.possible !== false && !maj.en_retard, enCours(maj.action)), lg: logo('maj', 42), titre: `Version ${esc(d.version)}`, sous: esc(maj.possible === false ? `${maj.version_distante && maj.version_distante !== d.version ? `La version ${maj.version_distante} est sortie. ` : ''}${maj.message}` : maj.en_retard ? `Nouvelle version${maj.version_distante ? ` ${maj.version_distante}` : ''} : ${maj.nouveautes?.[0]?.titre ?? (maj.notes?.slice(0, 2).join(' · ') || `${maj.en_retard} changement(s)`)}.` : maj.le ? `Dérush est à jour. ${maj.prevenir === false ? 'Il ne te prévient plus des nouvelles versions.' : 'Il te prévient quand une nouvelle version sort.'}` : 'Dérush te prévient quand une nouvelle version sort.'), actions: `${maj.en_retard ? '<button class="btn principal petit" data-cx="maj/installer">Mettre à jour</button>' : '<button class="btn petit" data-cx="maj/verifier">Vérifier</button>'}<label class="interrupteur" title="Me prévenir quand une nouvelle version sort"><input type="checkbox" data-cx-bascule="maj/prevenir"${maj.prevenir === false ? '' : ' checked'}><i></i></label>`})}</div></section>
     <div class="pied"><span class="dim" style="font-size:12px">${esc(d.systeme ?? '')} · Dérush ${esc(d.version ?? '')} · bêta test</span><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`;
   };
   const relire = async (force = true) => {
@@ -4781,7 +4805,7 @@ async function feuilleConnexions() {
     try {
       await api('POST', `/api/connexions/${action}`, corps);
       if (/\/(installer|connecter|brancher)$/.test(action)) { ui.cxSuivre = Date.now() + 15 * 60000; note(action === 'gemini/connecter' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google, puis reviens ici.' : /connecter|brancher/.test(action) ? 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.' : 'Installation lancée : ça prend une à deux minutes.'); }
-      if (action === 'maj/installer') { note('Mise à jour installée : Dérush redémarre…', false, true); return; }
+      if (action === 'maj/installer') { note('Mise à jour installée : Dérush redémarre…', false, true); voileMaj(); return; }
       if (action === 'earshot/installer') note('Earshot s’installe : 2,5 Go, compte une dizaine de minutes. Tu peux continuer à travailler.');
     } catch (err) { note(err.message, true); }
     await relire(!action.startsWith('ia/'));
@@ -5634,6 +5658,7 @@ async function demarrer() {
   completerMoteurs();
   if (e.mode === 'projet') await demarrerEditeur();
   else await afficherBibliotheque();
+  MAJ.demarrer(e.maj);
   setInterval(() => { if (!ui.remplacee && (SRV.file?.en_cours || SRV.file?.attente?.length || ui.exportTache || ui.renduTache)) suivreFile(); }, 900);
   setInterval(() => { if (ui.remplacee) return; if (ui.ecran === 'montage') suivreFile(); else api('POST', '/api/signe').catch(() => {}); }, 6000);
   setInterval(() => { if (!ui.remplacee && ui.ecran === 'montage') chargerRetours(); }, 20000);
@@ -5698,6 +5723,15 @@ const ENR = creerEnregistreur({
   lecture: {t: () => prog.t, lire: () => { if (ui.mode !== 'montage') definirMode('montage'); progLire(); }, pause: () => progPause(), sourdine: (oui) => sourdine(oui), aDuMontage: () => seq.segs.length > 0},
   surFini: (x) => apresEnregistrement(x),
 });
+/** La petite fenêtre des mises à jour (public/maj.js) : une nouvelle version est sortie, ou vient d'être installée. */
+const MAJ = creerMaj({
+  api, note, esc, ic,
+  peutMontrer: () => !document.querySelector('.tuto') && !feuilleOuverte() && !$('#voile-arret') && !ENR.actif(),
+  occupe: () => !!(ui.claude?.en_cours || SRV.file?.en_cours || SRV.file?.attente?.length || ui.exportTache || ui.renduTache || ENR.actif()),
+  discrete: () => ui.ecran === 'montage',
+  surRedemarrage: () => voileMaj(),
+  lien: (url) => api('POST', '/api/lien', {url}).catch((e) => note(e.message, true)),
+});
 const PUB = creerPublication({
   api, note, esc, ic, ill, logo, JETON, NATIF, natif, copierTexte,
   feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
@@ -5739,6 +5773,7 @@ window.derush = {
   enregistrer: (genre) => (genre === 'camera' ? ENR.camera() : genre === 'voix' ? ENR.voix() : ENR.ouvrir()), enregistre: () => ENR.actif(),
   claude: () => ui.claude, ecrire: (texte) => { montrerClaude(); ui.brouillon = texte; const ta = $('#cl-texte'); if (ta) { ta.value = texte; majEnvoi(); } }, envoyer: () => envoyerDemande(),
   vue: (v, n, k) => montrerVue(v, n, k), ui: () => ui,
+  maj: () => ({...(MAJ.etat() ?? {}), visible: MAJ.visible()}), majRegarder: () => MAJ.regarder(),
   publication: (nom, onglet) => PUB.ouvrir(nom, onglet), guideTreg: () => PUB.guideTreg(), tutoriel: () => tutoriel(),
   api: (methode, url, corps) => api(methode, url, corps), // les appels au serveur, comme l'interface les fait (essais)
   // le zoom appliqué tout de suite (pour mesurer son coût dans les essais)

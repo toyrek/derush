@@ -1,7 +1,9 @@
 {
   "name": "derush",
-  "version": "10.3.0",
-  "description": "Dérush par IABAI — le montage vidéo avec ton IA (Claude ou Codex) : tu donnes la matière, l'IA monte, et publie si tu veux. macOS, Windows, Linux.",
+  "version": "10.4.0",
+  "description": "Dérush par IABAI — le montage vidéo avec ton IA (Claude, Codex ou Gemini) : tu donnes la matière, l'IA monte, et publie si tu veux. macOS, Windows, Linux.",
+  "homepage": "https://github.com/toyrek/derush",
+  "repository": {"type": "git", "url": "https://github.com/toyrek/derush.git"},
   "type": "module",
   "private": true,
   "bin": {

@@ -46,7 +46,7 @@ git clone https://github.com/toyrek/derush.git ~/Derush
 
 Sous Windows : `git clone https://github.com/toyrek/derush.git "$HOME\Derush"`.
 
-- **Accès refusé** (le dépôt n'est pas encore ouvert à tous, ou la personne y a été invitée) : elle doit se connecter à GitHub. Le plus simple est l'outil `gh` (`brew install gh`, `winget install -e --id GitHub.cli`) puis `gh auth login --web` : elle recopie un code dans son navigateur. Ne lui demande ni mot de passe ni jeton.
+- **Accès refusé ou dépôt introuvable** : le dépôt est ouvert à tous, cela ne devrait pas arriver. Vérifie l'adresse et la connexion à internet. Ne demande ni mot de passe ni jeton.
 - **Le dossier existe déjà** : c'est une mise à jour. Va dedans et lance `node derush.mjs mettre-a-jour`, puis passe à l'étape 3.
 - **Pas de Git possible** : la personne peut télécharger le dépôt en zip depuis GitHub. Dérush marchera, mais ne se mettra pas à jour tout seul : dis-le-lui.
 
@@ -123,6 +123,6 @@ Ajoute ce qui n'a pas pu être installé, et la commande exacte que la personne 
 
 ## Plus tard
 
-- **Mettre à jour** : dans Dérush, Connexions → Version → *Vérifier* ; ou `node derush.mjs mettre-a-jour` dans le dossier.
+- **Mettre à jour** : Dérush prévient tout seul quand une nouvelle version sort (une petite fenêtre, bouton *Mettre à jour*). À la main : Connexions → Version → *Vérifier* ; ou `node derush.mjs mettre-a-jour` dans le dossier.
 - **Ajouter un moteur** : `node derush.mjs installer whisper` (ou `voix`, `blender`, `remotion`, `rendu`, `outils`, `real-sfx`, `earshot`).
 - **Désinstaller** : supprimer le dossier `Derush`, le dossier des moteurs (macOS `~/Library/Application Support/Dérush`, Windows `%APPDATA%\Dérush`, Linux `~/.local/share/derush`) et le raccourci. Les projets (`Movies/Dérush`, `Vidéos\Dérush`) restent : c'est à la personne de décider.

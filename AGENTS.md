@@ -12,7 +12,7 @@ Suis **[INSTALLER.md](INSTALLER.md)** pas à pas. Ne modifie pas le code pour «
 
 ## Si on te demande de mettre à jour
 
-`node derush.mjs mettre-a-jour` (ou, dans l'app : Connexions → Version → Vérifier).
+`node derush.mjs mettre-a-jour` (ou, dans l'app : le bouton *Mettre à jour* de la petite fenêtre qui annonce une nouvelle version, ou Connexions → Version → Vérifier).
 
 ## Les règles de ce dépôt
 
@@ -53,7 +53,8 @@ Suis **[INSTALLER.md](INSTALLER.md)** pas à pas. Ne modifie pas le code pour «
 | `lib/youtube.mjs`, `outils/publier-youtube.mjs` | L'envoi d'une vidéo sur YouTube par la porte directe de Treg (commande `derush-youtube` donnée à l'IA ; relais pour Codex et Gemini) |
 | `lib/publication.mjs` | Avant de publier : les mesures d'une vidéo finie, l'analyse de viralité, le plan de partage |
 | `lib/sons.mjs` | Les vrais sons : la bibliothèque de sons libres (Openverse), Real SFX, Earshot ; leurs commandes et leurs consignes |
-| `lib/installation.mjs`, `lib/maj.mjs` | L'installateur multi-systèmes et les mises à jour (GitHub) |
+| `lib/installation.mjs` | L'installateur multi-systèmes |
+| `lib/maj.mjs`, `public/maj.js`, `public/maj.css` | Les mises à jour (GitHub) : Dérush regarde tout seul s'il y a du nouveau, l'annonce dans une petite fenêtre, le fait dire une fois à l'IA, installe d'un clic et redémarre ; état dans `maj.json` du dossier de Dérush |
 | `lib/plateforme.mjs` | Tout ce qui change entre macOS, Windows et Linux |
 | `lib/pack.mjs`, `lib/recettes.mjs` | Le dossier de montage donné à l'IA et ses guides |
 | `lib/medias.mjs`, `lib/transcription.mjs`, `lib/moteurs.mjs`, `lib/rendu.mjs` | Médias, texte (Whisper), moteurs, rendu sans IA |
@@ -69,6 +70,14 @@ Suis **[INSTALLER.md](INSTALLER.md)** pas à pas. Ne modifie pas le code pour «
 
 Le trailer de lancement est en haut de la page : un aperçu animé (`.github/medias/trailer-derush-apercu.gif`) et un lien qui télécharge le film entier (`.github/medias/trailer-derush.mp4`, en 720p ; GitHub ne lit pas une vidéo du dépôt dans la page, d'où le lien en `?raw=true`). Ces deux fichiers sont dans `.github/` et non dans `docs/`, pour ne pas partir dans l'app (qui embarque `docs/`). Les originaux en pleine qualité, horizontal et vertical, ne sont pas dans le dépôt.
 
+## Publier une version
+
+1. Monte le numéro dans `lib/commun.mjs` (`VERSION`) et dans `package.json`.
+2. Ajoute en tête de `docs/NOUVEAUTES.md` un paragraphe qui commence par « `**10.5 — Son titre.**` » suivi d'une première phrase courte : c'est exactement ce que la petite fenêtre des mises à jour affiche chez les gens (le titre en gras, puis cette phrase).
+3. Relance les essais, cherche les secrets et les chemins personnels, puis `git commit` et `git push origin main`.
+
+Chez les personnes qui ont Dérush, l'annonce apparaît d'elle-même (au lancement, ou dans les six heures) dès que le numéro publié est plus grand que le leur. Un changement sans nouveau numéro (une faute corrigée dans la page du dépôt) ne dérange personne : il s'installe avec la version suivante, ou par Connexions → Version.
+
 ## Essayer sans rien casser
 
 Un serveur d'essai, sur une bibliothèque à part et sans ouvrir de fenêtre :
@@ -80,6 +89,8 @@ DERUSH_BIBLIOTHEQUE=/chemin/vers/un/dossier/d-essai DERUSH_SANS_NAVIGATEUR=1 nod
 `outils/essai-interface.mjs` pilote ensuite l'interface sans fenêtre, dans Chrome (voir son en-tête).
 
 Ajoute `DERUSH_SUPPORT=/chemin/vers/un/dossier/d-essai` pour ne toucher ni aux réglages, ni aux projets récents, ni aux commandes de la vraie installation (relie-y `moteurs`, `competences`, `node_modules` par des liens pour ne rien retélécharger). **Un clic sur « Envoyer » dans un essai lance la vraie IA choisie par la personne, à son niveau de qualité** : dans un essai d'interface, force l'assistant (`moteur`) dans la requête, ou sers-toi de la commande simulée `outils/faux-agy.mjs` (voir son en-tête) avec `DERUSH_AGY`.
+
+`node outils/essai-maj.mjs` rejoue les 30 essais des mises à jour sans toucher GitHub ni la vraie installation (un faux dépôt, une copie installée, un auteur qui publie une version 99.0) : la version vue toute seule, ce qu'elle apporte, la phrase dite une fois à l'IA, « Plus tard », l'interrupteur, l'installation, ce qui vient d'arriver, une copie sans Git, pas d'internet. À relancer après tout changement de `lib/maj.mjs`.
 
 `node outils/essai-youtube.mjs` rejoue les 41 essais de l'envoi vers YouTube contre un faux Treg (aucun appel réel, aucune clé), par la commande, par le relais de Codex et par la boîte de Gemini : à relancer après tout changement de `lib/youtube.mjs`, `lib/relais.mjs`, `lib/boite.mjs` ou `outils/publier-youtube.mjs`. Un envoi réel coûte 1 600 des 10 000 unités du quota quotidien que tous les comptes reliés à Treg se partagent : ne jamais en faire un « pour voir ».
 

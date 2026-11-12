@@ -6,7 +6,7 @@
 
 Dérush est un logiciel de montage vidéo qui travaille avec ton IA : **Claude**, **Codex** ou **Gemini**, avec ton propre compte. Tu déposes tes vidéos (ou tu enregistres ta voix, ta webcam), tu écris ce que tu veux, et ton IA monte : les plans, les titres, les effets, le son, les sous-titres. Ensuite, tu règles chaque détail d'un mot.
 
-> **Bêta test — version 10.3.** Dérush vient de sortir : tout n'est pas encore parfait. Dis-nous ce qui coince dans l'onglet [Issues](../../issues), c'est le but de la bêta. Il a été essayé sur Mac ; Windows et Linux sont prévus, mais pas encore essayés pour de vrai.
+> **Bêta test — version 10.4.** Dérush vient de sortir : tout n'est pas encore parfait. Dis-nous ce qui coince dans l'onglet [Issues](../../issues), c'est le but de la bêta. Il a été essayé sur Mac ; Windows et Linux sont prévus, mais pas encore essayés pour de vrai.
 
 <p align="center"><img src=".github/medias/trailer-derush-apercu.gif" alt="Le trailer de Dérush en aperçu : tu donnes la matière, ton IA fait le montage, tu vois tout se poser dans la timeline" width="100%"></p>
 
@@ -43,8 +43,7 @@ Installe Dérush sur cet ordinateur. C'est un logiciel de montage vidéo qui tra
    installe-le avec l'outil de ce système (Homebrew sur Mac, winget sur Windows, le gestionnaire
    de paquets sur Linux).
 2. Clone le dépôt dans un dossier « Derush » de mon dossier personnel. S'il existe déjà, mets-le
-   à jour (node derush.mjs mettre-a-jour). Si GitHub refuse l'accès, aide-moi à me connecter
-   (gh auth login --web).
+   à jour (node derush.mjs mettre-a-jour).
 3. Lis INSTALLER.md, à la racine du dépôt, et suis-le pas à pas. Lance d'abord
    « node derush.mjs installer --bilan » : il décrit cette machine et conseille la formule
    d'installation qui lui va. Suis ce conseil.
@@ -186,13 +185,19 @@ Sous chaque vidéo livrée (et à la fin de « Créer la vidéo »), deux bouton
 
 ## Mettre à jour
 
-**Connexions → Version → Vérifier**, puis *Mettre à jour* : Dérush récupère la dernière version publiée sur ce dépôt et redémarre. Ou, dans le dossier de Dérush :
+**Dérush te prévient.** Quand une nouvelle version sort, une petite fenêtre l'annonce dans Dérush, avec ce qui change. *Mettre à jour* l'installe et Dérush redémarre ; *Plus tard* remet l'annonce au lendemain. Ton IA te le dit aussi, une fois, à la fin de sa réponse.
+
+<p align="center"><img src="docs/images/capture-mise-a-jour.jpg" alt="Dérush annonce une nouvelle version : ce qui change, Mettre à jour, Plus tard" width="100%"></p>
+
+Tu peux aussi le faire à la main : **Connexions → Version → Vérifier**, puis *Mettre à jour*. Ou, dans le dossier de Dérush :
 
 ```bash
 node derush.mjs mettre-a-jour
 ```
 
-Tes projets, tes moteurs et tes clés ne sont pas touchés (ils sont rangés ailleurs, voir plus bas).
+- Tes projets, tes moteurs et tes clés ne sont pas touchés (ils sont rangés ailleurs, voir plus bas).
+- Dérush regarde seulement ce dépôt, au lancement puis toutes les six heures : rien n'est envoyé. Pour ne plus être prévenu, éteins l'interrupteur de **Connexions → Version**.
+- Une copie de Dérush reçue en zip ou en image disque est prévenue aussi, mais ne se met pas à jour toute seule : recolle le message d'installation à ton IA.
 
 ---
 

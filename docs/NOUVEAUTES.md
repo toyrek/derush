@@ -1,5 +1,7 @@
 # Dérush — ce qui est nouveau, version après version
 
+**10.4 — Dérush te prévient des mises à jour.** Quand une nouvelle version sort, une petite fenêtre te le dit dans Dérush, avec ce qui change : un clic l'installe, et Dérush redémarre. Ton IA te le dit aussi, une fois, à la fin de sa réponse. *Plus tard* remet l'annonce au lendemain ; pendant que tu montes, elle se replie en une pastille en haut de la fenêtre. Après la mise à jour, Dérush te montre ce qui vient d'arriver. Pour ne plus être prévenu : Connexions → Version, l'interrupteur. Dérush regarde seulement son dépôt (au lancement, puis toutes les six heures) : rien n'est envoyé. Corrigé aussi : sur un Mac où Dérush n'avait jamais été installé, l'installation fabrique bien l'app.
+
 **10.3 — Couper sa voix off.** Le bouton *Couper* (ou `S`) et les ciseaux coupent aussi un clip posé par-dessus quand c'est lui qui est sélectionné : tu enlèves une hésitation de ta voix off, tu déplaces une phrase, tu fais ton propre montage audio. Dérush trouve aussi Git sur les Mac où celui du système refuse de marcher.
 
 **10.2 — L'installation s'adapte à ta machine.** Le bilan (`node derush.mjs installer --bilan`) commence par décrire l'ordinateur (système, puce, mémoire, place libre) et conseille la formule d'installation qui lui va : l'IA qui installe Dérush pour toi n'a plus qu'à la suivre. La page d'accueil du dépôt est refaite, avec des visuels et le message à coller à ton IA. Dérush s'appelle maintenant « bêta test ».

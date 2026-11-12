@@ -1,0 +1,49 @@
+/* Dérush — la petite fenêtre des mises à jour (public/maj.js) : posée dans un coin, elle ne bloque rien. */
+.maj { position: fixed; left: 18px; bottom: 18px; z-index: 58; width: min(372px, calc(100vw - 36px)); padding: 17px 16px 14px; border-radius: 16px;
+  background: linear-gradient(158deg, rgba(58, 35, 22, .98), rgba(29, 29, 32, .985) 48%); border: 1px solid rgba(255, 170, 80, .3);
+  box-shadow: var(--ombre), 0 0 0 1px rgba(0, 0, 0, .35); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  animation: maj-entre .5s var(--ressort) both; }
+.maj::before { content: ''; position: absolute; left: 18px; right: 18px; top: -1px; height: 2px; border-radius: 2px; background: var(--braise); }
+.maj.part { animation: maj-sort .22s ease-in both; pointer-events: none; }
+.maj-tete { display: flex; align-items: center; gap: 12px; padding-right: 24px; }
+.maj-rond { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--braise); color: #1c0e06; box-shadow: 0 4px 18px rgba(255, 122, 60, .38); }
+.maj-rond svg { width: 18px; height: 18px; }
+.maj.disponible .maj-rond svg { animation: maj-monte 2.4s var(--doux) infinite; }
+.maj-rond.ok { background: rgba(48, 209, 88, .16); color: var(--vert); box-shadow: none; }
+.maj-tete small { display: block; margin-bottom: 2px; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--braise-1); font-weight: 650; }
+.maj.arrivee .maj-tete small { color: var(--vert); }
+.maj-tete b { display: block; font-family: var(--affiche); font-weight: 400; font-size: 21px; letter-spacing: .015em; text-transform: uppercase; line-height: 1.08; }
+.maj-liste { list-style: none; margin: 13px 0 0; padding: 0; display: grid; gap: 7px; }
+.maj-liste li { position: relative; padding-left: 15px; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+.maj-liste li::before { content: ''; position: absolute; left: 1px; top: .52em; width: 6px; height: 6px; border-radius: 2px; background: var(--braise-2); }
+.maj-liste b { color: var(--texte); font-weight: 600; }
+.maj-dit { margin: 11px 0 0; font-size: 12px; line-height: 1.45; color: var(--dim-2); }
+.maj-actions { display: flex; gap: 8px; margin-top: 13px; }
+.maj-actions .btn.principal { background: var(--braise); color: #1c0e06; font-weight: 650; box-shadow: 0 1px 0 rgba(255, 255, 255, .32) inset, 0 4px 14px rgba(255, 122, 60, .3); }
+.maj-actions .btn:disabled { opacity: .7; }
+.maj-tourne { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(28, 14, 6, .3); border-top-color: #1c0e06; animation: maj-tourne .8s linear infinite; }
+.maj-erreur { margin: 10px 0 0; font-size: 12px; line-height: 1.4; color: var(--accent-2); }
+.maj-x { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--dim-2); display: grid; place-items: center; }
+.maj-x:hover { background: rgba(255, 255, 255, .08); color: var(--texte); }
+.maj-x .ic { width: 12px; height: 12px; }
+/* dans l'éditeur : une pastille en haut de la fenêtre, qui s'ouvre d'un clic */
+.maj.haut { left: 50%; bottom: auto; top: 9px; translate: -50% 0; animation-name: maj-descend; }
+.maj.haut.part { animation-name: maj-sort-haut; }
+.maj.compacte { display: flex; align-items: center; gap: 12px; width: auto; max-width: calc(100vw - 36px); padding: 5px 40px 5px 6px; border-radius: 999px; }
+.maj.compacte::before, .maj.compacte .maj-corps, .maj.compacte .maj-tete small, .maj.compacte .maj-erreur, .maj.compacte .maj-actions [data-maj="plus-tard"] { display: none; }
+.maj.compacte .maj-tete { gap: 9px; padding-right: 0; cursor: default; }
+.maj.compacte .maj-rond { width: 26px; height: 26px; box-shadow: none; }
+.maj.compacte .maj-rond svg { width: 14px; height: 14px; }
+.maj.compacte .maj-tete b { font-size: 15px; white-space: nowrap; }
+.maj.compacte .maj-actions { margin-top: 0; }
+.maj.compacte .maj-x { top: 50%; right: 9px; translate: 0 -50%; }
+.maj.haut:not(.compacte) .maj-tete { cursor: default; }
+/* « Dérush se met à jour » : le voile pendant qu'il redémarre */
+.carte-arret .maj-tourne { display: block; width: 22px; height: 22px; margin: 0 auto; border-width: 3px; border-color: rgba(255, 255, 255, .14); border-top-color: var(--braise-2); }
+@keyframes maj-entre { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+@keyframes maj-sort { to { opacity: 0; transform: translateY(12px); } }
+@keyframes maj-descend { from { opacity: 0; transform: translateY(-14px) scale(.97); } }
+@keyframes maj-sort-haut { to { opacity: 0; transform: translateY(-10px); } }
+@keyframes maj-monte { 0%, 55%, 100% { transform: translateY(0); } 70% { transform: translateY(-3px); } 85% { transform: translateY(1px); } }
+@keyframes maj-tourne { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .maj, .maj.part, .maj.disponible .maj-rond svg { animation: none; } }

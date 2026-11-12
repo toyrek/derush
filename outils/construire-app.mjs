@@ -148,6 +148,7 @@ function fabriquer(dossier, tmp, {surPlace = false} = {}) {
   if (fs.existsSync(app)) try { execFileSync(LSREGISTER, ['-u', app], {stdio: 'ignore'}); } catch { /* pas enregistrée */ }
   fs.rmSync(app, {recursive: true, force: true});
   fs.mkdirSync(path.join(contents, 'MacOS'), {recursive: true});
+  fs.mkdirSync(resources, {recursive: true}); // même quand le programme reste à sa place (--sur-place) : l'icône et le lanceur y vont
   // le programme : copié dans l'app (app à partager), ou laissé à sa place (copie GitHub, mise à jour par git pull)
   if (!surPlace) {
     fs.mkdirSync(prog, {recursive: true});
