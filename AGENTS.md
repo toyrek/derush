@@ -67,7 +67,7 @@ Suis **[INSTALLER.md](INSTALLER.md)** pas à pas. Ne modifie pas le code pour «
 
 `README.md` est la page que voient les nouveaux venus : courte, illustrée, avec le message à coller à leur IA (le même texte est dans `docs/message-d-installation.txt`). Ses images sont dans `docs/images/` : les dessins (bannière, étapes, modes) sont des pages HTML aux couleurs du logiciel photographiées par Chrome, les captures viennent de `outils/essai-interface.mjs` avec `DERUSH_ESSAI_ECHELLE=2`, sur des projets de démonstration dessinés (aucune image prise ailleurs, aucun nom de personne, aucun chemin de dossier). L'historique des versions est dans `docs/NOUVEAUTES.md`.
 
-Le trailer de lancement est en haut de la page : un aperçu animé (`.github/medias/trailer-derush-apercu.gif`) qui mène au film entier (`.github/medias/trailer-derush.mp4`, en 720p). Ces deux fichiers sont dans `.github/` et non dans `docs/`, pour ne pas partir dans l'app (qui embarque `docs/`). Les originaux en pleine qualité, horizontal et vertical, ne sont pas dans le dépôt.
+Le trailer de lancement est en haut de la page : un aperçu animé (`.github/medias/trailer-derush-apercu.gif`) et un lien qui télécharge le film entier (`.github/medias/trailer-derush.mp4`, en 720p ; GitHub ne lit pas une vidéo du dépôt dans la page, d'où le lien en `?raw=true`). Ces deux fichiers sont dans `.github/` et non dans `docs/`, pour ne pas partir dans l'app (qui embarque `docs/`). Les originaux en pleine qualité, horizontal et vertical, ne sont pas dans le dépôt.
 
 ## Essayer sans rien casser
 
