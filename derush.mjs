@@ -117,6 +117,8 @@ if (commande === 'installer') {
   const avecEarshot = drapeau('--earshot');
   const nom = args[0];
   if (bilanSeul) {
+    for (const l of I.lignesMachine()) console.log(l);
+    console.log('');
     for (const x of await I.bilan()) console.log(`${x.ok ? '✓' : x.requis ? '✗' : '·'} ${x.nom} — ${x.detail}`);
     process.exit(0);
   }

@@ -1,68 +1,68 @@
-<p align="center"><img src="public/marque/iabai.png" alt="IABAI" height="110"></p>
+<p align="center"><img src="docs/images/banniere.jpg" alt="Dérush par IABAI — Tu donnes la matière. Ton IA fait le montage." width="100%"></p>
 
 # Dérush par IABAI
 
-**Tu donnes la matière. Ton IA fait le montage.** — bêta privée, version 10.1
+**Tu donnes la matière. Ton IA fait le montage.**
 
-Dérush est un logiciel de montage vidéo fait pour travailler avec une IA. Tu déposes tes vidéos, tu coupes si tu veux (comme dans CapCut), tu écris ce que tu attends. Ton IA — **Claude**, **Codex** ou **Gemini**, avec ton propre compte — monte la vidéo, ajoute les effets, le son, les sous-titres si tu les demandes, et peut la **publier** sur TikTok, YouTube Shorts, Instagram Reels et LinkedIn. Tu suis son travail en direct.
+Dérush est un logiciel de montage vidéo qui travaille avec ton IA : **Claude**, **Codex** ou **Gemini**, avec ton propre compte. Tu déposes tes vidéos (ou tu enregistres ta voix, ta webcam), tu écris ce que tu veux, et ton IA monte : les plans, les titres, les effets, le son, les sous-titres. Ensuite, tu règles chaque détail d'un mot.
 
-Dérush tourne sur **macOS, Windows et Linux**. Tes vidéos restent sur ton ordinateur.
+> **Bêta test — version 10.2.** Dérush vient de sortir : tout n'est pas encore parfait. Dis-nous ce qui coince dans l'onglet [Issues](../../issues), c'est le but de la bêta. Il a été essayé sur Mac ; Windows et Linux sont prévus, mais pas encore essayés pour de vrai.
 
-**Nouveau dans la version 10.**
-- **Le mode Voix off.** Tu as filmé ton voyage, ta journée, ton événement : tu racontes, et ta voix devient le fil du film. Ton IA la garde entière, peut la nettoyer, la sous-titrer, et remonte les images sur ce que tu dis. Ou tu fais ton montage toi-même : ta voix est un clip vert posé sur tes images, que tu glisses et que tu coupes.
-- **Enregistrer, sans quitter Dérush.** Un bouton sous *Importer* : *Ma voix* (tu parles pendant que ton montage défile ; son son est coupé pour que le micro ne l'entende pas) ou *Me filmer* (ta webcam et ton micro, pour un podcast ou un face caméra). L'enregistrement arrive tout de suite dans ton projet. Rien ne sort de ton ordinateur.
-- La première fois, ton système demande son accord pour le micro (et la caméra) : c'est normal.
-
-**10.1 — La voix off se voit et se lit.** Dans la timeline, le clip de ta voix montre la forme de son son, pour la couper au bon endroit. Ce que tu dis est écrit tout seul après la prise (Whisper, sur ton ordinateur) : un clic sur *Sous-titres* les affiche sur l'aperçu, sans rien demander à l'IA. Et un sous-titre ne commence plus au milieu d'une élision (« d' | un coup »).
-
-**Nouveau dans la version 9.**
-- **Quatre façons de créer** : *Montage* (tu déposes tes vidéos), *Motion design* (rien à déposer : tu décris, ton IA cherche, écrit et anime tout), *Extraits courts* (une longue vidéo devient plusieurs clips), *Sur un son* (une musique ou une voix devient une vidéo).
-- **La table de montage se remplit en direct.** Tout ce que ton IA pose sur la vidéo (plans, titres, effets, sons) apparaît en blocs dans la timeline. Tu cliques un bloc, tu dis ce qui doit changer, et seul ce bloc est retouché.
-- **Ton profil de créateur.** Avec Treg, ton IA lit tes vidéos déjà publiées et leurs chiffres (en lecture seule), repère ce qui a vraiment marché, ton style, ta direction artistique, ce que dit ton public. Elle relit ce profil avant chaque montage, chaque titre, chaque conseil.
-- **Une mise en route** qui explique à quoi sert Treg et ce qui te protège ; **les sons tendance** proposés dans le plan de partage (à ajouter dans l'app, jamais dans le fichier).
-- **Gemini** s'ajoute à Claude et Codex (avec la commande `agy` d'Antigravity et ton compte Google : Gemini 4 Argon, Gemini 3.8 Flash, et Carbon si ton compte le propose).
-- 24 compétences de plus (Instagram et YouTube, de Jake Schincariol), et les vrais logos partout.
-
-**9.1 — Gemini, essayé pour de vrai.** Le moteur Gemini a été réglé sur la vraie commande `agy` de Google (version 1.5.6). Gemini travaille toujours dans le bac à sable de Google, avec des permissions données pour chaque demande seulement : écrire dans son dossier de travail, lire les outils de Dérush et ce que tu lui as donné, rien d'autre de ton ordinateur. Ce bac à sable coupe le réseau local : le rendu des images passe par un relais en fichiers, et Dérush rend la vidéo pour lui. Les modèles sont ceux de ton compte Google : *Rapide* = Gemini 3.8 Flash, *Soigné* et *Maximum* = Gemini 4 Argon (ou Carbon s'il est proposé).
-
-**9.2 — Gemini 4 Argon essayé, les blocs ne se cachent plus.** Gemini a été essayé aussi au niveau *Maximum* (Gemini 4 Argon) : la même animation, plus soignée et sans rien d'inventé. Dans la timeline, deux blocs de l'IA qui se chevauchent (un titre et sa date, un fond sous des transitions) se rangent maintenant sur plusieurs lignes : aucun ne cache l'autre, chacun se clique.
-
-**9.3 — Le modèle de Claude, et les longs briefs.** Dans « Qui monte ta vidéo ? » (et dans Connexions), tu choisis maintenant le modèle de Claude : *Auto* (Opus 5.5, ou Sonnet 5.5 au niveau Rapide), Opus 5.5, **Fable 5.2** ou Sonnet 5.5. Un long brief collé dans la zone d'écriture part en entier (jusqu'à 24 000 caractères) : avant, Dérush le coupait à 8 000 sans prévenir. Au-delà, il le dit et propose de joindre le texte en fichier. Pendant que ton IA travaille, Dérush empêche maintenant le Mac de s'endormir.
-
-**9.4 — Les fichiers remis avec la vidéo, des rôles mieux devinés.** Une image fixe, un storyboard, un master de haute qualité, la liste des polices et des sons : ce que ton IA remet en plus de la vidéo est maintenant rangé à côté d'elle et compté sous sa carte (« fichiers joints », bouton « Ouvrir »). Quand tu joins tout un dossier, Dérush devine mieux le rôle de chaque fichier : une référence reste une référence même si elle montre un logo, un texte n'est plus pris pour un logo, une image d'un dossier de logos est un logo.
-
-**Nouveau dans la version 8.** Sur Mac, Dérush est une vraie application : son icône dans le Dock, ses menus, sa fenêtre (plus de Chrome). Une vidéo déposée s'affiche en moins d'une seconde et se monte tout de suite ; la timeline reste fluide à tous les zooms. À la première ouverture, un tutoriel animé montre les gestes. Et avant de publier : une **analyse de viralité** (ce qui retient les gens, ce qui les fait partir, quoi changer) puis un **plan de partage** (légendes, hashtags, bon moment) pour chaque réseau.
-
-**8.1 — YouTube.** L'envoi sur YouTube passe maintenant par une commande de Dérush (`derush-youtube`), avec ta clé Treg : la première méthode, par les outils Treg de l'IA, ne pouvait pas marcher (YouTube rend l'adresse d'envoi dans un en-tête que ces outils ne montrent pas). Dérush reprend l'envoi s'il est coupé, n'envoie jamais deux fois la même vidéo, et te dit la visibilité réelle de la vidéo une fois en ligne.
-
-> **Bêta privée.** Tu as été invité à tester : merci de ne pas partager ce dépôt. Dis-nous ce qui coince (onglet *Issues* du dépôt) : c'est le but de la bêta.
+<!-- trailer -->
 
 ---
 
-## 1. Installer
+## Installer Dérush
 
-### Le plus simple : demande à ton IA
+<p align="center"><img src="docs/images/installer-en-3-etapes.png" alt="Installer Dérush en trois étapes : aie ton IA, colle le message, ouvre Dérush" width="100%"></p>
 
-Ouvre **Claude Code** ou **Codex** (dans un terminal, ou leur app) et colle ce message. L'IA installe Dérush et l'adapte à ta machine.
+### 1. D'abord, ton IA
+
+Tu n'installes pas Dérush toi-même : **ton IA l'installe pour toi**, et c'est elle qui montera tes vidéos. Il te faut donc Claude ou Codex **sur ton ordinateur** (le site web ne suffit pas : il ne peut rien installer), et l'abonnement qui va avec.
+
+<p align="center"><img src="docs/images/ton-ia-bureau-ou-terminal.png" alt="Ton IA : l'app de bureau ou le terminal, les deux marchent" width="100%"></p>
+
+| | L'app de bureau (le plus simple) | Le terminal (si tu préfères) | Le compte qu'il faut |
+|---|---|---|---|
+| <img src="public/logos/claude.svg" width="18"> **Claude** | [Télécharge Claude](https://claude.com/download), ouvre l'onglet **Code** | [Installe Claude Code](https://code.claude.com/docs/en/setup), puis tape `claude` | Claude Pro ou Max |
+| <img src="public/logos/openai.svg" width="18"> **Codex** | [L'app Codex](https://developers.openai.com/codex/app) (Mac, Windows) | [Installe Codex](https://developers.openai.com/codex/cli), puis tape `codex` | ChatGPT Plus, Pro ou Business |
+
+Une seule suffit. Ouvre-la, connecte-toi, vérifie qu'elle te répond. (Gemini marche aussi : il se branche plus tard, dans Dérush.)
+
+### 2. Colle ce message à ton IA
+
+Copie tout le bloc (le bouton est en haut à droite du bloc), colle-le dans ton IA, envoie.
 
 ```text
-Installe Dérush (bêta privée d'IABAI) sur cet ordinateur.
+Installe Dérush sur cet ordinateur. C'est un logiciel de montage vidéo qui travaille avec une IA
+(bêta test, par IABAI). Son dépôt : https://github.com/toyrek/derush
 
-1. Vérifie que Git et Node.js 20.12 ou plus sont là (git --version, node --version). S'il en manque un,
-   installe-le avec l'outil de ce système (Homebrew sur Mac, winget sur Windows, le gestionnaire de
-   paquets sur Linux). Si cela demande mon mot de passe, donne-moi la commande à lancer moi-même.
-2. Clone le dépôt privé https://github.com/toyrek/derush dans un dossier « Derush » de mon dossier
-   personnel. S'il refuse l'accès, aide-moi à me connecter à GitHub (par exemple : gh auth login --web) :
-   j'ai été invité sur ce dépôt.
-3. Lis INSTALLER.md à la racine du dépôt et suis-le pas à pas : il explique comment adapter
-   l'installation à cette machine (FFmpeg, moteurs, Blender en option, raccourci sur le Bureau).
-4. À la fin, lance « node derush.mjs installer --bilan », montre-moi le bilan, et dis-moi en trois lignes
-   comment ouvrir Dérush et brancher mon IA dans « Connexions ».
+1. Il faut Git et Node.js 20.12 ou plus (git --version, node --version). S'il en manque un,
+   installe-le avec l'outil de ce système (Homebrew sur Mac, winget sur Windows, le gestionnaire
+   de paquets sur Linux).
+2. Clone le dépôt dans un dossier « Derush » de mon dossier personnel. S'il existe déjà, mets-le
+   à jour (node derush.mjs mettre-a-jour). Si GitHub refuse l'accès, aide-moi à me connecter
+   (gh auth login --web).
+3. Lis INSTALLER.md, à la racine du dépôt, et suis-le pas à pas. Lance d'abord
+   « node derush.mjs installer --bilan » : il décrit cette machine et conseille la formule
+   d'installation qui lui va. Suis ce conseil.
+4. À la fin, montre-moi le bilan, et dis-moi en trois lignes comment ouvrir Dérush et brancher
+   mon IA dans « Connexions ».
 
-Ne lance aucune commande avec sudo ou en administrateur sans me la montrer d'abord.
+Règles : ne lance aucune commande en administrateur (sudo) sans me la montrer d'abord. Ne me
+demande ni mot de passe ni clé dans cette conversation. Ne modifie pas le code de Dérush.
 ```
 
-### À la main
+Ton IA regarde ta machine, choisit la bonne formule, installe ce qui manque (FFmpeg, les moteurs, les compétences) et pose l'icône de Dérush sur ton Bureau. Compte 5 à 15 minutes. Elle te montre toute commande sensible avant de la lancer.
+
+### 3. Ouvre Dérush
+
+Double-clique sur **Dérush**. Un petit tutoriel animé te montre les gestes. Puis ouvre **Connexions** (la prise, en haut à droite) : ton IA y est déjà, branche le reste si tu veux.
+
+> Sur Mac, à la première ouverture, le système peut dire qu'il ne peut pas vérifier le développeur : *Réglages Système → Confidentialité et sécurité → Ouvrir quand même*, une seule fois.
+
+<details>
+<summary><b>Installer à la main, sans IA</b></summary>
 
 Il te faut **Git** et **Node.js 20.12 ou plus** (https://nodejs.org). Puis, dans un terminal :
 
@@ -75,16 +75,52 @@ cd Derush
 ```
 
 ```bash
+node derush.mjs installer --bilan
+```
+
+Le bilan décrit ta machine et conseille la formule. Lance-la (le plus souvent) :
+
+```bash
 node derush.mjs installer
 ```
 
-L'installateur fait le bilan de ta machine, installe ce qui manque (FFmpeg, les moteurs, les compétences Remotion) et pose un raccourci **Dérush** sur le Bureau. Options : `--leger` (sans Whisper, 2 Go de moins), `--blender` (ajoute Blender pour la 3D réaliste), `--earshot` (ajoute Earshot, l'oreille de l'IA : 2,5 Go), `--bilan` (regarde sans rien installer). Il ne lance jamais de commande administrateur : s'il en faut une, il te l'écrit.
+Options : `--leger` (sans Whisper, 2 Go de moins), `--blender` (ajoute Blender pour la 3D réaliste), `--earshot` (ajoute Earshot, l'oreille de l'IA : 2,5 Go). L'installateur ne lance jamais de commande administrateur : s'il en faut une, il te l'écrit. Le détail, système par système, est dans [INSTALLER.md](INSTALLER.md).
 
-Le détail, système par système, est dans [INSTALLER.md](INSTALLER.md).
+</details>
 
 ---
 
-## 2. Brancher (une fois)
+## Comment ça marche
+
+<p align="center"><img src="docs/images/comment-ca-marche.png" alt="Comment ça marche : dépose, coupe ou pas, demande, règle" width="100%"></p>
+
+<p align="center"><img src="docs/images/capture-montage.jpg" alt="Dérush : les médias, l'aperçu avec ses sous-titres, la timeline avec la voix off" width="100%"></p>
+
+## Cinq façons de créer
+
+<p align="center"><img src="docs/images/cinq-facons-de-creer.png" alt="Cinq façons de créer : Montage, Motion design, Extraits courts, Voix off, Sur un son" width="100%"></p>
+
+Tu choisis à la création du projet, et tu peux changer ensuite.
+
+## Ta voix, ta webcam
+
+Sous *Importer*, le bouton **Enregistrer**. **Ma voix** : tu racontes pendant que ton montage défile, ta voix se pose en vert sur tes images, son texte s'écrit tout seul, et un clic sur *Sous-titres* les affiche. **Me filmer** : ta webcam et ton micro, pour un podcast ou un face caméra, directement dans ton projet.
+
+| Une prise de voix off | Me filmer |
+|---|---|
+| <img src="docs/images/capture-voix-off.jpg" alt="Le panneau de voix off pendant une prise" width="100%"> | <img src="docs/images/capture-me-filmer.jpg" alt="La fenêtre Me filmer, avec la webcam" width="100%"> |
+
+## Demande, puis règle
+
+Tu écris comme à un monteur. Ton IA monte, et tout ce qu'elle pose (plans, titres, effets, sons) apparaît en blocs dans la timeline, en direct. Clique un bloc : « Plus tôt », « Plus gros », « Moins fort », « Retirer », ou tes propres mots. Seul ce bloc est retouché.
+
+<p align="center"><img src="docs/images/capture-demander.jpg" alt="La demande à l'IA, écrite dans la colonne de droite" width="100%"></p>
+
+---
+
+## Brancher (une fois)
+
+<p align="center"><img src="docs/images/capture-connexions.jpg" alt="Connexions : Claude, Codex, Gemini, ElevenLabs, les sons" width="100%"></p>
 
 Ouvre Dérush, puis **Connexions** (la prise, en haut à droite). Chaque carte se branche en un clic.
 
@@ -107,11 +143,7 @@ Tes comptes restent les tiens : Dérush ne voit jamais tes mots de passe. Les cl
 
 ---
 
-## 3. Monter
-
-1. **Dépose** tes vidéos, tes sons, tes photos. Même sans rien trier. Ils restent à leur place sur ton disque.
-2. **Coupe, ou pas.** Glisse, coupe, supprime, comme dans CapCut. Ou ne touche à rien : l'IA choisira les bons passages.
-3. **Demande.** Écris ce que tu veux dans la colonne de droite, joins tes références, ta charte ou ton logo avec le trombone. L'IA répond, ou monte une ou plusieurs vidéos. Tu regardes son rendu en direct.
+## Monter, en détail
 
 Deux réglages au-dessus de la timeline :
 
@@ -122,7 +154,6 @@ Deux réglages au-dessus de la timeline :
 
 Le manuel complet (tous les gestes, les effets, le studio ElevenLabs, les vrais sons) est dans [docs/MANUEL.md](docs/MANUEL.md).
 
----
 
 **Les modes.** À la création d'un projet, choisis *Montage*, *Motion design*, *Extraits courts*, *Voix off* ou *Sur un son*. Tu peux en changer ensuite (menu « … » › *Brief et format*).
 
@@ -130,7 +161,9 @@ Le manuel complet (tous les gestes, les effets, le studio ElevenLabs, les vrais 
 
 **Ton profil de créateur.** Bouton *Mon profil* sur l'écran des projets (ou menu « … »). Il faut Treg relié, et Claude ou Codex. L'analyse prend 5 à 10 minutes, en lecture seule ; tu peux couper « Donner mon profil à mon IA », refaire l'analyse ou tout effacer.
 
-## 4. Analyser, puis partager
+---
+
+## Analyser, puis partager
 
 Sous chaque vidéo livrée (et à la fin de « Créer la vidéo »), deux boutons ouvrent l'écran **Avant de publier**.
 
@@ -149,7 +182,7 @@ Sous chaque vidéo livrée (et à la fin de « Créer la vidéo »), deux bouton
 
 ---
 
-## 5. Mettre à jour
+## Mettre à jour
 
 **Connexions → Version → Vérifier**, puis *Mettre à jour* : Dérush récupère la dernière version publiée sur ce dépôt et redémarre. Ou, dans le dossier de Dérush :
 
@@ -158,6 +191,22 @@ node derush.mjs mettre-a-jour
 ```
 
 Tes projets, tes moteurs et tes clés ne sont pas touchés (ils sont rangés ailleurs, voir plus bas).
+
+---
+
+## Questions fréquentes
+
+**Est-ce que mes vidéos sont envoyées quelque part ?** Dérush tourne sur ton ordinateur et n'a aucun serveur à lui : il n'envoie tes fichiers nulle part. Ton IA, elle, travaille avec ton compte : pour monter, elle regarde des images de tes vidéos et lit leur texte, comme quand tu lui montres un fichier. Les services que tu branches toi-même (ElevenLabs pour le son, Treg pour publier) reçoivent ce que tu leur envoies.
+
+**Qu'est-ce qu'il me faut ?** Un ordinateur (8 Go de mémoire au moins, 16 Go pour être à l'aise), et un abonnement à Claude (Pro ou Max) ou à ChatGPT (Plus, Pro ou Business) : c'est ton IA qui travaille, avec ton compte. ElevenLabs et Treg sont facultatifs.
+
+**J'ai seulement Claude ou ChatGPT sur le web. Ça suffit ?** Non : il faut l'app de bureau ou la version terminal. C'est elle qui peut agir sur ton ordinateur, pour installer Dérush puis pour monter.
+
+**Mac, Windows, Linux ?** Dérush est écrit pour les trois, mais il n'a été essayé pour de vrai que sur Mac (puce Apple). Sur Windows et Linux, attends-toi à des accrocs, et dis-les-nous.
+
+**Quelque chose ne marche pas.** Ouvre une [issue](../../issues) : dis ce que tu as fait, ce que tu attendais, ce qui s'est passé. Tu peux aussi le demander à ton IA, dans le dossier de Dérush : elle sait lire son journal.
+
+**Comment désinstaller ?** Supprime le dossier `Derush`, le dossier des moteurs (voir « Où sont rangées les choses ») et l'icône. Tes projets restent : c'est toi qui décides.
 
 ---
 
@@ -203,6 +252,13 @@ Rien d'autre n'est installé ailleurs, sauf ce que tu acceptes (FFmpeg, Blender,
 
 ---
 
+## Pour aller plus loin
+
+- [Le manuel](docs/MANUEL.md) : tous les gestes, les effets, le studio ElevenLabs, les vrais sons.
+- [Ce qui est nouveau](docs/NOUVEAUTES.md), version après version.
+- [Le guide d'installation](INSTALLER.md), celui que ton IA suit.
+- [Les repères du dépôt](AGENTS.md), pour qui veut modifier Dérush.
+
 ## Licences
 
-Dérush est © 2026 IABAI (association YABAÏ) — bêta privée, voir [LICENCE.md](LICENCE.md). Les composants d'autres auteurs gardent leurs licences : [NOTICES.md](NOTICES.md).
+Dérush est © 2026 IABAI (association YABAÏ) — bêta test, voir [LICENCE.md](LICENCE.md). Les composants d'autres auteurs gardent leurs licences : [NOTICES.md](NOTICES.md).

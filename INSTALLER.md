@@ -20,7 +20,7 @@ Note le système (macOS, Windows, Linux), le processeur (`uname -m`, ou `echo %P
 | Mémoire | 8 Go | 16 Go ou plus |
 | Système | macOS 13, Windows 10 (64 bits), une distribution Linux récente avec bureau | |
 
-Adapte tout de suite :
+Une fois le dépôt cloné (étape 2), `node derush.mjs installer --bilan` refait ce constat pour toi : ses premières lignes décrivent la machine et donnent la **formule conseillée**. Suis-la. Les règles qu'il applique :
 
 - **moins de 6 Go de place, ou 8 Go de mémoire** : installe avec `--leger` (sans Whisper), et dis à la personne que le texte des vidéos pourra passer par ElevenLabs (en ligne) ;
 - **Mac à puce Intel, Windows, Linux** : Whisper tourne avec `faster-whisper` (plus lent que sur une puce Apple) ; c'est automatique ;
@@ -38,7 +38,7 @@ Il faut `git` et `node` **20.12 ou plus** (prends la version 22 LTS si tu l'inst
 
 ## 2. Le dépôt
 
-Le dépôt est privé : la personne y a été invitée. Clone-le dans son dossier personnel, dans un dossier `Derush` (sans accent, pour les outils qui n'aiment pas ça) :
+Clone le dépôt dans le dossier personnel de la personne, dans un dossier `Derush` (sans accent, pour les outils qui n'aiment pas ça) :
 
 ```bash
 git clone https://github.com/toyrek/derush.git ~/Derush
@@ -46,7 +46,7 @@ git clone https://github.com/toyrek/derush.git ~/Derush
 
 Sous Windows : `git clone https://github.com/toyrek/derush.git "$HOME\Derush"`.
 
-- **Accès refusé** : la personne doit se connecter à GitHub. Le plus simple est l'outil `gh` (`brew install gh`, `winget install -e --id GitHub.cli`) puis `gh auth login --web` : elle recopie un code dans son navigateur. Ne lui demande ni mot de passe ni jeton.
+- **Accès refusé** (le dépôt n'est pas encore ouvert à tous, ou la personne y a été invitée) : elle doit se connecter à GitHub. Le plus simple est l'outil `gh` (`brew install gh`, `winget install -e --id GitHub.cli`) puis `gh auth login --web` : elle recopie un code dans son navigateur. Ne lui demande ni mot de passe ni jeton.
 - **Le dossier existe déjà** : c'est une mise à jour. Va dedans et lance `node derush.mjs mettre-a-jour`, puis passe à l'étape 3.
 - **Pas de Git possible** : la personne peut télécharger le dépôt en zip depuis GitHub. Dérush marchera, mais ne se mettra pas à jour tout seul : dis-le-lui.
 
@@ -58,7 +58,7 @@ Dans le dossier de Dérush :
 node derush.mjs installer --bilan
 ```
 
-Lis le bilan (✓ présent, ✗ manque et nécessaire, · facultatif), puis lance l'installation :
+Ses premières lignes décrivent la machine (système, puce, mémoire, place libre) et donnent la **formule conseillée** ; la suite est le bilan (✓ présent, ✗ manque et nécessaire, · facultatif). Lance la formule conseillée, le plus souvent :
 
 ```bash
 node derush.mjs installer

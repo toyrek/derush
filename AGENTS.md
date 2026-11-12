@@ -63,6 +63,10 @@ Suis **[INSTALLER.md](INSTALLER.md)** pas à pas. Ne modifie pas le code pour «
 | `competences/` | Les compétences livrées (sources et licences dans `competences/LICENCES.md`) |
 | `outils/` | Scripts des moteurs (Python, Swift), la fenêtre native du Mac (`coque-mac.swift`), fabrication de l'app Mac, essai de l'interface |
 
+## La page d'accueil du dépôt
+
+`README.md` est la page que voient les nouveaux venus : courte, illustrée, avec le message à coller à leur IA (le même texte est dans `docs/message-d-installation.txt`). Ses images sont dans `docs/images/` : les dessins (bannière, étapes, modes) sont des pages HTML aux couleurs du logiciel photographiées par Chrome, les captures viennent de `outils/essai-interface.mjs` avec `DERUSH_ESSAI_ECHELLE=2`, sur des projets de démonstration dessinés (aucune image prise ailleurs, aucun nom de personne, aucun chemin de dossier). L'historique des versions est dans `docs/NOUVEAUTES.md`.
+
 ## Essayer sans rien casser
 
 Un serveur d'essai, sur une bibliothèque à part et sans ouvrir de fenêtre :

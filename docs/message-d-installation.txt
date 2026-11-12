@@ -1,0 +1,17 @@
+Installe Dérush sur cet ordinateur. C'est un logiciel de montage vidéo qui travaille avec une IA
+(bêta test, par IABAI). Son dépôt : https://github.com/toyrek/derush
+
+1. Il faut Git et Node.js 20.12 ou plus (git --version, node --version). S'il en manque un,
+   installe-le avec l'outil de ce système (Homebrew sur Mac, winget sur Windows, le gestionnaire
+   de paquets sur Linux).
+2. Clone le dépôt dans un dossier « Derush » de mon dossier personnel. S'il existe déjà, mets-le
+   à jour (node derush.mjs mettre-a-jour). Si GitHub refuse l'accès, aide-moi à me connecter
+   (gh auth login --web).
+3. Lis INSTALLER.md, à la racine du dépôt, et suis-le pas à pas. Lance d'abord
+   « node derush.mjs installer --bilan » : il décrit cette machine et conseille la formule
+   d'installation qui lui va. Suis ce conseil.
+4. À la fin, montre-moi le bilan, et dis-moi en trois lignes comment ouvrir Dérush et brancher
+   mon IA dans « Connexions ».
+
+Règles : ne lance aucune commande en administrateur (sudo) sans me la montrer d'abord. Ne me
+demande ni mot de passe ni clé dans cette conversation. Ne modifie pas le code de Dérush.

@@ -227,7 +227,7 @@ async function afficherBibliotheque() {
   try { d = await api('GET', '/api/bibliotheque'); } catch (e) { return note(e.message, true); }
   const format = (k) => FORMATS[k]?.ratio ?? '';
   B.innerHTML = `<div class="biblio-interieur">
-    <div class="biblio-tete"><img src="/icone.svg" alt=""><div><h1 class="marque">Dérush <small>par</small> <img class="iabai" src="/marque/iabai.png" alt="IABAI"></h1><p>Tu donnes la matière. Ton IA fait le montage. <span class="beta">Bêta privée</span></p></div><span class="espace"></span>
+    <div class="biblio-tete"><img src="/icone.svg" alt=""><div><h1 class="marque">Dérush <small>par</small> <img class="iabai" src="/marque/iabai.png" alt="IABAI"></h1><p>Tu donnes la matière. Ton IA fait le montage. <span class="beta">Bêta test</span></p></div><span class="espace"></span>
       <button class="btn bouton-cx" data-b="connexions" title="Ton IA, ElevenLabs, Google Drive, Treg, Blender">${logo('claude', 18)}${logo('codex', 18)}${logo('gemini', 18)}${logo('treg', 18)}<span>Connexions</span></button>
       <button class="btn bouton-cx" data-b="profil" title="Mon profil de créateur : ce que ton IA a appris de tes comptes">${ic('profil')}<span>Mon profil</span></button>
       <button class="btn bouton-cx" data-b="accueil" title="Mise en route : ton IA, tes réseaux, ton profil">${ic('drapeau')}<span>Mise en route</span></button>
@@ -4726,7 +4726,7 @@ async function feuilleConnexions() {
     <section class="cx-section"><h4>${ic('outil')}Dérush</h4><div class="cx-grille deux">
       ${carteCx({etat: etatCarte(d.competences?.remotion, enCours(d.competences?.action)), lg: logo('competences', 42), titre: `${d.competences?.nombre ?? 0} compétences`, sous: esc(`Montage, FFmpeg, étalonnage, sous-titres, son, motion design, TikTok, Reels, Shorts, publication${d.competences?.remotion ? ', Remotion' : ''} : l’IA les lit avant de travailler.`), actions: d.competences?.remotion ? `<span class="etiq ok">${ic('coche')}Prêtes</span>` : enCours(d.competences?.action) ? `<span class="etiq">${anneau(0.5)}Téléchargement…</span>` : '<button class="btn petit" data-cx="competences/remotion" title="Les compétences Remotion se téléchargent depuis leur dépôt officiel">Ajouter Remotion</button>', plus: erreurAction(d.competences?.action)})}
       ${carteCx({etat: etatCarte(maj.possible !== false && !maj.en_retard, enCours(maj.action)), lg: logo('maj', 42), titre: `Version ${esc(d.version)}`, sous: esc(maj.possible === false ? maj.message : maj.en_retard ? `Nouvelle version${maj.version_distante ? ` ${maj.version_distante}` : ''} : ${maj.notes?.slice(0, 2).join(' · ') || `${maj.en_retard} changement(s)`}.` : maj.le ? 'Dérush est à jour.' : 'Bêta privée : les mises à jour arrivent par GitHub.'), actions: maj.en_retard ? '<button class="btn principal petit" data-cx="maj/installer">Mettre à jour</button>' : '<button class="btn petit" data-cx="maj/verifier">Vérifier</button>'})}</div></section>
-    <div class="pied"><span class="dim" style="font-size:12px">${esc(d.systeme ?? '')} · Dérush ${esc(d.version ?? '')} · bêta privée</span><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`;
+    <div class="pied"><span class="dim" style="font-size:12px">${esc(d.systeme ?? '')} · Dérush ${esc(d.version ?? '')} · bêta test</span><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`;
   };
   const relire = async (force = true) => {
     try { d = await api('GET', `/api/connexions${force ? '?force=1' : ''}`); } catch { return; }
