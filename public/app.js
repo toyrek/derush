@@ -1936,13 +1936,55 @@ function rendreIndications() {
 function rendreDessus() {
   const piste = $('#piste-dessus');
   const {res, n} = couloirs(P.superpositions, (s) => s.debut, (s) => s.debut + s.sortie - s.entree);
-  piste.style.height = `${12 + n * 28}px`;
+  // les clips commencent sous l'étiquette de la piste : un clip posé tout au début garde son nom lisible
+  const haut = n ? 18 : 6;
+  piste.style.height = `${(n ? 22 : 12) + n * 28}px`;
   piste.innerHTML = `<span class="piste-nom">${ic('calques')}Par-dessus</span>${P.superpositions.map((s) => {
     const m = media(s.media);
     const sel = ui.sel?.type === 'dessus' && ui.sel.id === s.id;
     const son = m?.type === 'audio';
-    return `<div class="dessus${son ? ' son' : ''}${s.voix_off ? ' voix-off' : ''}${sel ? ' sel' : ''}" data-id="${s.id}" style="left:${s.debut * ui.pps}px;width:${Math.max(6, (s.sortie - s.entree) * ui.pps)}px;top:${6 + res.get(s.id) * 28}px" title="${esc(`${s.id} · ${m?.nom ?? ''}`)}"><span class="poignee g"></span><b>${esc(s.id)}</b> ${esc(s.titre || (s.voix_off ? 'Voix off' : m?.nom) || '')}${!son && s.cadre === 'incrustation' ? ' · incrustation' : ''}<span class="poignee d"></span></div>`;
+    return `<div class="dessus${son ? ' son' : ''}${s.voix_off ? ' voix-off' : ''}${sel ? ' sel' : ''}" data-id="${s.id}" style="left:${s.debut * ui.pps}px;width:${Math.max(6, (s.sortie - s.entree) * ui.pps)}px;top:${haut + res.get(s.id) * 28}px" title="${esc(`${s.id} · ${m?.nom ?? ''}`)}">${son ? `<canvas class="onde-dessus" data-onde-dessus="${s.id}"></canvas>` : ''}<span class="poignee g"></span><b>${esc(s.id)}</b> ${esc(s.titre || (s.voix_off ? 'Voix off' : m?.nom) || '')}${!son && s.cadre === 'incrustation' ? ' · incrustation' : ''}<span class="poignee d"></span></div>`;
   }).join('')}`;
+  for (const s of P.superpositions) {
+    const m = media(s.media);
+    if (m?.type !== 'audio') continue;
+    if (C.ondes.has(m.id)) dessinerOndeDessus(s);
+    else charger('ondes', m).then(() => dessinerOndeDessus(s));
+  }
+}
+/** La forme du son d'une voix off ou d'une musique posée par-dessus (dessinée seulement sur sa partie visible). */
+function dessinerOndeDessus(s) {
+  const cv = $(`canvas[data-onde-dessus="${s.id}"]`);
+  const m = media(s.media);
+  const o = m && C.ondes.get(m.id);
+  if (!cv || !o) return;
+  const gauche = s.debut * ui.pps;
+  const L = Math.max(6, (s.sortie - s.entree) * ui.pps);
+  const a = Math.max(0, vueDessinee.x0 - gauche);
+  const b = Math.min(L, vueDessinee.x1 - gauche);
+  if (b <= a) { cv.style.width = '0px'; return; }
+  cv.style.left = `${a}px`;
+  cv.style.width = `${b - a}px`;
+  const W = Math.max(1, Math.round((b - a) * DPR()));
+  const H = Math.round((cv.clientHeight || 24) * DPR());
+  if (!H) return;
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = 'rgba(48, 209, 88, .5)';
+  const duree = s.sortie - s.entree;
+  g.beginPath();
+  for (let x = 0; x < W; x++) {
+    const t0 = s.entree + ((a + (x / W) * (b - a)) / L) * duree;
+    const t1 = s.entree + ((a + ((x + 1) / W) * (b - a)) / L) * duree;
+    let mx = 0;
+    const i0 = Math.floor(t0 * o.pps);
+    const i1 = Math.max(i0 + 1, Math.ceil(t1 * o.pps));
+    for (let i = i0; i < i1 && i < o.niveaux.length; i++) if (o.niveaux[i] > mx) mx = o.niveaux[i];
+    const hh = Math.max(1, (mx / 100) * (H - 4));
+    g.rect(x, (H - hh) / 2, 1, hh); // centrée sur le clip, comme une voix
+  }
+  g.fill();
 }
 function rendreMontage() {
   const piste = $('#piste-montage');
@@ -2047,6 +2089,7 @@ function dessinerPartieVisible() {
     if (m.type !== 'audio') el.querySelector('.images').innerHTML = vignettesVisibles(it, m, s.debut * ui.pps, Math.max(3, (s.fin - s.debut) * ui.pps));
     dessinerOndeClip(it);
   }
+  for (const sp of P.superpositions) if (media(sp.media)?.type === 'audio') dessinerOndeDessus(sp);
 }
 /** Une seule fois par image affichée (et quand même si la fenêtre est cachée, où les images ne passent plus). */
 function prochaineImage(fn) {
@@ -3491,6 +3534,20 @@ function motsDuMontage() {
     if (!mots) continue;
     for (const w of motsEntre(mots, it.entree, it.sortie)) res.push({t: w.t, debut: Math.max(s.debut, s.debut + w.d - it.entree), fin: Math.min(s.fin, s.debut + w.f - it.entree), plan: it.id, ...(w.ev ? {evenement: true} : {})});
   }
+  // une voix off (ou tout son gardé, posé par-dessus) se sous-titre aussi, comme dans la vidéo finale
+  let dessus = false;
+  for (const sp of P.superpositions) {
+    if (!sp.son?.actif) continue;
+    const m = media(sp.media);
+    if (!m?.transcription) continue;
+    const mots = C.mots.get(m.id);
+    if (mots === undefined) { charger('mots', m).then(() => { invaliderEtat(); if (!prog.lecture) majHabillage(); }); continue; }
+    if (!mots) continue;
+    const fin = sp.debut + sp.sortie - sp.entree;
+    for (const w of motsEntre(mots, sp.entree, sp.sortie)) res.push({t: w.t, debut: Math.max(sp.debut, sp.debut + w.d - sp.entree), fin: Math.min(fin, sp.debut + w.f - sp.entree), plan: sp.id, ...(w.ev ? {evenement: true} : {})});
+    dessus = true;
+  }
+  if (dessus) res.sort((a, b) => a.debut - b.debut);
   return res;
 }
 function etatHabillage() {
@@ -5590,6 +5647,9 @@ async function apresEnregistrement({genre, media: id, debut, poser}) {
   choisirPanneau('medias');
   const m = media(id);
   if (!m) return note('L’enregistrement est dans tes médias.');
+  // ce qui est dit s'écrit tout seul (Whisper, sur l'ordinateur) : les sous-titres et le texte sont prêts sans rien demander
+  const ecrit = !!SRV.moteurs?.whisper?.ok;
+  if (ecrit) api('POST', `/api/medias/${id}/transcrire`, {moteur: 'whisper'}).then(() => suivreFile()).catch(() => {});
   if (genre === 'voix') {
     if (!poser) { chargerRush(id, null, null, false); return note('Ta voix est dans tes médias : glisse-la sur la piste « Par-dessus » quand ton montage sera là.'); }
     let sp;
@@ -5599,7 +5659,7 @@ async function apresEnregistrement({genre, media: id, debut, poser}) {
       ui.sel = {type: 'dessus', id: sp.id};
     });
     progPositionner(sp.debut);
-    return note('Ta voix est posée par-dessus ton montage. Écoute-la, déplace-la, ou demande à ton IA de monter dessus.');
+    return note(`Ta voix est posée par-dessus ton montage. ${ecrit ? 'Dérush écrit son texte, pour les sous-titres. ' : ''}Écoute-la, déplace-la, ou demande à ton IA de monter dessus.`);
   }
   if (poser) return poserMedia(id, {k: P.montage.length});
   chargerRush(id, null, null, false);

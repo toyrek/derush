@@ -48,3 +48,6 @@
 /* une voix (ou un son) posée par-dessus le montage : verte, comme les sons */
 .dessus.son { background: #0f2e1c; box-shadow: inset 0 0 0 1px rgba(48, 209, 88, .6); color: #c9f7d6; }
 .dessus.voix-off { background: linear-gradient(90deg, #14402a, #0f2e1c); }
+/* la forme du son, derrière le nom du clip */
+.dessus.son { isolation: isolate; text-shadow: 0 1px 2px rgba(0, 0, 0, .85); }
+.dessus .onde-dessus { position: absolute; top: 0; left: 0; height: 100%; z-index: -1; pointer-events: none; }

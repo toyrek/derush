@@ -12,6 +12,7 @@
 //   {"attendre": 500}                     attend (millisecondes)
 //   {"jusqua": "expression", "max": 15000} attend que l'expression soit vraie
 //   {"capture": "chemin.png"}             capture la fenêtre
+// DERUSH_ESSAI_ECHELLE=2 prend des captures deux fois plus fines (pour la documentation).
 // La page expose window.derush : aller(t), lire(), pause(), temps(), ajouterEffet(modele, t), selectionner(id), projet(), style().
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
@@ -23,7 +24,7 @@ const ICI = process.env.TMPDIR || '/tmp';
 const PORT = 9341;
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
-  '--headless=new', '--hide-scrollbars', `--user-data-dir=${path.join(ICI, 'derush-essai-chrome')}`, '--force-device-scale-factor=1', `--window-size=${largeur},${hauteur}`,
+  '--headless=new', '--hide-scrollbars', `--user-data-dir=${path.join(ICI, 'derush-essai-chrome')}`, `--force-device-scale-factor=${Number(process.env.DERUSH_ESSAI_ECHELLE) || 1}`, `--window-size=${largeur},${hauteur}`,
   // un faux micro et une fausse caméra, acceptés sans question : pour essayer « Enregistrer » sans matériel
   '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream',
   '--autoplay-policy=no-user-gesture-required', `--remote-debugging-port=${PORT}`, url,

@@ -216,7 +216,7 @@ function lignesSousTitres(etat) {
     const t = String(w.t ?? '').trim();
     if (!t) continue;
     const dernier = l?.mots.at(-1);
-    const colle = mode === 'mot' && dernier && (/['’]$/.test(dernier.t) || /^['’]/.test(t) || /^-\p{L}/u.test(t)); // « l’ » reste avec le mot suivant, « -ce » avec le précédent
+    const colle = dernier && (/['’]$/.test(dernier.t) || /^['’]/.test(t) || /^-\p{L}/u.test(t)); // « l’ » reste avec le mot suivant, « ’un » et « -ce » avec le précédent
     const nouvelle = !l || (!colle && (l.mots.length >= maxMots || l.lettres + t.length > maxLettres || w.debut - l.fin > 0.4 || w.plan !== l.plan || /[.!?…]$/.test(dernier.t) || (mode !== 'phrase' && /,$/.test(dernier.t))));
     if (nouvelle) {
       if (l) lignes.push(l);

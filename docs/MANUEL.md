@@ -55,7 +55,8 @@ Sous **Importer**, le bouton **Enregistrer** ouvre deux choix. Tout se passe sur
 1. Place la tête de lecture là où ta voix doit commencer.
 2. Choisis ton micro. La barre bouge quand tu parles ; si son contour devient rouge, tu es trop fort : éloigne-toi un peu.
 3. Clique **Enregistrer** : ton montage défile, tu racontes ce que tu vois. Son son est coupé pendant la prise, pour que le micro ne l'enregistre pas ; avec un casque, décoche cette case pour l'entendre.
-4. Clique **Arrêter** : ta voix se pose en vert sur la piste *Par-dessus*, là où tu as commencé.
+4. Clique **Arrêter** : ta voix se pose en vert sur la piste *Par-dessus*, là où tu as commencé. On y voit la forme de son son.
+5. Ce que tu as dit s'écrit tout seul, en quelques secondes (avec Whisper, sur ton ordinateur, s'il est installé : voir *Réglages*). Un clic sur **Sous-titres**, au-dessus de la timeline, et ils s'affichent sur l'aperçu.
 
 Ensuite, c'est un clip comme un autre : tu le glisses, tu le raccourcis par ses bords, tu le coupes, tu le supprimes. Tu refais une prise autant de fois que tu veux. Dans sa fiche (un clic dessus), tu règles son volume, et la case « C'est ma voix off » dit à ton IA que cette voix est le fil du film. Si ton projet n'a pas encore de montage, la voix va seulement dans tes médias.
 
