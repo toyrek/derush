@@ -9,6 +9,8 @@
 //   {"js": "expression", "dire": "nom"}   évalue du JavaScript dans la page (et affiche le résultat si « dire »)
 //   {"clic": "sélecteur CSS"}             clique au milieu de l'élément (il est d'abord amené à l'écran)
 //   {"touche": "Backspace"}               appuie sur une touche
+//   {"glisser": {"de": "expression {x, y}", "vers": "expression {x, y}", "pas": 12, "maj": false}}
+//                                         un vrai glissé de souris (bouton enfoncé), en petits pas : bords de panneaux, lasso…
 //   {"attendre": 500}                     attend (millisecondes)
 //   {"jusqua": "expression", "max": 15000} attend que l'expression soit vraie
 //   {"capture": "chemin.png"}             capture la fenêtre
@@ -78,6 +80,20 @@ try {
       const r = await evaluer(`(() => { const el = document.querySelector(${JSON.stringify(e.clic)}); if (!el) return null; el.scrollIntoView({block: 'center'}); const b = el.getBoundingClientRect(); return {x: b.left + b.width / 2, y: b.top + b.height / 2}; })()`);
       if (!r) { console.log(`⚠️ introuvable : ${e.clic}`); continue; }
       for (const type of ['mousePressed', 'mouseReleased']) await cdp('Input.dispatchMouseEvent', {type, x: r.x, y: r.y, button: 'left', buttons: type === 'mousePressed' ? 1 : 0, clickCount: 1});
+    }
+    if (e.glisser) {
+      const de = await evaluer(e.glisser.de);
+      const vers = await evaluer(e.glisser.vers);
+      if (!de || !vers) { console.log('⚠️ glissé : départ ou arrivée introuvable'); continue; }
+      const n = e.glisser.pas ?? 12;
+      const mod = e.glisser.maj ? 8 : 0;
+      await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', x: de.x, y: de.y, modifiers: mod});
+      await cdp('Input.dispatchMouseEvent', {type: 'mousePressed', x: de.x, y: de.y, button: 'left', buttons: 1, clickCount: 1, modifiers: mod});
+      for (let k = 1; k <= n; k++) {
+        await cdp('Input.dispatchMouseEvent', {type: 'mouseMoved', x: de.x + ((vers.x - de.x) * k) / n, y: de.y + ((vers.y - de.y) * k) / n, button: 'left', buttons: 1, modifiers: mod});
+        await new Promise((r) => setTimeout(r, 16));
+      }
+      await cdp('Input.dispatchMouseEvent', {type: 'mouseReleased', x: vers.x, y: vers.y, button: 'left', buttons: 0, clickCount: 1, modifiers: mod});
     }
     if (e.touche) for (const type of ['keyDown', 'keyUp']) await cdp('Input.dispatchKeyEvent', {type, key: e.touche === 'Space' ? ' ' : e.touche, code: e.touche, windowsVirtualKeyCode: e.touche === 'Space' ? 32 : 0});
     if (e.capture) {

@@ -6,7 +6,7 @@
 
 Dérush est un logiciel de montage vidéo qui travaille avec ton IA : **Claude**, **Codex** ou **Gemini**, avec ton propre compte. Tu déposes tes vidéos (ou tu enregistres ta voix, ta webcam), tu écris ce que tu veux, et ton IA monte : les plans, les titres, les effets, le son, les sous-titres. Ensuite, tu règles chaque détail d'un mot.
 
-> **Bêta test — version 10.4.** Dérush vient de sortir : tout n'est pas encore parfait. Dis-nous ce qui coince dans l'onglet [Issues](../../issues), c'est le but de la bêta. Il a été essayé sur Mac ; Windows et Linux sont prévus, mais pas encore essayés pour de vrai.
+> **Bêta test — version 11.0.** Dérush vient de sortir : tout n'est pas encore parfait. Dis-nous ce qui coince dans l'onglet [Issues](../../issues), c'est le but de la bêta. Il a été essayé sur Mac ; Windows et Linux sont prévus, mais pas encore essayés pour de vrai.
 
 <p align="center"><img src=".github/medias/trailer-derush-apercu.gif" alt="Le trailer de Dérush en aperçu : tu donnes la matière, ton IA fait le montage, tu vois tout se poser dans la timeline" width="100%"></p>
 
@@ -116,6 +116,24 @@ Sous *Importer*, le bouton **Enregistrer**. **Ma voix** : tu racontes pendant qu
 Tu écris comme à un monteur. Ton IA monte, et tout ce qu'elle pose (plans, titres, effets, sons) apparaît en blocs dans la timeline, en direct. Clique un bloc : « Plus tôt », « Plus gros », « Moins fort », « Retirer », ou tes propres mots. Seul ce bloc est retouché.
 
 <p align="center"><img src="docs/images/capture-demander.jpg" alt="La demande à l'IA, écrite dans la colonne de droite" width="100%"></p>
+
+## Tes médias, analysés
+
+À l'import, Dérush regarde et écoute chaque rush : image sombre, plate ou brûlée, dominante de couleur, tourné en **Log**, bruit de fond, voix étouffée, écho. Des pastilles le disent sur les vignettes ; la fiche du média (menu « … ») détaille tout. **Analyser** fait regarder tes rushes par ton IA, sans les poser dans la timeline : ce qu'ils contiennent, leurs meilleurs moments, leurs défauts. Ton IA de montage s'en sert, et voit tous tes médias, même ceux que tu n'as pas posés.
+
+Sélectionne-en plusieurs au lasso (ou ⌘A, ⌘-clic, Maj-clic) et glisse le groupe dans la timeline, d'un geste.
+
+| La sélection et les pastilles | La fiche d'un média : un rush Sony en S-Log3, converti |
+|---|---|
+| <img src="docs/images/capture-medias-analyse.jpg" alt="Les médias avec leurs pastilles (Log, bruit de fond, voix claire) et la barre de sélection" width="100%"> | <img src="docs/images/capture-fiche-media.jpg" alt="La fiche d'un média : mesures, couleurs de la caméra avec l'avant / après" width="100%"> |
+
+## Le son et les couleurs
+
+**Voix claire** : un clic retire le souffle et le bruit de fond, rend une voix étouffée plus nette, réduit l'écho de la pièce, et la met au bon volume, sans jamais la décaler des lèvres. **Couleurs** : chaque plan a ses curseurs (exposition, contraste, saturation, température, teinte), un bouton *Auto*, et *Sur tous les plans* ; ce que tu vois est ce qui sort dans la vidéo. Les rushes filmés en **Log** (Sony, Panasonic, Canon, Fujifilm, Nikon, ARRI, Apple, DJI) sont convertis en couleurs normales, ou avec le LUT officiel de ta caméra. Ton IA fait pareil sur sa vidéo : elle nettoie les voix, mixe (la musique se baisse sous la voix) et étalonne chaque plan.
+
+<p align="center"><img src="docs/images/capture-couleurs.jpg" alt="Les couleurs d'un plan, réglées dans l'inspecteur, et l'aperçu qui suit" width="100%"></p>
+
+**Ta disposition** : tire les bords des panneaux pour agrandir les médias, l'IA ou la timeline ; double-clic pour revenir. **Pendant que ton IA travaille**, tu peux lui écrire (Claude lit ton message au geste suivant) et continuer ton montage.
 
 ---
 

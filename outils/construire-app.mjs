@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync, spawn} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {VERSION} from '../lib/commun.mjs';
 
@@ -174,6 +175,8 @@ fi`;
   // l'exécutable de l'app : la fenêtre native, sinon l'ancien lanceur (fenêtre de navigateur)
   const executable = path.join(contents, 'MacOS', 'Derush');
   const native = coqueNative(executable, tmp);
+  // l'empreinte de la fenêtre posée (avant la signature, qui modifie le binaire) : rafraichirApp() s'en sert
+  if (native && fs.existsSync(path.join(ICI, 'coque-mac'))) fs.writeFileSync(path.join(resources, 'coque.sha256'), empreinteCoque(path.join(ICI, 'coque-mac')));
   const lanceur = native ? `#!/bin/zsh
 # Dérush — lanceur du moteur. La fenêtre native (Contents/MacOS/Derush) l'appelle et lit sa sortie : l'adresse du moteur
 # (DERUSH_URL=…), ou ce qui manque (DERUSH_ERREUR=node), qu'elle explique alors dans une fenêtre du Mac.
@@ -275,6 +278,57 @@ export async function migrerVersAppNative() {
   console.log('Dérush devient une vraie app Mac : elle se rouvre dans sa propre fenêtre.');
   spawn('open', ['-n', r.app], {detached: true, stdio: 'ignore'}).unref();
   return true;
+}
+
+/**
+ * L'app « sur place » (celle qui lance la copie GitHub de ce dossier) garde sa propre copie de la fenêtre native
+ * (Contents/MacOS/Derush) : une mise à jour par GitHub change le programme, pas cette copie. Au lancement, Dérush la
+ * remplace si celle du dépôt a changé, remet le numéro de version de l'app à jour et la signe de nouveau. Le
+ * remplacement passe par un renommage : la fenêtre ouverte garde l'ancienne copie jusqu'à ce qu'on quitte, la
+ * prochaine ouverture prend la nouvelle. Renvoie ce qui a été fait ({coque, version}), ou null.
+ */
+/** L'empreinte d'un binaire de la fenêtre native. */
+const empreinteCoque = (f) => createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+export function rafraichirApp(app = path.join(os.homedir(), 'Applications', 'Dérush.app')) {
+  if (process.platform !== 'darwin') return null;
+  const contents = path.join(app, 'Contents');
+  const plist = path.join(contents, 'Info.plist');
+  const lanceur = path.join(contents, 'Resources', 'lanceur.sh');
+  const executable = path.join(contents, 'MacOS', 'Derush');
+  const neuve = path.join(ICI, 'coque-mac');
+  try {
+    if (!fs.existsSync(plist) || !fs.existsSync(lanceur) || !fs.existsSync(executable) || !fs.existsSync(neuve)) return null;
+    // seulement l'app qui lance CE dossier, et seulement une app native (pas l'ancien lanceur de Chrome)
+    if (!fs.readFileSync(lanceur, 'utf8').includes(`APP="${path.resolve(RACINE).replace(/"/g, '\\"')}"`)) return null;
+    let texte = fs.readFileSync(plist, 'utf8');
+    if (texte.includes('<key>LSUIElement</key>')) return null;
+    // la signature de l'app modifie le binaire : on compare l'empreinte de la fenêtre du dépôt à celle notée dans
+    // l'app quand elle y a été posée (absente sur une app d'avant la 11 : elle est alors posée une fois)
+    const voulue = empreinteCoque(neuve);
+    let posee = null;
+    try { posee = fs.readFileSync(path.join(contents, 'Resources', 'coque.sha256'), 'utf8').trim(); } catch { /* app d'avant la 11 */ }
+    const coque = posee !== voulue;
+    const version = !texte.includes(`<key>CFBundleShortVersionString</key><string>${VERSION}</string>`);
+    if (!coque && !version) return null;
+    if (coque) {
+      const tmp = path.join(contents, 'MacOS', '.Derush.nouveau');
+      fs.copyFileSync(neuve, tmp);
+      fs.chmodSync(tmp, 0o755);
+      fs.renameSync(tmp, executable);
+      // avant la signature : ce fichier fait partie de ce qu'elle scelle
+      fs.writeFileSync(path.join(contents, 'Resources', 'coque.sha256'), voulue);
+    }
+    if (version) {
+      texte = texte.replace(/(<key>CFBundle(?:Short)?VersionString<\/key><string>)[^<]*(<\/string>)/g, `$1${VERSION}$2`)
+        .replace(/(<key>CFBundleVersion<\/key><string>)[^<]*(<\/string>)/g, `$1${VERSION}$2`);
+      fs.writeFileSync(plist, texte);
+    }
+    execFileSync('codesign', ['--force', '--deep', '--sign', '-', app], {stdio: 'ignore'});
+    return {coque, version};
+  } catch (e) {
+    console.warn(`L’app n’a pas pu être rafraîchie : ${e.message}`);
+    return null;
+  }
 }
 
 export async function construireApp({cible, zip = false, dmg = false, surPlace = false, sansRaccourci = false} = {}) {

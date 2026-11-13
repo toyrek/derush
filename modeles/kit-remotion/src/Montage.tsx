@@ -4,6 +4,7 @@ import {Video} from '@remotion/media';
 import {blur} from '@remotion/effects/blur';
 import {chromaticAberration} from '@remotion/effects/chromatic-aberration';
 import {zoomBlur} from '@remotion/effects/zoom-blur';
+import {colorCorrection} from '@remotion/effects/color-correction';
 import {montage, mots, type Bloc, type Plan, type PointCadrage} from './donnees';
 import {PLANS_SANS_SOUS_TITRES} from './reglages';
 // Le moteur d'habillage est le même fichier que dans l'app Dérush : l'aperçu et le rendu dessinent la même chose.
@@ -61,13 +62,16 @@ const PlanVideo: React.FC<{it: Plan; petit?: boolean}> = ({it, petit}) => {
     ? {position: 'absolute', right: '5%', top: '6%', width: L, height: H, borderRadius: 28, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.45)'}
     : {position: 'absolute', left: 0, top: 0, width: L, height: H, overflow: 'hidden'};
   // effets d'optique des transitions (le même calcul que l'aperçu de Dérush)
+  // l'étalonnage du plan (posé dans Dérush : les mêmes réglages que son aperçu), puis les effets d'optique des transitions
+  const couleur = it.couleur ? [colorCorrection(it.couleur)] : [];
   const effets = m
     ? [
+        ...couleur,
         ...(m.flouZoom > 0.5 ? [zoomBlur({amount: m.flouZoom, center: [0.5, 0.45], samples: 32})] : []),
         ...(m.flouFile.px > 0.5 ? [blur({radius: m.flouFile.px, horizontal: m.flouFile.angle === 0, vertical: m.flouFile.angle !== 0})] : []),
         ...(m.rvb > 0.5 ? [chromaticAberration({amount: m.rvb, angle: 20})] : []),
       ]
-    : [];
+    : couleur;
   return (
     <div style={cadre}>
       <Video src={staticFile(it.fichier.chemin)} trimBefore={Math.round(it.fichier.debut_utile_s * fps)} muted style={placer(it, t, L, H)} effects={effets} />

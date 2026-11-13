@@ -42,9 +42,22 @@ Ton montage est un **squelette**, pas une contrainte : tu marques ce qui est ess
 - **Vidéos** : MP4, MOV, MKV, AVI, MXF, MTS, HEVC des iPhone, ProRes, GoPro, DJI, Insta360, drones…
 - **Sons** : MP3, WAV, M4A, AIFF, FLAC…
 - **Photos** : JPEG, PNG, HEIC, TIFF, WebP… Une photo se pose pour 3 s ; tire son bord pour changer sa durée.
-- Les formats **RAW de caméra de cinéma** (RED, Blackmagic RAW, ARRI) ne se lisent pas : exporte d'abord une version ProRes ou H.264.
+- **Caméras de cinéma** : ProRes (et ProRes RAW, avec un FFmpeg récent), DNxHD et DNxHR, CineForm, XAVC et MXF, AVCHD, H.264 et HEVC en 10 bits. Les formats **RAW** de RED, Blackmagic RAW, ARRI et Canon ne se lisent pas : exporte d'abord une version ProRes (DaVinci Resolve, gratuit, le fait pour toutes ces caméras).
+- **Rushes en Log** (S-Log3, V-Log, C-Log3, F-Log, N-Log, LogC, Apple Log, D-Log, D-Log M…) : voir « Les couleurs », plus bas.
 
-Pour chaque média, Dérush prépare tout seul une version légère pour la lecture, la forme du son, des vignettes, les coupes de caméra, les silences, le volume, le texte mot à mot (avec Whisper) et le **recadrage qui suit les visages**.
+Pour chaque média, Dérush prépare tout seul une version légère pour la lecture, la forme du son, des vignettes, les coupes de caméra, les silences, le volume, le texte mot à mot (avec Whisper, dès l'import), le **recadrage qui suit les visages**, et **ses mesures** (voir « Tes médias, analysés »). Les formats que le rendu ne lit pas tels quels (ProRes, MXF, HDR, Log converti) ont en plus une version de montage, faite une fois, en tâche de fond : ton IA n'attend plus.
+
+## Tes médias, analysés
+
+- **Les pastilles** des vignettes disent ce que Dérush a mesuré : *Log ?*, *Sombre*, *Brûlé*, *Terne*, une dominante (*Trop chaud*, *Vert*…), *Bruit de fond*, *Étouffé*, *Écho*, *Son faible*. *clair* : la voix claire est faite. Les étoiles : la note donnée par ton IA.
+- **La fiche** (menu « … » d'une vignette) : ce que ton IA y voit, ce que Dérush a mesuré (exposition, contraste, couleur, voix et fond), les couleurs de la caméra, la voix claire, le texte.
+- **Analyser** (dans la fiche, ou sur une sélection) : ton IA regarde 12 images de chaque rush et lit ce qui s'y dit, puis décrit son contenu, ses meilleurs moments (un clic les montre, un autre les pose au montage), ses défauts et à quoi il servira le mieux. Elle travaille au niveau *Rapide*. Ton IA de montage reçoit ces analyses : elle n'a plus à tout revoir.
+- **Pas besoin de tout poser dans la timeline** : ton IA voit tous tes médias. La timeline dit ton intention ; les médias sont ta matière.
+- **Plusieurs à la fois** : un lasso en tirant dans le vide du panneau, `⌘A` (après un clic dans les médias), `⌘`-clic, `Maj`-clic. La barre du bas : *Au montage* (à la suite, un seul `⌘Z` les retire), *Analyser*, *Voix claire*, retirer. Ou glisse le groupe dans la timeline.
+
+## Ta disposition
+
+Tire le bord entre deux panneaux pour agrandir la colonne des médias, celle de l'IA (et des réglages) ou la timeline. Double-clic sur un bord : sa taille d'origine ; `⌥⌘0` : toute la disposition d'origine. Dérush s'en souvient d'une ouverture à l'autre.
 
 ## Enregistrer : ta voix, ta webcam
 
@@ -92,11 +105,12 @@ La colonne de droite est une vraie conversation. Clique « Demander à Claude »
    - Chaque pièce jointe a un **rôle** (Référence, Charte graphique, Logo, Police, Musique ou son, Rush à monter, Texte ou script) : Dérush le devine, tu peux le changer d'un clic.
    - Les fichiers restent à leur place sur ton Mac, même très lourds. Dérush prépare pour Claude un aperçu, une planche d'images pour une vidéo, le texte de ce qui est dit, et ouvre les zip.
 3. Choisis **qui monte** et le **niveau de soin** : clique le nom de ton IA, en haut de la colonne (« Qui monte ta vidéo ? »). Dérush retient ton choix.
-   - **Rapide**, **Soigné** ou **Maximum** : plus l'IA réfléchit, plus c'est soigné, et plus c'est long.
+   - **Rapide** (souvent 5 à 10 minutes), **Soigné** (15 à 30) ou **Maximum** (40 à 70 : l'IA pèse chaque choix) : plus l'IA réfléchit, plus c'est soigné, et plus c'est long. Prends *Rapide* pour une retouche ou une question, *Maximum* pour une première version.
    - Avec Claude, tu peux aussi choisir le **modèle** : *Auto* (Opus 5.5, ou Sonnet 5.5 au niveau Rapide), **Opus 5.5** (le plus soigné), **Fable 5.2** (le plus récent) ou **Sonnet 5.5** (le plus rapide).
-4. Envoie (`⌘↵`). Tu suis Claude geste par geste dans la conversation. Dès qu'il rend, **le lecteur passe « En direct »** : ses images arrivent au fur et à mesure, et se posent aussi sur la piste de Claude, sous ton montage. Tu peux **continuer à travailler** ou l'**arrêter** (le bouton rouge).
-5. **Ses vidéos arrivent dans le lecteur**, avec son message et leurs contrôles (format, durée, niveau du son, couleurs). Elles sont rangées dans le dossier `vidéos` du projet. Une vidéo de Claude peut aussi aller **dans tes médias** (l'icône de flèche sur sa carte), pour la retoucher dans Dérush, ou **sur ton Google Drive** (l'icône de nuage) : elle est copiée dans Mon Drive › Dérush › le titre du projet.
-6. **Continue la conversation** : « plus court », « un autre titre », « fais-en aussi une version carrée », ou une simple question. Claude se souvient de tout, et chaque version reste disponible.
+4. Envoie (`⌘↵`). Tu suis Claude geste par geste dans la conversation : les étapes (préparation, montage, rendu, contrôle), le temps écoulé et la durée habituelle de ce niveau sur ton ordinateur. « Pourquoi c'est long ? » explique ce qu'il fait. Dès qu'il rend, **le lecteur passe « En direct »** : ses images arrivent au fur et à mesure, et se posent aussi sur la piste de Claude, sous ton montage.
+5. **Pendant qu'il travaille**, tu peux **lui écrire** : Claude lit ton message au geste suivant et en tient compte sans recommencer (« ajoute aussi le plan du hangar », « pas de musique trop forte ») ; avec Codex et Gemini, ton message part tout seul dès qu'ils ont fini. Tu peux aussi **continuer ton montage**, enregistrer ta voix, analyser tes médias, ou l'**arrêter** (le bouton rouge).
+6. **Ses vidéos arrivent dans le lecteur**, avec son message et leurs contrôles (format, durée, niveau du son, couleurs). Elles sont rangées dans le dossier `vidéos` du projet. Une vidéo de Claude peut aussi aller **dans tes médias** (l'icône de flèche sur sa carte), pour la retoucher dans Dérush, ou **sur ton Google Drive** (l'icône de nuage) : elle est copiée dans Mon Drive › Dérush › le titre du projet.
+7. **Continue la conversation** : « plus court », « un autre titre », « fais-en aussi une version carrée », ou une simple question. Claude se souvient de tout, et chaque version reste disponible.
 
 **Une question, pas une vidéo.** Demande un avis, une idée, une explication : Claude répond, sans fabriquer de vidéo.
 
@@ -267,8 +281,18 @@ Chaque bouton *Demander* met la correction dans ton message à l'IA : tu relis, 
 
 Pour chaque plan, dans le panneau de droite :
 - **Garder ou couper** le son d'origine, et régler le **volume**.
-- **Isoler la voix** avec Demucs, sur le Mac. Tu choisis ensuite « Original », « Voix seule » ou « Sans la voix ».
+- **Voix claire** : retire le souffle et le bruit de fond, rend une voix étouffée plus nette (graves inutiles coupés, voix désembouée, plus présente), adoucit les sifflantes, la compresse doucement et la met au volume d'une voix (−16 LUFS). Trois forces : *Doux* (garde l'ambiance), *Normal*, *Fort* (silence net entre les phrases). Option **Réduire l'écho** pour une voix qui résonne (il faut le moteur *Voix*). Le son reste exactement sur les lèvres : le petit décalage que prennent les filtres est mesuré et retiré. Sur ton ordinateur, sans IA ; l'original ne change pas.
+- **Isoler la voix** avec Demucs, sur le Mac.
+- Tu choisis ensuite « Original », « Voix claire », « Voix seule » ou « Sans la voix ».
 - **Débordements** : le son peut commencer avant l'image (J-cut) ou continuer après (L-cut).
+
+Ton IA a la même voix claire (la commande `derush-son`) et **mixe** : la voix devant, la musique qui se baisse toute seule quand quelqu'un parle, les bruitages à l'image près, le film à −14 LUFS.
+
+## Les couleurs
+
+- **Pour chaque plan** (panneau de droite) : *Exposition*, *Contraste*, *Saturation*, *Température* (plus chaud ou plus froid), *Teinte* (vers le vert ou le magenta), de −100 à 100. *Auto* corrige d'après les mesures du rush (exposition, contraste, dominante). *Sur tous les plans* copie les mêmes couleurs. Double-clic sur un curseur : zéro. Ce que tu vois dans l'aperçu est ce qui sort dans la vidéo (mesuré : à 1,4 niveau près sur 255).
+- **Les couleurs de la caméra (Log)** : un rush filmé en Log est gris et plat, c'est voulu (il garde plus d'informations). Dérush le reconnaît (pastille *Log ?*) et propose le profil de ta caméra dans la fiche du média, avec un avant / après : Sony S-Log3, Panasonic V-Log, Canon C-Log3, Fujifilm F-Log et F-Log2, Nikon N-Log, ARRI LogC3 et LogC4, Apple Log, DJI D-Log. La conversion est calculée d'après la formule publiée par le fabricant. Pour le **D-Log M** de DJI (formule non publiée) ou une autre caméra : la conversion automatique, ou mieux, **le LUT officiel de ta caméra** (le fichier `.cube` du site du fabricant), avec *LUT officiel…*. La conversion s'applique à l'aperçu, à ce que reçoit ton IA et à la vidéo.
+- **Ton IA étalonne aussi** : elle reçoit les mesures de chaque plan et tes réglages, corrige ce qui est faux, puis harmonise tout le film.
 
 Une voix off ou une musique posée *par-dessus* a les mêmes réglages (garder, volume, voix isolée), dans sa fiche.
 

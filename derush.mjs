@@ -300,6 +300,17 @@ const {url} = await demarrerServeur(ctx, {port, modeApp});
 console.log(`Dérush ${VERSION} — ${ctx.P ? `projet « ${ctx.P.d.titre} »` : 'bibliothèque'} sur ${url}  (Ctrl+C pour quitter)`);
 if (modeCoque) console.log(`DERUSH_URL=${url}`);
 else if (!sansNavigateur) ouvrirFenetre(url);
+// l'app Mac « sur place » garde sa propre copie de la fenêtre native : après une mise à jour par GitHub, elle est
+// remplacée ici (la prochaine ouverture en profite), sans rien ralentir au démarrage
+if (modeCoque && MAC) {
+  setTimeout(async () => {
+    try {
+      const {rafraichirApp} = await import('./outils/construire-app.mjs');
+      const r = rafraichirApp();
+      if (r) console.log(`L’app Dérush est rafraîchie (${[r.coque ? 'sa fenêtre' : null, r.version ? `version ${VERSION}` : null].filter(Boolean).join(', ')}) : la prochaine ouverture en profite.`);
+    } catch { /* l'app reste comme elle est */ }
+  }, 5000).unref();
+}
 // Quand Dérush s'arrête (la fenêtre native qui quitte, Ctrl+C, le terminal fermé), tout ce qu'il a lancé s'arrête avec
 // lui : FFmpeg, l'IA et ses rendus. Sans cela, une IA lancée continuerait seule, sans personne pour la suivre.
 {

@@ -402,11 +402,27 @@ final class Coque: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
     guard let a = adresse else { return false }
     return url.scheme == "http" && url.host == a.host && url.port == a.port
   }
+  /// Une ligne dans le journal de Dérush (menu Aide › Journal) : ce que la fenêtre a ouvert ou refusé d'ouvrir.
+  func noter(_ texte: String) {
+    let f = DateFormatter()
+    f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    journal?.write("\(f.string(from: Date())) fenêtre : \(texte)\n".data(using: .utf8) ?? Data())
+  }
+  /// Un lien vers un site s'ouvre dans le navigateur de la personne, et seulement si elle l'a voulu (un clic, ou un
+  /// bouton de l'interface qui le demande). Jamais l'adresse de Dérush lui-même : sa fenêtre, c'est celle-ci.
+  func ouvrirDansLeNavigateur(_ url: URL, _ pourquoi: String) {
+    guard ["http", "https", "mailto"].contains(url.scheme ?? "") else { return noter("lien refusé (\(url.scheme ?? "?"))") }
+    if ["127.0.0.1", "localhost", "::1", "[::1]"].contains(url.host ?? "") { return noter("adresse de Dérush refusée dans le navigateur (\(pourquoi))") }
+    noter("lien ouvert dans le navigateur : \(url.host ?? url.scheme ?? "?") (\(pourquoi))")
+    NSWorkspace.shared.open(url)
+  }
   func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
     guard let url = navigationAction.request.url else { return decisionHandler(.cancel) }
     if url.scheme == "about" || estLocale(url) { return decisionHandler(.allow) }
-    // tout le reste (un lien vers un site) s'ouvre dans le navigateur de la personne, jamais dans Dérush
-    if ["http", "https", "mailto"].contains(url.scheme ?? "") { NSWorkspace.shared.open(url) }
+    // Tout le reste reste hors de Dérush. Un lien vers un site s'ouvre dans le navigateur seulement si la personne a
+    // cliqué dessus, dans la page principale : une redirection, un script ou un cadre ne peut jamais ouvrir le navigateur.
+    if navigationAction.navigationType == .linkActivated, navigationAction.targetFrame?.isMainFrame ?? true { ouvrirDansLeNavigateur(url, "clic") }
+    else { noter("navigation refusée vers \(url.host ?? url.scheme ?? "?") (sans clic)") }
     decisionHandler(.cancel)
   }
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -428,7 +444,7 @@ final class Coque: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
   }
   /// window.open et les liens « nouvelle fenêtre » : dans le navigateur de la personne.
   func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-    if let url = navigationAction.request.url, ["http", "https", "mailto"].contains(url.scheme ?? "") { NSWorkspace.shared.open(url) }
+    if let url = navigationAction.request.url { ouvrirDansLeNavigateur(url, "nouvelle fenêtre") }
     return nil
   }
   func webViewDidClose(_ webView: WKWebView) { demanderAQuitter() }
@@ -500,7 +516,7 @@ final class Coque: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavigati
     case "copier":
       if let t = d["texte"] as? String { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(t, forType: .string) }
     case "ouvrir":
-      if let s = d["url"] as? String, let u = URL(string: s), ["http", "https", "mailto"].contains(u.scheme ?? "") { NSWorkspace.shared.open(u) }
+      if let s = d["url"] as? String, let u = URL(string: s) { ouvrirDansLeNavigateur(u, "bouton de l’interface") }
     case "quitter":
       demanderAQuitter()
     default: break

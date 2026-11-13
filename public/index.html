@@ -91,6 +91,7 @@
   <symbol id="i-maj" viewBox="0 0 24 24"><path d="M19.5 8.5A8 8 0 0 0 5 7.5M4.5 15.5A8 8 0 0 0 19 16.5"/><path d="M19.5 3.5v5h-5M4.5 20.5v-5h5"/></symbol>
   <symbol id="i-lien" viewBox="0 0 24 24"><path d="M14 4.5h5.5V10M19.5 4.5L11 13"/><path d="M17.5 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V8A1.5 1.5 0 0 1 6 6.5h4"/></symbol>
   <symbol id="i-copier" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.2"/><path d="M15.5 5.5V5a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 5v8A1.5 1.5 0 0 0 6 14.5h.5"/></symbol>
+  <symbol id="i-horloge" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
   <symbol id="i-fenetre" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15M3.5 12h17"/></symbol>
 
   <!-- illustrations (trois gestes : déposer, couper, demander) -->
@@ -152,6 +153,10 @@
 </svg>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- l'étalonnage d'un plan dans l'aperçu : la température et la teinte (gains rouge, vert, bleu), un filtre par lecteur -->
+  <filter id="f-coul-0" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/></filter>
+  <filter id="f-coul-1" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/></filter>
+  <filter id="f-coul-2" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/></filter>
   <filter id="f-rvb" x="-4%" y="-4%" width="108%" height="108%" color-interpolation-filters="sRGB">
     <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r"/>
     <feOffset id="f-rvb-r" in="r" dx="8" dy="0" result="r2"/>
