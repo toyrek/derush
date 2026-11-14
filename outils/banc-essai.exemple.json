@@ -1,0 +1,17 @@
+[
+  {
+    "nom": "Chronique face caméra",
+    "medias": ["/chemin/vers/chronique.mp4"],
+    "consigne": "Voici mes rushs. Regarde-les bien, fais le montage et améliore la vidéo au maximum."
+  },
+  {
+    "nom": "Carnet de voyage avec voix off",
+    "medias": ["/chemin/vers/plan-1.mp4", "/chemin/vers/plan-2.mp4", "/chemin/vers/voix-off.m4a"],
+    "consigne": "Voici mes rushs. Regarde-les bien, fais le montage et améliore la vidéo au maximum."
+  },
+  {
+    "nom": "Podcast face caméra",
+    "medias": ["/chemin/vers/podcast.mp4"],
+    "consigne": "Voici mes rushs. Regarde-les bien, fais le montage et améliore la vidéo au maximum."
+  }
+]

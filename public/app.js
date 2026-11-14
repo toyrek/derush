@@ -4,6 +4,7 @@ import {
   motsEntre, texteDesMots, dureeLisible, nouvelId, borner, arrondi, fpsSource, fenetreCadrage, pointCadrage, debordements,
   TYPES_VIDEO, MODES, formatProche,
   REGLAGES_COULEUR, couleurPropre, couleurVersApercu, couleurAuto,
+  parleDuDrive,
 } from '/commun.js';
 import {
   CATALOGUE, CATEGORIES, LOOKS, PLATEFORMES, POLICES_TITRES, STYLES_SOUS_TITRES, creerHabillage, decoupeA, preparerEtat, reglagesDe, resumeEffet, styleComplet,
@@ -11,8 +12,13 @@ import {
 import {creerPublication} from '/publication.js';
 import {creerTutoriel} from '/tuto.js';
 import {creerCreateur} from '/createur.js';
-import {creerEnregistreur} from '/enregistrer.js';
+import {creerEnregistreur, creerVoixOff, questionsALaFin, reponsePreparee} from '/enregistrer.js';
 import {creerMaj} from '/maj.js';
+import {creerTableau} from '/tableau.js';
+import {creerEspaces} from '/espaces.js';
+import {creerCompetences} from '/competences.js';
+import {creerDrive} from '/drive.js';
+import {creerSequences} from '/sequences.js';
 
 const JETON = document.querySelector('meta[name="derush-jeton"]').content;
 // Chaque fenêtre a son identifiant : le serveur sait laquelle est la principale, et quand la dernière se ferme.
@@ -132,6 +138,7 @@ const ui = {
   annuler: [], refaire: [], src: {id: null, entree: null, sortie: null, vue0: 0, vue1: 1},
   texteSpans: null, texteDedans: [], motCourant: null, trouve: null, exportTache: null, retours: [], editeurPret: false,
   habiller: 'style', vue: 'montage', versionVue: null, claude: null, brouillon: '', depart: null, clipsVus: null,
+  tetes: new Map(), // la tête de lecture de chaque vidéo du projet (public/sequences.js), le temps de la session
 };
 const C = {ondes: new Map(), mots: new Map(), analyse: new Map(), cadrage: new Map(), sprites: new Map(), attente: new Map()};
 const media = (id) => P?.medias.find((m) => m.id === id);
@@ -173,7 +180,8 @@ function styleVignette(m, t, H) {
   if (!v) return '';
   const k = borner(Math.round(t / v.pas), 0, v.n - 1);
   const L = (v.l * H) / v.h;
-  return `background-image:url('${urlMedia(m.id, 'vignettes')}&n=${cleVignettes(v)}');background-size:${v.n * L}px ${H}px;background-position:${-k * L}px 0;width:${L}px;height:${H}px`;
+  // l'id et la version viennent du projet (un projet reçu peut contenir n'importe quoi) : encodés, ils ne sortent pas de l'adresse
+  return `background-image:url('${urlMedia(encodeURIComponent(m.id), 'vignettes')}&n=${encodeURIComponent(cleVignettes(v))}');background-size:${v.n * L}px ${H}px;background-position:${-k * L}px 0;width:${L}px;height:${H}px`;
 }
 function anneau(p) {
   const r = 6;
@@ -192,17 +200,20 @@ function charger(type, m) {
   }
   const cle = type + m.id;
   if (!C.attente.has(cle)) {
-    C.attente.set(cle, fetch(urlMedia(m.id, type)).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((j) => {
-      C.attente.delete(cle);
+    // la réponse d'un projet fermé entre-temps ne se range pas dans celui qui est ouvert (ses ids recommencent à M1)
+    const projet = ui.cleProjet;
+    const promesse = fetch(urlMedia(m.id, type)).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((j) => {
+      if (C.attente.get(cle) === promesse) C.attente.delete(cle);
       const v = type === 'mots' ? (j?.mots ?? null) : type === 'cadrage' ? (j?.points ?? null) : j;
-      map.set(m.id, v);
+      if (ui.cleProjet === projet) map.set(m.id, v);
       return v;
-    }));
+    });
+    C.attente.set(cle, promesse);
   }
   return C.attente.get(cle);
 }
-function oublier(id) {
-  for (const k of ['ondes', 'mots', 'analyse', 'cadrage', 'sprites']) C[k].delete(id);
+function oublier(id, quoi = ['ondes', 'mots', 'analyse', 'cadrage', 'sprites']) {
+  for (const k of quoi) C[k].delete(id);
 }
 function sprite(m) {
   if (!m.vignettes) return null;
@@ -228,8 +239,14 @@ function feuille(html, large = false) {
   return f;
 }
 function fermerFeuille() {
+  const f = $('#feuille');
+  // une feuille peut demander à rester : « Me filmer » pendant une prise demande d'abord s'il faut garder ou jeter
+  if (feuilleOuverte() && typeof f.avantFermeture === 'function' && f.avantFermeture() === false) return;
   $('#voile').classList.add('cache');
-  $('#feuille').innerHTML = '';
+  f.innerHTML = '';
+  f.avantFermeture = null; // le crochet était celui de cette feuille-là
+  // une vidéo ou un pack fini pendant qu'une autre fenêtre était ouverte s'affiche maintenant
+  if (ui.resultatEnAttente || SQ.enAttente()) setTimeout(montrerResultatEnAttente, 250);
 }
 $('#voile').addEventListener('pointerdown', (e) => { if (e.target.id === 'voile') fermerFeuille(); });
 const feuilleOuverte = () => !$('#voile').classList.contains('cache');
@@ -249,10 +266,12 @@ async function afficherBibliotheque() {
   natif('teinte', {couleur: '#121214'});
   natif('progression', {p: null});
   let d;
-  try { d = await api('GET', '/api/bibliotheque'); } catch (e) { return note(e.message, true); }
-  const format = (k) => FORMATS[k]?.ratio ?? '';
+  let esp;
+  try { [d, esp] = await Promise.all([api('GET', '/api/bibliotheque'), listeEspaces()]); } catch (e) { return note(e.message, true); }
+  ui.biblio = {d, espaces: esp?.espaces ?? d.espaces ?? []};
   B.innerHTML = `<div class="biblio-interieur">
     <div class="biblio-tete"><img src="/icone.svg" alt=""><div><h1 class="marque">Dérush <small>par</small> <img class="iabai" src="/marque/iabai.png" alt="IABAI"></h1><p>Tu donnes la matière. Ton IA fait le montage. <span class="beta">Bêta test</span></p></div><span class="espace"></span>
+      <button class="btn bouton-cx bouton-tableau" data-b="tableau" title="Tableau de bord : tes vidéos, leurs vues, ce qui marche, pour toi et pour chaque client">${ic('tableau')}<span>Tableau de bord</span></button>
       <button class="btn bouton-cx" data-b="connexions" title="Ton IA, ElevenLabs, Google Drive, Treg, Blender">${logo('claude', 18)}${logo('codex', 18)}${logo('gemini', 18)}${logo('treg', 18)}<span>Connexions</span></button>
       <button class="btn bouton-cx" data-b="profil" title="Mon profil de créateur : ce que ton IA a appris de tes comptes">${ic('profil')}<span>Mon profil</span></button>
       <button class="btn bouton-cx" data-b="accueil" title="Mise en route : ton IA, tes réseaux, ton profil">${ic('drapeau')}<span>Mise en route</span></button>
@@ -260,16 +279,10 @@ async function afficherBibliotheque() {
       <button class="icone-btn" data-b="reglages" title="Réglages et moteurs">${ic('reglages')}</button>
       <button class="icone-btn" data-b="quitter" title="Quitter Dérush">${ic('quitter')}</button></div>
     ${d.projets.length < 3 ? `<div class="biblio-guide">${guideGestes()}</div>` : ''}
-    <div class="grille-projets">
-      <div class="nouveau-projet" data-b="nouveau"><div><div class="plus">${ic('plus')}</div><b>Nouveau projet</b></div></div>
-      ${d.projets.map((p) => `<div class="projet" data-dossier="${esc(p.dossier)}">
-        <div class="affiche"${p.affiche ? ` style="background-image:url('/affiche?dossier=${encodeURIComponent(p.dossier)}&j=${JETON}')"` : ''}>${p.affiche ? '' : ic('film')}</div>
-        <div class="infos"><b>${esc(p.titre)}</b><span>${p.plans} plan${p.plans > 1 ? 's' : ''} · ${tc(p.duree, 30).slice(3, 8)} · ${format(p.format)} · ${ilYa(p.modifie_le)}</span></div>
-        <div class="menu-projet"><button data-b="finder" title="Afficher le dossier du projet">Dossier</button><button data-b="corbeille" title="Mettre à la corbeille">Corbeille</button></div>
-      </div>`).join('')}
-    </div>
+    <div id="biblio-projets"></div>
     <div class="biblio-pied">${ic('dossier')}<span>Projets rangés dans ${esc(d.racine)}</span><span class="espace"></span><button class="btn petit" data-b="autre">Ouvrir un autre dossier…</button></div>
   </div>`;
+  rendreProjetsBiblio();
   // première ouverture : le tutoriel animé, puis la mise en route (ton IA, tes réseaux, ton profil), une fois
   if (!SRV.reglages?.tuto_vu && !ui.tutoMontre) return tutoriel(true);
   proposerConnexions();
@@ -281,10 +294,94 @@ function proposerConnexions() {
   if (!SRV.reglages?.accueil_vu) { if (ui.ecran === 'biblio' && !ecranOuvert()) CR.accueil({premiere: true}); return; }
   api('GET', '/api/connexions').then((x) => { if (!x.claude?.ok && !x.codex?.ok && !x.gemini?.ok && ui.ecran === 'biblio' && !ecranOuvert()) CR.accueil(); }).catch(() => {});
 }
+
+// ——— Les espaces : pour qui est un projet (Moi, un client, Personne). Le détail est dans public/espaces.js ———
+/** La liste des espaces (gardée par espaces.js), ou null si elle ne se lit pas : l'affichage ne casse jamais. */
+const listeEspaces = () => Promise.resolve().then(() => ESP.liste()).catch(() => null);
+/** Relit la liste (après un changement : un client créé, un projet déplacé, une série de plus). */
+async function rechargerEspaces() {
+  try { await ESP.recharger(); } catch { /* relue au prochain affichage */ }
+  return listeEspaces();
+}
+/** L'espace d'un id dans une liste. Un projet d'avant les espaces est à « Moi » ; un client retiré passe à « Personne » (comme le serveur). */
+function espaceDe(liste, id) {
+  const k = id || 'moi';
+  const l = liste ?? [];
+  return l.find((e) => e.id === k)
+    ?? (k === 'moi' ? {id: 'moi', nom: 'Moi', type: 'moi'} : l.find((e) => e.id === 'neutre') ?? {id: 'neutre', nom: 'Personne', type: 'neutre'});
+}
+/** La couleur d'un espace : celle de sa marque, sinon la sienne (espaces.js). */
+function couleurEspace(e) {
+  try { return ESP.couleurDe(e) || 'var(--bleu)'; } catch { return e?.type === 'neutre' ? 'var(--dim-2)' : 'var(--bleu)'; }
+}
+/** Ce que change un espace, dit en une phrase (après un changement). */
+function phraseEspace(e, quoi = 'Ce projet') {
+  if (e.type === 'neutre') return `${quoi} n’est pour personne : l’IA fera un montage neutre, rien ne sera appris.`;
+  if (e.type === 'client') return `${quoi} est maintenant pour ${e.nom} : l’IA suivra sa marque et son carnet, pas les tiens.`;
+  return `${quoi} est maintenant pour toi : l’IA suivra ton style, ton carnet et tes chiffres.`;
+}
+/** Le filtre de la bibliothèque : « tous », ou l'id d'un espace qui a des projets. */
+function filtreBiblio() {
+  const b = ui.biblio;
+  if (!b) return 'tous';
+  const ids = new Set(b.d.projets.map((p) => espaceDe(b.espaces, p.espace).id));
+  const f = prefs.lire('biblio.espace', 'tous');
+  return ids.size > 1 && ids.has(f) ? f : 'tous';
+}
+/** Les projets de la bibliothèque : une rangée de filtres par espace (s'il y en a plusieurs), puis les cartes. */
+function rendreProjetsBiblio() {
+  const zone = $('#biblio-projets');
+  const b = ui.biblio;
+  if (!zone || !b) return;
+  const {d, espaces} = b;
+  const format = (k) => FORMATS[k]?.ratio ?? '';
+  const de = (p) => espaceDe(espaces, p.espace);
+  const ids = new Set(d.projets.map((p) => de(p).id));
+  const types = ['moi', 'client', 'neutre'];
+  const ordre = [...espaces].filter((e) => ids.has(e.id)).sort((x, y) => types.indexOf(x.type) - types.indexOf(y.type));
+  const filtre = filtreBiblio();
+  const projets = filtre === 'tous' ? d.projets : d.projets.filter((p) => de(p).id === filtre);
+  const pourQui = filtre === 'tous' ? '' : (() => { const e = espaceDe(espaces, filtre); return e.type === 'moi' ? 'pour toi' : e.type === 'neutre' ? 'neutre, pour personne' : `pour ${e.nom}`; })();
+  const filtres = ordre.length > 1 ? `<div class="biblio-filtres" role="tablist" aria-label="Pour qui">
+      <button class="biblio-filtre${filtre === 'tous' ? ' actif' : ''}" data-b="filtre" data-filtre="tous" role="tab">${ic('grille')}<span>Tous</span><small>${d.projets.length}</small></button>
+      ${ordre.map((e) => `<button class="biblio-filtre${filtre === e.id ? ' actif' : ''}" data-b="filtre" data-filtre="${esc(e.id)}" role="tab" style="--c:${esc(couleurEspace(e))}"><i></i><span>${esc(e.nom)}</span><small>${d.projets.filter((p) => de(p).id === e.id).length}</small></button>`).join('')}
+    </div>` : '';
+  zone.innerHTML = `${filtres}<div class="grille-projets">
+      <div class="nouveau-projet" data-b="nouveau"><div><div class="plus">${ic('plus')}</div><b>Nouveau projet</b>${pourQui ? `<small class="np-pour">${esc(pourQui)}</small>` : ''}</div></div>
+      ${projets.map((p) => {
+        const e = de(p);
+        const serie = typeof p.serie === 'string' ? p.serie : p.serie?.nom;
+        return `<div class="projet" data-dossier="${esc(p.dossier)}">
+        <div class="affiche"${p.affiche ? ` style="background-image:url('/affiche?dossier=${encodeURIComponent(p.dossier)}&j=${JETON}')"` : ''}>${p.affiche ? '' : ic('film')}</div>
+        <div class="infos"><b>${esc(p.titre)}</b><span>${Number(p.videos) > 1 ? `${Number(p.videos)} vidéos · ` : ''}${p.plans} plan${p.plans > 1 ? 's' : ''} · ${tc(p.duree, 30).slice(3, 8)} · ${format(p.format)} · ${ilYa(p.modifie_le)}</span>
+          <div class="projet-pour"><button class="pastille-espace${e.type === 'neutre' ? ' neutre' : ''}" data-b="pour-qui" style="--c:${esc(couleurEspace(e))}" title="Pour qui est ce projet ? Un clic pour changer"><i></i><span>${esc(e.nom)}</span></button>${serie ? `<small class="projet-serie" title="Épisode de la série « ${esc(serie)} »">${ic('calques')}<span>${esc(serie)}</span></small>` : ''}</div></div>
+        <div class="menu-projet"><button data-b="pour-qui" title="Changer pour qui est ce projet (Moi, un client, Personne)">Pour qui ?</button><button data-b="finder" title="Afficher le dossier du projet">Dossier</button><button data-b="corbeille" title="Mettre à la corbeille">Corbeille</button></div>
+      </div>`;
+      }).join('')}
+    </div>`;
+}
+/** Change l'espace d'un projet depuis sa carte, sans l'ouvrir. */
+async function changerEspaceCarte(dossier) {
+  const p = ui.biblio?.d.projets.find((x) => x.dossier === dossier);
+  const actuel = espaceDe(ui.biblio?.espaces, p?.espace).id;
+  let id = null;
+  try { id = await ESP.choisirEspace({actuel, titre: 'Pour qui est ce projet ?'}); } catch (err) { return note(err.message, true); }
+  if (!id || id === actuel) return;
+  try {
+    await api('POST', '/api/projets/espace', {dossier, espace: id});
+    const [d, esp] = await Promise.all([api('GET', '/api/bibliotheque'), rechargerEspaces()]);
+    ui.biblio = {d, espaces: esp?.espaces ?? d.espaces ?? []};
+    if (ui.ecran === 'biblio') rendreProjetsBiblio();
+    note(phraseEspace(espaceDe(ui.biblio.espaces, id), p ? `« ${p.titre} »` : 'Ce projet'));
+  } catch (err) { note(err.message, true); }
+}
 $('#ecran-biblio').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-b]')?.dataset.b;
   const carte = e.target.closest('.projet');
-  if (b === 'nouveau') return feuilleNouveauProjet();
+  if (b === 'nouveau') { const f = filtreBiblio(); return feuilleNouveauProjet(f === 'tous' ? {} : {espace: f}); }
+  if (b === 'tableau') { const f = filtreBiblio(); return TB.ouvrir({espace: f === 'tous' ? null : f}); }
+  if (b === 'filtre') { prefs.ecrire('biblio.espace', e.target.closest('[data-filtre]').dataset.filtre); return rendreProjetsBiblio(); }
+  if (carte && b === 'pour-qui') return changerEspaceCarte(carte.dataset.dossier);
   if (b === 'connexions') return feuilleConnexions();
   if (b === 'profil') return CR.ouvrir();
   if (b === 'accueil') return CR.accueil();
@@ -294,7 +391,10 @@ $('#ecran-biblio').addEventListener('click', async (e) => {
   if (b === 'autre') {
     if (!NATIF) return feuilleParcourir({dossiers: true});
     const [dossier] = await demanderNatif('choisir', {dossiers: true, invite: 'Choisis le dossier d’un projet Dérush (ou un dossier vide pour en créer un).'}).catch(() => []);
-    return dossier ? ouvrirProjet(dossier) : null;
+    if (!dossier) return null;
+    const d = await api('GET', `/api/parcourir?dossier=${encodeURIComponent(dossier)}`).catch(() => null);
+    if (d && !d.projet && dossierTropLarge(d)) return note(MOT_DOSSIER_TROP_LARGE, true);
+    return ouvrirProjet(dossier);
   }
   if (carte && b === 'corbeille') {
     if (!confirm('Mettre ce projet à la corbeille ? Tes rushes d’origine ne sont pas touchés.')) return;
@@ -304,6 +404,12 @@ $('#ecran-biblio').addEventListener('click', async (e) => {
   if (carte && b === 'finder') return api('POST', '/api/ouvrir', {chemin: carte.dataset.dossier}).catch((err) => note(err.message, true));
   if (carte) ouvrirProjet(carte.dataset.dossier);
 });
+/**
+ * Un dossier dont on ne fait pas un projet : le dossier personnel, le Bureau, les Documents, les Vidéos, les
+ * Téléchargements (Dérush écrirait son projet au milieu de tout), ou la racine d'un disque. `d` : la réponse de /api/parcourir.
+ */
+const dossierTropLarge = (d) => !d.parent || (d.raccourcis ?? []).some((r) => r.nom !== 'Projet' && r.chemin === d.dossier);
+const MOT_DOSSIER_TROP_LARGE = 'Choisis un dossier à l’intérieur, ou un dossier vide : Dérush ne fait pas un projet de ton Bureau, de tes Documents ou de ton dossier personnel.';
 async function ouvrirProjet(dossier) {
   try {
     await api('POST', '/api/projets/ouvrir', {dossier});
@@ -321,19 +427,79 @@ function tuilesFormat(actif, avecAuto = false) {
 const DESSINS_MODE = {montage: 'claude', motion: 'motion', extraits: 'extraits', voix: 'voix', son: 'son'};
 const TITRES_MODE = {montage: 'Nouveau montage', motion: 'Nouvelle animation', extraits: 'Mes extraits', voix: 'Ma voix off', son: 'Nouveau clip'};
 const modeProjet = () => (MODES[P?.mode] ? P.mode : 'montage');
-function feuilleNouveauProjet() {
+/**
+ * La feuille « Nouveau projet ». Toujours appelable sans rien (bibliothèque, menu Fichier) ; le tableau de bord peut
+ * la préremplir : `espace` (pour qui), `serie` ({id, nom} : un épisode « comme d'habitude »), `titre` (une idée de sujet).
+ */
+async function feuilleNouveauProjet({espace: voulu = null, serie: serieVoulue = null, titre = null} = {}) {
+  // une idée de sujet du tableau de bord (un titre vide ne compte pas)
+  const titreVoulu = String(titre ?? '').trim() || null;
   let format = 'auto';
   let genre = 'trend';
   let mode = 'montage';
-  const f = feuille(`<h3>Nouveau projet</h3><p class="sous-titre">Choisis comment tu veux créer. Tu pourras changer de mode ensuite, dans le brief.</p>
-    <div class="modes">${Object.entries(MODES).map(([k, v]) => `<button class="mode-carte${k === mode ? ' actif' : ''}" data-mode="${k}">${ill(DESSINS_MODE[k])}<b>${esc(v.nom)}</b><small>${esc(v.description)}</small></button>`).join('')}</div>
-    <label class="champ"><span>Nom</span><input id="np-titre" value="${TITRES_MODE[mode]}"></label>
-    <div class="champ" id="np-genre"><span>Genre de vidéo</span><div class="types-video">${Object.entries(TYPES_VIDEO).map(([k, v]) => `<button class="type-video${k === genre ? ' actif' : ''}" data-genre="${k}"><b>${esc(v.nom)}</b><small>${esc(v.description)}</small></button>`).join('')}</div></div>
-    <div class="champ"><span>Format</span>${tuilesFormat(format, true)}</div>
+  const esp = await listeEspaces();
+  const connu = (id) => !esp || esp.espaces.some((x) => x.id === id);
+  // pour qui : celui demandé, sinon celui du projet ouvert, sinon le dernier choisi
+  let espace = [voulu, P?.espace, esp?.dernier, 'moi'].find((id) => id && connu(id)) ?? 'moi';
+  // « comme d'habitude » : un épisode d'une série de cet espace (le serveur reprend ses réglages)
+  let serie = serieVoulue?.id ? {id: String(serieVoulue.id), nom: String(serieVoulue.nom ?? '')} : null;
+  let series = [];
+  // le nom proposé suit le mode (ou la série) tant qu'on ne l'a pas écrit soi-même
+  const proposes = new Set(Object.values(TITRES_MODE));
+  const f = feuille(`<h3>Nouveau projet</h3><p class="sous-titre">Pour qui tu montes, puis comment tu veux créer. Tu pourras tout changer ensuite.</p>
+    <div class="champ np-pour-qui"><span>Pour qui ?</span><div class="np-espace" id="np-espace"></div></div>
+    <div class="np-series" id="np-series"></div>
+    <div class="np-reglable" id="np-modes"><div class="modes">${Object.entries(MODES).map(([k, v]) => `<button class="mode-carte${k === mode ? ' actif' : ''}" data-mode="${k}">${ill(DESSINS_MODE[k])}<b>${esc(v.nom)}</b><small>${esc(v.description)}</small></button>`).join('')}</div></div>
+    <label class="champ"><span>Nom</span><input id="np-titre" value="${esc(titreVoulu ?? TITRES_MODE[mode])}"></label>
+    <div class="np-reglable" id="np-suite">
+      <div class="champ" id="np-genre"><span>Genre de vidéo</span><div class="types-video">${Object.entries(TYPES_VIDEO).map(([k, v]) => `<button class="type-video${k === genre ? ' actif' : ''}" data-genre="${k}"><b>${esc(v.nom)}</b><small>${esc(v.description)}</small></button>`).join('')}</div></div>
+      <div class="champ"><span>Format</span>${tuilesFormat(format, true)}</div>
+    </div>
     <div class="pied"><button class="btn" data-f="annuler">Annuler</button><button class="btn principal" data-f="creer">Créer</button></div>`, true);
   const champ = $('#np-titre', f);
+  const suitLeNom = () => proposes.has(champ.value.trim());
+  // les séries de l'espace choisi, en puces ; en choisir une grise les réglages (le serveur prend ceux de la série)
+  const rendreSeries = () => {
+    const z = $('#np-series', f);
+    if (!z) return;
+    z.innerHTML = series.length ? `<div class="champ"><span>Comme d’habitude</span><div class="ia-idees np-idees">${series.map((s) => `<button class="${serie?.id === s.id ? 'actif' : ''}" data-serie="${esc(s.id)}" title="${esc(`Reprend le montage modèle${s.depuis?.projet ? ` de « ${s.depuis.projet} »` : ''} : accroche, habillage, musique, rythme.${s.episodes ? ` ${s.episodes} épisode${s.episodes > 1 ? 's' : ''} déjà fait${s.episodes > 1 ? 's' : ''}.` : ''}`)}">${ic(serie?.id === s.id ? 'coche' : 'calques')}Épisode de ${esc(s.nom)}</button>`).join('')}</div>
+      ${serie ? `<p class="np-repris">${ic('calques')}<span><b>Réglages repris de la série « ${esc(serie.nom)} »</b> : mode, format, genre et style. Seul le contenu change. Touche la puce encore une fois pour régler toi-même.</span></p>` : ''}</div>` : '';
+    for (const id of ['#np-modes', '#np-suite']) $(id, f)?.classList.toggle('np-grise', !!serie);
+  };
+  const choisirSerie = (s) => {
+    serie = s ? {id: s.id, nom: s.nom} : null;
+    if (s) {
+      const t = `${s.nom} — épisode ${(s.episodes ?? 0) + 1}`;
+      if (suitLeNom()) champ.value = t;
+      proposes.add(t);
+    } else if (suitLeNom()) champ.value = TITRES_MODE[mode];
+    rendreSeries();
+  };
+  let tour = 0;
+  const chargerSeries = async () => {
+    const n = ++tour;
+    let liste = [];
+    if (espace !== 'neutre') { try { ({series: liste} = await api('GET', `/api/espaces/${encodeURIComponent(espace)}/series`)); } catch { liste = []; } }
+    if (n !== tour || !f.isConnected || !$('#np-series', f)) return;
+    series = liste ?? [];
+    // une série d'un autre espace ne suit pas : on revient aux réglages à la main
+    const s = serie && series.find((x) => x.id === serie.id);
+    if (serie || s) choisirSerie(s ?? null); else rendreSeries();
+  };
+  // « Pour qui ? » : Moi, chaque client, Personne (dessiné par espaces.js dans la feuille)
+  let choix = null;
+  try {
+    choix = ESP.champPourQui($('#np-espace', f), {valeur: espace, surChange: (id) => { if (id && id !== espace) { espace = id; chargerSeries(); } }});
+  } catch (err) { console.warn('Pour qui ?', err); }
+  chargerSeries();
   champ.select();
   f.addEventListener('click', async (e) => {
+    // le choix « Pour qui ? » se gère dans espaces.js
+    if (e.target.closest('#np-espace')) return;
+    const sb = e.target.closest('[data-serie]');
+    if (sb) return choisirSerie(serie?.id === sb.dataset.serie ? null : series.find((x) => x.id === sb.dataset.serie) ?? null);
+    // une série choisie : ses réglages font foi
+    if (serie && e.target.closest('#np-modes, #np-suite')) return;
     const t = e.target.closest('[data-format]');
     if (t) { format = t.dataset.format; $$('.format', f).forEach((x) => x.classList.toggle('actif', x === t)); }
     const g = e.target.closest('[data-genre]');
@@ -341,35 +507,50 @@ function feuilleNouveauProjet() {
     const m = e.target.closest('[data-mode]');
     if (m) {
       // le nom proposé suit le mode, tant qu'on ne l'a pas écrit soi-même
-      if (Object.values(TITRES_MODE).includes(champ.value.trim())) champ.value = TITRES_MODE[m.dataset.mode];
+      if (suitLeNom()) champ.value = TITRES_MODE[m.dataset.mode];
       mode = m.dataset.mode;
       $$('.mode-carte', f).forEach((x) => x.classList.toggle('actif', x === m));
       // le genre de vidéo ne sert qu'avec de la vidéo à monter
       $('#np-genre', f).classList.toggle('cache', mode === 'motion' || mode === 'son');
     }
-    const a = e.target.closest('[data-f]')?.dataset.f;
+    const bouton = e.target.closest('[data-f]');
+    const a = bouton?.dataset.f;
     if (a === 'annuler') fermerFeuille();
     if (a === 'creer') {
+      bouton.disabled = true;
+      let pourQui = espace;
+      try { pourQui = choix?.valeur?.() || espace; } catch { /* le dernier choix connu */ }
       try {
-        await api('POST', '/api/projets', {titre: champ.value.trim() || TITRES_MODE[mode]});
-        const g2 = mode === 'motion' ? 'explication' : mode === 'son' ? 'libre' : genre;
-        const look = TYPES_VIDEO[g2]?.look ?? 'simple';
-        // « Auto » suit la première vidéo : sans vidéo (motion design), on part en vertical
-        const sortie = format !== 'auto' ? {preset: format, fps: 30, auto: false} : mode === 'motion' ? {preset: 'vertical', fps: 30, auto: false} : {auto: true, fps: 30};
-        await api('PUT', '/api/projet', {mode, sortie, brief: {type: g2},
-          // le style du genre, mais sans sous-titres : ils ne se mettent que si on les demande (bouton Sous-titres)
-          style: {...LOOKS[look].style, look, sous_titres: {...LOOKS[look].style.sous_titres, style: 'aucun'}}});
+        const r = await api('POST', '/api/projets', {titre: champ.value.trim() || serie?.nom || TITRES_MODE[mode], espace: pourQui, serie: serie ? {id: serie.id} : null});
+        // un épisode d'une série : le serveur a déjà posé ses réglages (mode, format, brief, style) ; on n'y touche pas
+        if (!r.serie) {
+          const g2 = mode === 'motion' ? 'explication' : mode === 'son' ? 'libre' : genre;
+          const look = TYPES_VIDEO[g2]?.look ?? 'simple';
+          // « Auto » suit la première vidéo : sans vidéo (motion design), on part en vertical
+          const sortie = format !== 'auto' ? {preset: format, fps: 30, auto: false} : mode === 'motion' ? {preset: 'vertical', fps: 30, auto: false} : {auto: true, fps: 30};
+          await api('PUT', '/api/projet', {mode, sortie, brief: {type: g2},
+            // le style du genre, mais sans sous-titres : ils ne se mettent que si on les demande (bouton Sous-titres)
+            style: {...LOOKS[look].style, look, sous_titres: {...LOOKS[look].style.sous_titres, style: 'aucun'}}});
+        }
+        prefs.ecrire('espace.dernier', r.espace ?? pourQui);
+        // le dernier espace choisi et le nombre d'épisodes ont changé
+        rechargerEspaces();
         fermerFeuille();
         await demarrerEditeur();
-        if (mode === 'motion') montrerClaude(true); else feuilleImporter();
-      } catch (err) { note(err.message, true); }
+        if (modeProjet() === 'motion') montrerClaude(true); else feuilleImporter();
+        if (r.serie) note(`Épisode de « ${r.serie.nom} » : ton IA garde l’habillage et le rythme de la série. Ajoute ta matière.`);
+      } catch (err) { note(err.message, true); bouton.disabled = false; }
     }
   });
   champ.addEventListener('keydown', (e) => { if (e.key === 'Enter') f.querySelector('[data-f="creer"]').click(); });
 }
 async function quitter() {
   if (NATIF) return natif('quitter');
-  if (SRV.file?.en_cours && !confirm('Un traitement est en cours. Quitter quand même ?')) return;
+  // le serveur sait tout ce qui travaille (l'IA qui monte, un rendu, les tâches en attente, une analyse, une prise),
+  // même ce qui continue depuis un autre projet ou la bibliothèque : on lui demande, comme la fenêtre du Mac
+  let occupe = !!(SRV.file?.en_cours || SRV.file?.attente?.length || ui.claude?.en_cours);
+  try { occupe = !!(await fetch('/api/ping').then((r) => r.json())).occupe; } catch { /* serveur arrêté : on garde ce qu'on sait */ }
+  if (occupe && !confirm('Dérush travaille encore (ton IA qui monte, un rendu…). Quitter maintenant arrête ce travail. Quitter quand même ?')) return;
   try { await sauver(true); } catch { /* rien */ }
   await api('POST', '/api/quitter').catch(() => {});
   document.body.innerHTML = '<div style="height:100%;display:grid;place-items:center;color:#a1a1a8;font:15px -apple-system,system-ui">Dérush est fermé. Tu peux fermer cette fenêtre.</div>';
@@ -402,7 +583,12 @@ async function demarrerEditeur() {
   ui.annuler = [];
   ui.refaire = [];
   ui.src = {id: null, entree: null, sortie: null, vue0: 0, vue1: 1};
-  Object.assign(ui, {blocIA: null, reglagesIA: [], claude: null, vue: 'montage', versionVue: null, videoVue: 0, depart: null, brouillon: '', clipsVus: null, clEchanges: null, directAuto: null, studio: null, studioForm: {}, studioType: prefs.lire('studio.type', 'musique'), voix: null, ecoute: null});
+  // la sélection multiple et le presse-papiers parlent des plans du projet précédent (ses P1, M1… ne sont pas ceux-ci)
+  Object.assign(ui, {multi: new Set(), pressePapiers: null, blocIA: null, reglagesIA: [], claude: null, vue: 'montage', versionVue: null, videoVue: 0, depart: null, brouillon: '', clipsVus: null, clEchanges: null, directAuto: null, studio: null, studioForm: {}, studioType: prefs.lire('studio.type', 'musique'), voix: null, ecoute: null, notes: null, espace: null, espaces: null, driveCarte: null, driveDeja: new Set(), apresDrive: false, tetes: new Map()});
+  // les onglets des vidéos du projet (public/sequences.js) : un menu ouvert, un suivi de « Créer toutes les vidéos »
+  SQ.oublier();
+  // la voix off proposée repart de rien pour ce projet (son état est relu après la conversation, plus bas)
+  VO.oublier(P);
   ECOUTE.pause();
   DIRECT.file = [];
   DIRECT.rendu = null;
@@ -413,10 +599,11 @@ async function demarrerEditeur() {
   $('#direct-attente').innerHTML = `${ill('bobine')}<b>L’IA prépare</b>Son rendu apparaîtra ici, image par image, dès qu’elle le lancera.`;
   // on change de projet : le lecteur oublie les vidéos, les images et les détourages du précédent
   ui.cleProjet = [...String(e.racine ?? '')].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7).toString(36);
-  for (const v of [...PV, vDessus, vRush, aSon]) { v.pause(); v.removeAttribute('src'); delete v.dataset.media; v.load(); }
-  for (const s of ['#i-fixe', '#i-fixe-m']) { $(s).removeAttribute('src'); delete $(s).dataset.src; }
+  for (const v of [...lecteursMontage(), vRush]) { v.pause(); v.removeAttribute('src'); delete v.dataset.media; v.load(); }
+  sonsDessus.clear();
+  for (const s of ['#i-fixe', '#i-fixe-m', '#i-dessus']) { $(s).removeAttribute('src'); delete $(s).dataset.src; }
   MASQUES.clear();
-  for (const k of ['ondes', 'mots', 'analyse', 'cadrage', 'sprites']) C[k].clear();
+  for (const k of ['ondes', 'mots', 'analyse', 'cadrage', 'sprites', 'attente']) C[k].clear();
   $('#ecran-biblio').classList.add('cache');
   const ed = $('#ecran-montage');
   ed.classList.remove('cache', 'arrive', 'claude-travaille', 'avec-claude');
@@ -434,6 +621,10 @@ async function demarrerEditeur() {
   $('#vue-switch').classList.add('cache');
   $('#titre-projet').value = P.titre;
   document.title = `${P.titre} — Dérush`;
+  // pour qui est ce projet (Moi, un client, Personne) : la pastille de l'en-tête, puis la ligne « Pour : » de la colonne de l'IA
+  $('#b-espace').innerHTML = '';
+  $('#b-espace').classList.remove('change');
+  rendreEspace();
   ui.pps = ppsDepuisZoom(Number($('#zoom').value));
   ui.mode = 'montage';
   ui.modeFixe = false;
@@ -453,7 +644,9 @@ async function demarrerEditeur() {
   definirMode('montage');
   verifierDetourages();
   chargerRetours();
-  chargerClaude();
+  // la voix off : l'avis (le micro qui s'allume) se lit après la conversation, qui donne la demande en cours
+  chargerClaude().finally(() => VO.charger());
+  chargerNotes();
   etatSauvegarde('');
   appliquerFormatAuto();
 }
@@ -497,22 +690,92 @@ function etatSauvegarde(t, erreur = false) {
   s.textContent = t;
   s.classList.toggle('erreur', erreur);
 }
+/**
+ * Enregistre le projet ouvert (tout de suite, ou un peu après la dernière retouche). `sauver(true)` rend vrai si la vidéo
+ * ouverte est bien enregistrée : un changement de vidéo (public/sequences.js) n'a lieu qu'à cette condition.
+ */
 function sauver(immediat = false) {
-  if (!P) return Promise.resolve();
+  if (!P) return Promise.resolve(false);
   clearTimeout(minuterie);
   const go = async () => {
+    const pour = P; // la vidéo ouverte au départ de l'enregistrement
     try {
-      await api('PUT', '/api/projet', {titre: P.titre, langue: P.langue, brief: P.brief, sortie: P.sortie, export: P.export, montage: P.montage, superpositions: P.superpositions, indications: P.indications, compteurs: P.compteurs, style: P.style});
+      // `sequence` : la vidéo du projet que montre la timeline. Un enregistrement parti juste avant un changement de vidéo
+      // n'écrase pas l'autre : le serveur ne pose pas son montage (sequence_ignoree)
+      const r = await api('PUT', '/api/projet', {titre: P.titre, langue: P.langue, brief: P.brief, sortie: P.sortie, export: P.export, montage: P.montage, superpositions: P.superpositions, indications: P.indications, compteurs: P.compteurs, style: P.style, sequence: P.sequence});
+      if (r.sequence_ignoree && P === pour && !SQ.occupe()) {
+        // la timeline montrait une autre vidéo que celle du serveur (ne devrait pas arriver) : on relit le projet
+        await relireProjet();
+        return false;
+      }
       etatSauvegarde('Enregistré');
       if (ui.claude?.atelier && !ui.claude.en_cours) chargerClaude();
+      // une voix off posée (ou retirée) : le micro et la carte de la voix off le savent
+      VO.surSauvegarde(P);
+      return true;
     } catch (e) {
       etatSauvegarde(`Non enregistré : ${e.message}`, true);
+      return false;
     }
   };
   if (immediat) return go();
   etatSauvegarde('Enregistrement…');
   minuterie = setTimeout(go, 450);
   return Promise.resolve();
+}
+/**
+ * Une autre vidéo du projet arrive dans la timeline (un onglet, « + », une vidéo livrée par l'IA : public/sequences.js).
+ * Le projet relu remplace l'ancien ; la lecture s'arrête ; la sélection, les mots choisis et l'historique (⌘Z) repartent
+ * de zéro : ils parlaient de l'autre vidéo, et une annulation la mélangerait à celle-ci. Le format suit cette vidéo ; la
+ * tête de lecture reprend où on l'avait laissée dans cette vidéo (le temps de la session).
+ */
+function poserVideo(projet) {
+  if (!projet) return;
+  arreterLecture();
+  if (P?.sequence) ui.tetes.set(P.sequence, prog.t);
+  P = projet;
+  P.superpositions ??= [];
+  P.references ??= [];
+  P.style ??= {};
+  ui.sel = null;
+  ui.multi.clear();
+  ui.annuler = [];
+  ui.refaire = [];
+  derniereModif = {cle: null, t: 0};
+  ui.clipsVus = null; // ses plans arrivent ensemble, sans l'animation d'un plan neuf
+  ui.blocIA = null;
+  if (ui.motsChoisis) effacerMotsChoisis();
+  if (ui.vue !== 'montage') montrerVue('montage');
+  if (ui.mode !== 'montage') definirMode('montage');
+  seq = sequence(P);
+  prog.t = borner(ui.tetes.get(P.sequence) ?? 0, 0, seq.duree);
+  apresFormat(); // le montage, son format, la scène, la timeline, l'inspecteur et l'aperçu
+  rendreRushes();
+  dessinerBande();
+  afficherVide();
+  if (ui.panneau === 'texte' && ui.texteVue === 'montage') rendreTexte();
+  verifierDetourages();
+  toutVoir();
+  suivreTete();
+  const tl = $('#tl-interieur');
+  tl.classList.remove('seq-bascule');
+  void tl.offsetWidth;
+  tl.classList.add('seq-bascule');
+  SQ.rendre();
+  VO.surSauvegarde(P);
+  etatSauvegarde('');
+  // l'écran de l'IA : la vidéo ouverte n'est peut-être plus celle de son dossier de travail
+  relireClaudeEnSuite();
+}
+/** Le projet relu sur le serveur (la timeline et le serveur ne parlaient plus de la même vidéo). */
+async function relireProjet() {
+  try {
+    const e = await api('GET', '/api/etat');
+    if (e.mode !== 'projet' || !e.projet) return;
+    poserVideo(e.projet);
+    const v = (P.sequences ?? []).find((s) => s.id === P.sequence);
+    note(`Dérush a relu ton projet : la timeline montre « ${v?.nom ?? 'la vidéo ouverte'} ». Ta dernière retouche n’a peut-être pas été gardée.`, true);
+  } catch (e) { note(e.message, true); }
 }
 const instantane = () => JSON.stringify({montage: P.montage, superpositions: P.superpositions, indications: P.indications, compteurs: P.compteurs, style: P.style ?? {}});
 let derniereModif = {cle: null, t: 0};
@@ -560,16 +823,22 @@ function annuler(sens = 1) {
   apresModif();
 }
 function verifierSelection() {
+  // la sélection multiple ne garde que les plans qui existent encore (après ⌘Z, une suppression, l'IA qui remonte)
+  for (const id of ui.multi) if (!item(id)) ui.multi.delete(id);
+  if (ui.multi.size && !(ui.sel?.type === 'item' && ui.multi.has(ui.sel.id))) ui.sel = {type: 'item', id: [...ui.multi].at(-1)};
+  if (ui.multi.size === 1) ui.multi.clear();
   const s = ui.sel;
   if (!s) return;
   if ((s.type === 'item' && !item(s.id)) || (s.type === 'indic' && !indication(s.id)) || (s.type === 'dessus' && !dessus(s.id))) ui.sel = null;
 }
 function selectionner(sel) {
   if (ui.blocIA) { ui.blocIA = null; rendreBlocsIA(); }
+  // un plan choisi remplace les mots choisis dans le texte (⌫ agit sur ce qu'on vient de choisir)
+  if (sel && ui.motsChoisis) effacerMotsChoisis();
   ui.sel = sel;
   ui.multi.clear();
   $$('.clip.sel, .indic.sel, .dessus.sel').forEach((e) => e.classList.remove('sel'));
-  if (sel) $(`.${sel.type === 'item' ? 'clip' : sel.type === 'indic' ? 'indic' : 'dessus'}[data-id="${sel.id}"]`)?.classList.add('sel');
+  if (sel) $(`.${sel.type === 'item' ? 'clip' : sel.type === 'indic' ? 'indic' : 'dessus'}[data-id="${CSS.escape(String(sel.id))}"]`)?.classList.add('sel');
   rendreInspecteur();
 }
 
@@ -578,6 +847,49 @@ function rendreBarre() {
   const f = FORMATS[P.sortie.preset];
   $('#b-format').textContent = `${f?.ratio ?? ''} · ${F()} i/s · ${tc(seq.duree, F())}`;
   rendreFormatTl();
+  // les onglets des vidéos du projet : la durée et le format de la vidéo ouverte
+  SQ.rendre();
+}
+/**
+ * La pastille « pour qui » de l'en-tête : la couleur et le nom de l'espace du projet (« Moi » par défaut). Elle pose
+ * aussi `ui.espace`, que la colonne de l'IA montre en « Pour : … » près de la zone d'écriture.
+ */
+async function rendreEspace() {
+  if (!P) return;
+  const esp = await listeEspaces();
+  if (!P) return;
+  const e = espaceDe(esp?.espaces, P.espace);
+  ui.espace = {id: e.id, nom: e.nom, type: e.type, couleur: couleurEspace(e), apprend: e.apprend ?? (e.type !== 'neutre' && e.apprendre !== false)};
+  ui.espaces = esp?.espaces ?? null;
+  const b = $('#b-espace');
+  b.style.setProperty('--c', ui.espace.couleur);
+  b.innerHTML = `<i></i><span>${esc(e.nom)}</span>`;
+  b.classList.toggle('neutre', e.type === 'neutre');
+  b.title = e.type === 'client' ? `Pour ${e.nom} : l’IA suit sa marque et son carnet, jamais tes habitudes. Un clic pour changer.`
+    : e.type === 'neutre' ? 'Pour personne : un montage neutre, rien de toi, rien n’est appris. Un clic pour changer.'
+      : 'Pour toi : ton style, ton carnet et tes chiffres. Un clic pour changer.';
+  rendreClaude();
+}
+/** Change pour qui est le projet ouvert (pastille de l'en-tête, ou ligne « Pour : » de la colonne de l'IA). */
+async function changerEspaceProjet() {
+  if (!P) return;
+  const actuel = ui.espace?.id ?? P.espace ?? 'moi';
+  let id = null;
+  try { id = await ESP.choisirEspace({actuel, titre: 'Pour qui est ce projet ?'}); } catch (err) { return note(err.message, true); }
+  if (!id || id === actuel || !P) return;
+  try {
+    // à part, comme le mode : sauver() n'envoie qu'une liste fixe de champs
+    await api('PUT', '/api/projet', {espace: id});
+    P.espace = id;
+    const esp = await rechargerEspaces();
+    await rendreEspace();
+    const b = $('#b-espace');
+    b.classList.remove('change');
+    void b.offsetWidth;
+    b.classList.add('change');
+    note(phraseEspace(espaceDe(esp?.espaces, id)));
+    chargerNotes();
+  } catch (err) { note(err.message, true); }
 }
 $('#titre-projet').addEventListener('input', (e) => { P.titre = e.target.value; document.title = `${P.titre} — Dérush`; sauver(); });
 $('#titre-projet').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.target.blur(); });
@@ -595,14 +907,27 @@ function majTaches() {
 // ——— Médias (panneau de gauche, comme CapCut) ———
 const H_VIGNETTE = 86;
 const dureeCourte = (m) => tc(m.duree, fpsSrc(m)).slice(m.duree >= 3600 ? 0 : 3, 8);
+// les étapes de la préparation d'un média, dites simplement (lib/medias.mjs, ETAPES)
+const NOMS_ETAPES = {proxy: 'aperçu', ondes: 'courbe du son', vignettes: 'vignettes', analyse: 'analyse', cadrage: 'cadrage', texte: 'texte', mesures: 'mesures', incrustes: 'repères', montage: 'version de montage'};
+const etapesRatees = (m) => Object.entries(m.etapes ?? {}).filter(([, v]) => v === 'erreur').map(([k]) => NOMS_ETAPES[k] ?? k);
+/**
+ * Un média qui ne se lit pas (son aperçu n'a pas pu être fait, ou il n'a pas de durée) : le seul qu'on refuse de poser.
+ * Une étape facultative ratée (texte, mesures, analyse…) n'empêche ni de le regarder ni de le monter.
+ */
+const illisible = (m) => m.etat === 'erreur' && (m.etapes?.proxy === 'erreur' || (m.type !== 'image' && !(m.duree > 0)));
+/** Ce que dit la vignette d'un média dont la préparation a raté : en mots simples (le détail technique reste dans sa fiche). */
+const motErreurMedia = (m) => (illisible(m)
+  ? `<span title="Ce fichier ne se lit pas. Menu « … » pour réessayer.">${ic('attention')}illisible</span>`
+  : `<span title="${esc(`Préparation incomplète (${etapesRatees(m).join(', ') || 'une étape'}). Tu peux quand même le regarder et le monter ; menu « … » pour réessayer.`)}">${ic('attention')}incomplet</span>`);
 function rendreRushes() {
   const L = $('#grille-medias');
   if (ui.glisseMedia) return; // pas de réaffichage pendant qu'on glisse une vignette
   const enCours = SRV.file?.en_cours;
   const usage = (id) => [...P.montage, ...P.superpositions].filter((it) => it.media === id).length;
+  const reponses = reponsesVoixOff();
   // on ne refait la grille que si quelque chose a changé (sinon le survol clignoterait)
   const cle = JSON.stringify([ui.mode, ui.src.id, enCours?.meta?.media, Math.round((enCours?.progression ?? 0) * 20),
-    P.medias.map((m) => [m.id, m.etat, m.transcription?.mots, m.voix?.cree_le, m.vignettes && cleVignettes(m.vignettes), usage(m.id), m.mesures, m.couleur?.profil, m.clair?.cree_le, m.ia?.cree_le]), ui.analyseIA?.etat]);
+    P.medias.map((m) => [m.id, m.etat, m.transcription?.mots, m.voix?.cree_le, m.vignettes && cleVignettes(m.vignettes), usage(m.id), m.mesures, m.couleur?.profil, m.clair?.cree_le, m.ia?.cree_le, reponses.get(m.id)?.n]), ui.analyseIA?.etat]);
   if (L.dataset.cle === cle) return;
   L.dataset.cle = cle;
   if (!P.medias.length) {
@@ -613,17 +938,17 @@ function rendreRushes() {
     const tache = enCours?.meta?.media === m.id ? enCours : null;
     const etat = [];
     if (tache) etat.push(`<span>${anneau(tache.progression)}${tache.meta.type === 'transcription' ? 'texte' : tache.meta.type === 'voix' ? 'voix' : 'préparation'}</span>`);
-    else if (m.etat === 'erreur') etat.push(`<span title="${esc(m.erreur)}">${ic('attention')}erreur</span>`);
+    else if (m.etat === 'erreur') etat.push(motErreurMedia(m));
     // un rush qui a déjà son image se regarde et se monte : sa préparation continue derrière, sans le bloquer
     else if (m.etat !== 'pret') etat.push(m.vignettes || m.type !== 'video' ? `<span class="en-prep" title="Tu peux déjà le regarder et le monter : sa préparation continue.">${anneau(0.28)}</span>` : '<span>en attente</span>');
-    else if (m.transcription) etat.push(`<span title="${m.transcription.mots} mots">${ic('texte')}texte</span>`);
+    else if (m.transcription) etat.push(`<span title="${Number(m.transcription.mots) || 0} mots">${ic('texte')}texte</span>`);
     const n = usage(m.id);
     const video = m.type !== 'audio'; // vidéo ou photo : on montre l'image
-    const pastilles = pastillesMedia(m);
+    const pastilles = pastillesMedia(m, reponses);
     const image = video && m.vignettes ? `<div style="${styleVignette(m, m.duree / 2, H_VIGNETTE)}"></div>` : ic(video ? 'film' : 'onde');
     const prepare = m.etat !== 'pret' && m.etat !== 'erreur' && m.type === 'video' && !m.vignettes;
-    return `<div class="carte-media${video ? '' : ' son'}${ui.mode === 'rush' && ui.src.id === m.id ? ' actif' : ''}${prepare ? ' prepare' : ''}" data-id="${m.id}" draggable="true" title="${esc(`${m.nom}\nClique pour le regarder, glisse-le dans la timeline.`)}">
-      <div class="vignette"${m.type === 'video' && m.vignettes ? ` data-skim="${m.id}"` : ''}>${image}<span class="duree-mini">${m.type === 'image' ? 'photo' : dureeCourte(m)}</span>${n ? `<span class="utilise" title="Utilisé ${n} fois dans le montage">${n}×</span>` : ''}<div class="etat">${etat.join('')}</div>
+    return `<div class="carte-media${video ? '' : ' son'}${ui.mode === 'rush' && ui.src.id === m.id ? ' actif' : ''}${prepare ? ' prepare' : ''}" data-id="${esc(m.id)}" draggable="true" title="${esc(`${m.nom}\nClique pour le regarder, glisse-le dans la timeline.`)}">
+      <div class="vignette"${m.type === 'video' && m.vignettes ? ` data-skim="${esc(m.id)}"` : ''}>${image}<span class="duree-mini">${m.type === 'image' ? 'photo' : dureeCourte(m)}</span>${n ? `<span class="utilise" title="Utilisé ${n} fois dans le montage">${n}×</span>` : ''}<div class="etat">${etat.join('')}</div>
         <button class="plus-menu" data-act="menu" title="Analyse, couleurs, voix claire, texte…">${ic('points', 'plein')}</button><button class="ajouter" data-act="ajouter" title="Ajouter au montage">${ic('plus')}</button>${pastilles}</div>
       <div class="nom">${esc(m.nom)}</div>${m.ia?.resume ? `<div class="resume-ia" title="${esc(m.ia.resume)}">${ic('etincelle')}${esc(m.ia.resume)}</div>` : ''}</div>`;
   }).join('');
@@ -807,8 +1132,8 @@ document.addEventListener('pointerdown', (e) => {
 }, true);
 /** Pose plusieurs médias d'un coup, à la suite, dans l'ordre (un seul « Annuler » les retire tous). */
 function poserMedias(ids, cible = null) {
-  const liste = ids.map(media).filter((m) => m && m.etat !== 'erreur');
-  if (!liste.length) return note('Rien à poser : ces médias n’ont pas pu être préparés.', true);
+  const liste = ids.map(media).filter((m) => m && !illisible(m));
+  if (!liste.length) return note('Rien à poser : ces fichiers ne se lisent pas. Menu « … » de leur vignette pour réessayer.', true);
   if (liste.length === 1) return poserMedia(liste[0].id, cible);
   const passage = (m) => (m.type === 'image' ? {a: 0, b: 3} : {a: 0, b: Math.max(1 / fpsSrc(m), Math.floor(m.duree * fpsSrc(m) + 1e-6) / fpsSrc(m))});
   let total = 0;
@@ -847,6 +1172,7 @@ function poserMedias(ids, cible = null) {
 function choisirPanneau(p) {
   if (p === 'effets' || p === 'style') { ui.habiller = p; p = 'habiller'; }
   ui.panneau = p;
+  if (p !== 'texte' && ui.motsChoisis) effacerMotsChoisis(); // un choix de mots qu'on ne voit plus ne se coupe plus
   $$('#onglets-gauche button').forEach((b) => b.classList.toggle('actif', b.dataset.panneau === p));
   for (const k of ['medias', 'texte', 'habiller', 'creer', 'ia']) $(`#p-${k}`).classList.toggle('cache', k !== p);
   if (p === 'creer') { rendreStudio(); chargerStudio(); chargerCredits(); }
@@ -898,9 +1224,22 @@ $('#p-ia').addEventListener('click', async (e) => {
   if (n) ajouterIndication(n);
 });
 
+/**
+ * Les réponses dites au micro pour la voix off (des enregistrements « voix-off-… », pas des rushes) : média → {n, texte}
+ * de la question. Leur vignette le dit (« Réponse 2 »), sinon rien ne les distingue d'une prise de voix off.
+ */
+function reponsesVoixOff() {
+  let questions = [];
+  try { questions = VO.etat()?.questions ?? []; } catch { /* la voix off n'est pas encore là */ }
+  const r = new Map();
+  questions.forEach((q, k) => { if (q.reponse?.media?.id && !q.reponse.media.retire) r.set(q.reponse.media.id, {n: k + 1, texte: q.texte}); });
+  return r;
+}
 /** Les petites pastilles d'une vignette : ce que l'analyse a trouvé (Log, son à nettoyer…) et ce qui est déjà fait. */
-function pastillesMedia(m) {
+function pastillesMedia(m, reponses = reponsesVoixOff()) {
   const p = [];
+  const rep = reponses.get(m.id);
+  if (rep) p.push(`<span class="pa vo" title="${esc(`Ta réponse à la question ${rep.n} de la voix off : « ${rep.texte} »`)}">${ic('dialogue')}Réponse ${rep.n}</span>`);
   if (m.couleur?.profil && m.couleur.profil !== 'normal') p.push(`<span class="pa log" title="Couleurs de la caméra converties">${ic('palette')}${esc(m.couleur.camera === 'dlogm' ? 'D-Log M' : m.couleur.profil === 'lut' ? 'LUT' : m.couleur.profil === 'auto' ? 'Log' : 'Log')}</span>`);
   else if (m.mesures?.defauts?.some((d) => d.id === 'log')) p.push('<span class="pa alerte" title="Image grise et plate : sans doute filmé en Log. Ouvre le menu « … » pour la convertir.">Log ?</span>');
   if (m.clair) p.push(`<span class="pa vert" title="Voix claire faite">${ic('filtre')}clair</span>`);
@@ -908,7 +1247,7 @@ function pastillesMedia(m) {
   if (m.ia?.note) p.push(`<span class="pa ia" title="${esc(m.ia.resume ?? '')}">${'★'.repeat(m.ia.note)}</span>`);
   return p.length ? `<div class="pastilles">${p.join('')}</div>` : '';
 }
-const FORCES_VOIX = {doux: {nom: 'Doux'}, normal: {nom: 'Normal'}, fort: {nom: 'Fort'}};
+const FORCES_VOIX = {auto: {nom: 'Auto'}, leger: {nom: 'Léger'}, doux: {nom: 'Doux'}, normal: {nom: 'Normal'}, fort: {nom: 'Fort'}};
 const jauge = (v, gauche, droite) => `<div class="jauge-mesure"><i style="left:${Math.round(Math.min(1, Math.max(0, v ?? 0)) * 100)}%"></i></div><div class="jauge-legende"><span>${gauche}</span><span>${droite}</span></div>`;
 /** La fiche d'un média : ce que Dérush a mesuré, ce que l'IA y voit, ses couleurs de caméra, sa voix claire, son texte. */
 async function feuilleRush(m) {
@@ -944,13 +1283,14 @@ async function feuilleRush(m) {
       <div class="rangee"><span class="espace"></span><button class="btn principal" data-r="appliquer-couleur">${ic('coche')}Appliquer à ce rush</button></div></div>` : '';
   const sectionVoix = m.audio ? `<div class="fiche-bloc"><h4>${ic('voix')}Le son</h4>
       <div class="moteur"><div class="rond" style="background:rgba(48,209,88,.14);color:var(--vert)">${ic('filtre')}</div><div class="desc"><b>Voix claire</b><small>${m.clair ? `Faite (${esc(FORCES_VOIX[m.clair.force]?.nom ?? '')}${m.clair.echo ? ', écho réduit' : ''}) : choisis « Voix claire » dans le son d’un plan.` : 'Retire le souffle et l’écho, rend une voix étouffée plus claire, à un bon volume. Sur ton ordinateur.'}</small></div><button class="btn${m.clair ? '' : ' vert'}" data-r="voix-claire">${m.clair ? 'Refaire' : 'Nettoyer'}</button></div>
-      <div class="moteur"><div class="rond" style="background:rgba(10,132,255,.15);color:var(--bleu)">${ic('texte')}</div><div class="desc"><b>Texte mot à mot</b><small>${m.transcription ? `${m.transcription.mots} mots (${esc(m.transcription.moteur)})` : 'Pour couper au mot près et donner les sous-titres à l’IA.'}</small></div><button class="btn${m.transcription ? '' : ' bleu'}" data-r="texte">${m.transcription ? 'Refaire' : 'Transcrire'}</button></div>
+      <div class="moteur"><div class="rond" style="background:rgba(10,132,255,.15);color:var(--bleu)">${ic('texte')}</div><div class="desc"><b>Texte mot à mot</b><small>${m.transcription ? `${Number(m.transcription.mots) || 0} mots (${esc(m.transcription.moteur)})` : 'Pour couper au mot près et donner les sous-titres à l’IA.'}</small></div><button class="btn${m.transcription ? '' : ' bleu'}" data-r="texte">${m.transcription ? 'Refaire' : 'Transcrire'}</button></div>
       <div class="moteur"><div class="rond" style="background:rgba(255,255,255,.08)">${ic('voix')}</div><div class="desc"><b>Isoler la voix</b><small>${m.voix ? 'Fait : la voix et le fond sont séparés.' : mo.voix?.ok ? 'Sépare la voix de la musique et du bruit (Demucs, sur ton ordinateur).' : esc(mo.voix?.pourquoi ?? '')}</small></div><button class="btn" data-r="voix"${mo.voix?.ok ? '' : ' disabled'}>${m.voix ? 'Refaire' : 'Isoler'}</button></div></div>` : '';
   const f = feuille(`<h3>${esc(m.nom)}</h3><p class="sous-titre">${esc(format)} · ${tc(m.duree, fpsSrc(m)).slice(m.duree >= 3600 ? 0 : 3, 8)}${fiche?.version ? ` · ${esc(fiche.version.raison)}` : ''}</p>
     <div class="fiche">${sectionIA}${sectionMesures}${sectionCouleur}${sectionVoix}</div>
-    ${m.etat === 'erreur' ? `<div class="moteur"><div class="rond" style="background:rgba(255,69,58,.15);color:var(--accent)">${ic('attention')}</div><div class="desc"><b>Préparation incomplète</b><small>${esc(m.erreur)}</small></div><button class="btn" data-r="reessayer">Réessayer</button></div>` : ''}
+    ${m.etat === 'erreur' ? `<div class="moteur"><div class="rond" style="background:rgba(255,69,58,.15);color:var(--accent)">${ic('attention')}</div><div class="desc"><b>${illisible(m) ? 'Ce fichier ne se lit pas' : 'Préparation incomplète'}</b><small title="${esc(m.erreur ?? '')}">${esc(illisible(m) ? 'Dérush n’a pas pu en faire l’aperçu : il ne peut pas aller dans le montage.' : `À refaire : ${etapesRatees(m).join(', ') || 'une étape'}. Tu peux quand même le regarder et le monter.`)}</small></div><button class="btn" data-r="reessayer">Réessayer</button></div>` : ''}
     <div class="pied"><button class="btn" data-r="retirer"${utilise ? ' disabled title="Utilisé dans le montage"' : ''}>${ic('poubelle')}Retirer du projet</button><span class="espace"></span><button class="btn principal" data-r="fermer">OK</button></div>`, true);
   let lutChoisi = m.couleur?.lut_fichier ?? null;
+  let minuteurProfil = 0;
   const majProfil = () => {
     const sel = $('#profil-couleur', f);
     if (!sel) return;
@@ -958,7 +1298,11 @@ async function feuilleRush(m) {
     $('#conseil-profil', f).textContent = sel.value === 'lut' ? (lutChoisi ? `LUT : ${lutChoisi.split(/[\\/]/).pop()}` : 'Choisis le fichier .cube de ta caméra.') : p?.conseil ?? (p?.formule && sel.value !== 'normal' ? 'Conversion calculée d’après la formule du fabricant, vers des couleurs normales (Rec.709).' : '');
     const img = $('#img-profil', f);
     const profil = sel.value === 'dlogm' && lutChoisi ? 'lut' : sel.value;
-    img.src = `${urlMedia(m.id, 'couleur-apercu')}&profil=${encodeURIComponent(profil)}${profil === 'lut' && lutChoisi ? `&lut=${encodeURIComponent(lutChoisi)}` : ''}&v=${Date.now()}`;
+    // une adresse par réglage : un profil déjà vu revient tout de suite (la fenêtre a gardé l'image) ; et quand on
+    // descend la liste au clavier, seul le dernier choix est demandé (un quart de seconde après)
+    const src = `${urlMedia(m.id, 'couleur-apercu')}&profil=${encodeURIComponent(profil)}${profil === 'lut' && lutChoisi ? `&lut=${encodeURIComponent(lutChoisi)}` : ''}`;
+    clearTimeout(minuteurProfil);
+    minuteurProfil = setTimeout(() => { if (img.isConnected && img.getAttribute('src') !== src) img.src = src; }, img.getAttribute('src') ? 250 : 0);
   };
   majProfil();
   $('#profil-couleur', f)?.addEventListener('change', majProfil);
@@ -1015,11 +1359,11 @@ async function feuilleVoixClaire(ids, plan = null) {
   let fiche = null;
   try { fiche = await api('GET', `/api/medias/${liste[0].id}/fiche`); } catch { /* sans fiche, l'écho reste proposé */ }
   const echoOk = fiche?.echo_possible !== false;
-  ui.forceVoix ??= 'normal';
+  ui.forceVoix ??= 'auto';
   const f = feuille(`<h3>Voix claire</h3><p class="sous-titre">${liste.length > 1 ? `${liste.length} médias` : esc(liste[0].nom)} · sur ton ordinateur, sans IA. L’original ne change pas : tu choisis ensuite « Voix claire » dans le son d’un plan.</p>
-    <div class="forces">${[['doux', 'Doux', 'Retire le souffle léger, garde l’ambiance.'], ['normal', 'Normal', 'Voix filmée : souffle retiré, voix claire et posée.'], ['fort', 'Fort', 'Son très sale (rue, salle, ventilation) : silence net entre les phrases.']].map(([k, n, a]) => `<button class="force${ui.forceVoix === k ? ' actif' : ''}" data-force="${k}"><b>${n}</b><small>${a}</small></button>`).join('')}</div>
-    <label class="rangee case-echo"><input type="checkbox" id="vc-echo"${echoOk ? '' : ' disabled'}> <span><b>Réduire l’écho de la pièce</b><small>${echoOk ? 'Pour une voix qui résonne (salle, couloir). Plus long : environ la durée du son.' : 'Installe le moteur « Voix » (Réglages › Moteurs) pour l’activer.'}</small></span></label>
-    <p class="dim" style="font-size:11.5px">${ic('oreille')} Ce que fait Dérush : souffle retiré${fiche?.deepfilter ? ' (DeepFilterNet)' : ''}, graves inutiles coupés, voix désembouée et plus présente, sifflantes adoucies, compression douce, volume d’une voix (−16 LUFS). Le son reste exactement sur les lèvres.</p>
+    <div class="forces">${[['auto', 'Auto', 'Dérush mesure le son : une voix déjà nettoyée par le téléphone est seulement rendue plus nette.'], ['doux', 'Doux', 'Retire le souffle léger, garde l’ambiance.'], ['normal', 'Normal', 'Voix filmée : souffle retiré, voix claire et posée.'], ['fort', 'Fort', 'Son très sale (rue, salle, ventilation) : silence net entre les phrases.']].map(([k, n, a]) => `<button class="force${ui.forceVoix === k ? ' actif' : ''}" data-force="${k}"><b>${n}</b><small>${a}</small></button>`).join('')}</div>
+    <label class="rangee case-echo"><input type="checkbox" id="vc-echo"${echoOk ? '' : ' disabled'}> <span><b>Réduire l’écho de la pièce</b><small>${echoOk ? 'Pour une voix qui résonne (salle, couloir). Un peu plus long : quelques secondes par minute de son.' : 'Installe le moteur « Voix » (Réglages › Moteurs) pour l’activer.'}</small></span></label>
+    <p class="dim" style="font-size:11.5px">${ic('oreille')} Ce que fait Dérush : souffle retiré${fiche?.deepfilter ? ' (DeepFilterNet)' : ''} (pas sur une voix déjà propre), graves inutiles coupés, voix désembouée et plus présente, sifflantes adoucies, compression douce, volume d’une voix (−16 LUFS). Le son reste exactement sur les lèvres.</p>
     <div class="pied"><button class="btn" data-fermer>Annuler</button><span class="espace"></span><button class="btn principal" data-go>${ic('filtre')}Nettoyer ${liste.length > 1 ? `${liste.length} médias` : 'la voix'}</button></div>`);
   f.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-force]');
@@ -1087,6 +1431,44 @@ const PV = [$('#v-a'), $('#v-b')];
 const vDessus = $('#v-dessus');
 const aSon = $('#a-son');
 const aVoix = $('#a-voix'); // un son posé par-dessus le montage : une voix off, une musique
+// Les sons posés par-dessus (voix off, musique) s'entendent tous ensemble : un lecteur chacun. #a-voix est le premier ;
+// les autres sont créés quand plusieurs sons se chevauchent, et resservent ensuite.
+const LECTEURS_SONS = [aVoix];
+const sonsDessus = new Map(); // id du son posé par-dessus → son lecteur
+function lecteurSon(id) {
+  let a = sonsDessus.get(id);
+  if (a) return a;
+  const pris = new Set(sonsDessus.values());
+  a = LECTEURS_SONS.find((x) => !pris.has(x));
+  if (!a) { a = document.createElement('audio'); a.preload = 'auto'; aVoix.after(a); LECTEURS_SONS.push(a); }
+  sonsDessus.set(id, a);
+  return a;
+}
+/** Tous les lecteurs du montage : la pause, la sourdine et le changement de projet les prennent tous. */
+const lecteursMontage = () => [...PV, vDessus, aSon, ...LECTEURS_SONS];
+// Le volume d'un lecteur, en dB comme dans la vidéo finale (10^(dB/20)). Au-dessus de 0 dB, le lecteur passe par l'audio
+// de la page, où le gain peut dépasser 1 ; il y reste ensuite (un lecteur branché ne se débranche plus). Les autres ne
+// changent pas de chemin.
+const AUDIO_PAGE = {ctx: null, gains: new Map()};
+function reglerSon(el, db, muet) {
+  const g = 10 ** ((Number(db) || 0) / 20);
+  let n = AUDIO_PAGE.gains.get(el);
+  if (!n && g > 1.001 && !muet) {
+    try {
+      AUDIO_PAGE.ctx ??= new (window.AudioContext || window.webkitAudioContext)();
+      n = AUDIO_PAGE.ctx.createGain();
+      AUDIO_PAGE.ctx.createMediaElementSource(el).connect(n).connect(AUDIO_PAGE.ctx.destination);
+      AUDIO_PAGE.gains.set(el, n);
+    } catch {
+      n = null; // pas d'audio de la page : le lecteur reste à son volume le plus fort
+    }
+  }
+  el.muted = !!muet;
+  if (!n) { el.volume = borner(g, 0, 1); return; }
+  el.volume = 1;
+  n.gain.value = muet ? 0 : g;
+  if (AUDIO_PAGE.ctx.state === 'suspended') AUDIO_PAGE.ctx.resume().catch(() => {});
+}
 function definirMode(mode) {
   if (ui.vue !== 'montage' && mode === 'rush') montrerVue('montage');
   if (mode === ui.mode && ui.modeFixe) return majVue();
@@ -1119,6 +1501,7 @@ function majVue() {
   if (rush) {
     PV.forEach((v) => v.classList.add('cache'));
     vDessus.classList.add('cache');
+    $('#i-dessus').classList.add('cache');
     $('#carte').classList.add('cache');
     $('#indic-ecran').innerHTML = '';
     majZones();
@@ -1277,7 +1660,7 @@ function passageDe(m) {
 function poserMedia(id, cible = null) {
   const m = media(id);
   if (!m) return note('Choisis d’abord un média.', true);
-  if (m.etat === 'erreur') return note(`« ${m.nom} » n’a pas pu être préparé : ouvre son menu « … » pour réessayer.`, true);
+  if (illisible(m)) return note(`« ${m.nom} » ne se lit pas : ouvre son menu « … » pour réessayer.`, true);
   const p = passageDe(m);
   if (!p) return;
   let nouveau;
@@ -1713,16 +2096,37 @@ function couperMotsChoisis() {
   note(`${xsMots(c)} coupé${c.b > c.a ? 's' : ''} du montage (${dureeLisible(r.total)}). ⌘Z pour annuler.`);
 }
 const xsMots = (c) => `${c.b - c.a + 1} mot${c.b > c.a ? 's' : ''}`;
-/** Enlève les pauses (blancs) de plus de `seuil` secondes dans tout le montage, en gardant un peu d'air. */
+/**
+ * Enlève les pauses (blancs) de plus de `seuil` secondes dans la parole du montage, en gardant un peu d'air côté voix.
+ * Seuls les plans dont on entend le son sont touchés (pas un plan de coupe au son coupé sous une voix off). Avec le
+ * texte du média, on n'enlève que les pauses entre deux mots, et le silence avant le premier mot ou après le dernier
+ * (le plan est alors rogné, sans air du côté du bord) ; un plan sans aucun mot n'est pas touché. Sans texte, seulement
+ * les silences au milieu du plan : un silence qui touche son bord peut être une image sans parole (un paysage).
+ */
 async function enleverBlancs(seuil = 0.45, air = 0.12) {
-  const plans = P.montage.filter((it) => it.type === 'plan');
-  await Promise.all([...new Set(plans.map((it) => it.media))].map((id) => charger('analyse', media(id))));
+  const plans = P.montage.filter((it) => it.type === 'plan' && it.son?.actif !== false && media(it.media)?.audio);
+  const ids = [...new Set(plans.map((it) => it.media))].map(media);
+  await Promise.all([...ids.map((m) => charger('analyse', m)), ...ids.filter((m) => m.transcription).map((m) => charger('mots', m))]);
   const plages = [];
   for (const it of plans) {
+    const tous = media(it.media).transcription ? C.mots.get(it.media) : null;
+    const mots = tous?.filter((w) => !w.ev && w.d < it.sortie && w.f > it.entree);
+    if (mots && !mots.length) continue; // le texte dit qu'on ne parle pas dans ce plan
     for (const [a, b] of C.analyse.get(it.media)?.silences ?? []) {
-      const A = Math.max(a, it.entree) + air;
-      const B = Math.min(b, it.sortie) - air;
-      if (B - A >= seuil - 2 * air && B > A) plages.push({plan: it.id, a: A, b: B});
+      const debut = Math.max(a, it.entree);
+      const fin = Math.min(b, it.sortie);
+      if (fin - debut < seuil) continue;
+      const auBord = debut <= it.entree + 1e-3;
+      const aLaFin = fin >= it.sortie - 1e-3;
+      if (auBord && aLaFin) continue; // le plan entier est silencieux
+      if (!mots && (auBord || aLaFin)) continue; // sans texte : seulement au milieu du plan
+      // on parle avant ce silence, et après lui, dans ce plan ?
+      const parleAvant = !mots || mots.some((w) => w.f <= debut + 0.05);
+      const parleApres = !mots || mots.some((w) => w.d >= fin - 0.05);
+      if (auBord ? !parleApres : aLaFin ? !parleAvant : !(parleAvant && parleApres)) continue;
+      const A = auBord ? it.entree : debut + air;
+      const B = aLaFin ? it.sortie : fin - air;
+      if (B > A) plages.push({plan: it.id, a: A, b: B});
     }
   }
   if (!plages.length) return note('Aucun blanc assez long à enlever.');
@@ -1732,7 +2136,8 @@ async function enleverBlancs(seuil = 0.45, air = 0.12) {
 const HESITATIONS = new Set(['euh', 'heu', 'euhh', 'euhhh', 'heuu', 'hum', 'humm', 'hmm', 'hmmm', 'mmh', 'mmm', 'uh', 'uhm', 'um', 'umm', 'erm']);
 /** Enlève les hésitations (« euh », « hum »…) dans tout le montage. */
 async function enleverEuh() {
-  const plans = P.montage.filter((it) => it.type === 'plan');
+  // seulement là où on entend le son du plan : un « euh » sous un son coupé ne s'entend pas
+  const plans = P.montage.filter((it) => it.type === 'plan' && it.son?.actif !== false);
   await Promise.all([...new Set(plans.map((it) => it.media))].map(media).filter((m) => m?.transcription).map((m) => charger('mots', m)));
   const plages = [];
   for (const it of plans) {
@@ -2052,13 +2457,11 @@ function afficherSegment(s, decalage, jouer) {
     const cible = s.it.entree + decalage;
     if (Math.abs((v.currentTime || 0) - cible) > 0.5 / F() || v.readyState === 0) v.currentTime = cible;
     const version = versionSon(s.it);
-    v.muted = ui.sourdine || s.it.son?.actif === false || !!version;
-    v.volume = borner(10 ** ((s.it.son?.gain_db ?? 0) / 20), 0, 1);
+    reglerSon(v, s.it.son?.gain_db, ui.sourdine || s.it.son?.actif === false || !!version);
     if (version && s.it.son?.actif !== false) {
       mettreMedia(aSon, m, version);
       if (Math.abs((aSon.currentTime || 0) - cible) > 0.08) aSon.currentTime = cible;
-      aSon.volume = v.volume;
-      aSon.muted = !!ui.sourdine;
+      reglerSon(aSon, s.it.son?.gain_db, ui.sourdine);
       if (jouer) aSon.play().catch(() => {}); else aSon.pause();
     } else aSon.pause();
     if (m.type === 'video') placer(v, m, cible);
@@ -2074,34 +2477,41 @@ function afficherSegment(s, decalage, jouer) {
     carte('case', `<div><div class="genre">À créer · ${esc(GENRES_BLOC[s.it.genre])}</div><div class="grand">${esc(s.it.titre || s.it.id)}</div><div class="consigne">${esc(s.it.consigne || 'Pas encore de consigne : précise dans les infos ce que l’IA doit créer ici.')}</div></div>`);
   }
 }
-/** Plan posé par-dessus le montage au temps t (le premier s'il y en a plusieurs). */
+/** Ce qui est posé par-dessus le montage au temps t : tous les sons, et l'image (la première vidéo ou photo). */
 function majDessus(jouer) {
   const t = prog.t;
   const ici = P.superpositions.filter((s) => t >= s.debut && t < s.debut + (s.sortie - s.entree));
-  // un son posé par-dessus (une voix off, une musique) : il se joue en plus, sans rien cacher
-  const sv = ui.mode === 'montage' ? ici.find((s) => media(s.media)?.type === 'audio' && s.son?.actif !== false) : null;
-  if (!sv) aVoix.pause();
-  else {
-    mettreMedia(aVoix, media(sv.media));
+  // les sons posés par-dessus (une voix off, une musique) : ils se jouent en plus, ensemble, sans rien cacher
+  const sons = ui.mode === 'montage' ? ici.filter((s) => media(s.media)?.type === 'audio' && s.son?.actif !== false) : [];
+  for (const [id, a] of sonsDessus) if (!sons.some((s) => s.id === id)) { a.pause(); sonsDessus.delete(id); }
+  for (const sv of sons) {
+    const a = lecteurSon(sv.id);
+    mettreMedia(a, media(sv.media), versionSon(sv) ?? 'lecture'); // la voix claire choisie dans l'inspecteur, comme le rendu
     const c = sv.entree + (t - sv.debut);
-    if (!jouer || Math.abs((aVoix.currentTime || 0) - c) > 0.25) aVoix.currentTime = c;
-    aVoix.volume = borner(10 ** ((sv.son?.gain_db ?? 0) / 20), 0, 1);
-    aVoix.muted = !!ui.sourdine;
-    if (jouer && aVoix.paused) aVoix.play().catch(() => {});
-    if (!jouer) aVoix.pause();
+    if (!jouer || Math.abs((a.currentTime || 0) - c) > 0.25) a.currentTime = c;
+    reglerSon(a, sv.son?.gain_db, ui.sourdine);
+    if (jouer && a.paused) a.play().catch(() => {});
+    if (!jouer) a.pause();
   }
-  const sp = ici.find((s) => media(s.media)?.type !== 'audio');
-  if (!sp || ui.mode !== 'montage') {
-    vDessus.pause();
-    vDessus.classList.add('cache');
+  const sp = ui.mode === 'montage' ? ici.find((s) => media(s.media)?.type !== 'audio') : null;
+  const m = sp && media(sp.media);
+  const img = $('#i-dessus');
+  if (m?.type !== 'video') { vDessus.pause(); vDessus.classList.add('cache'); }
+  if (m?.type !== 'image') img.classList.add('cache');
+  // une photo posée par-dessus (un logo, une image) : la vidéo finale la montre, l'aperçu aussi
+  if (m?.type === 'image') {
+    const url = urlMedia(m.id, 'lecture');
+    if (img.dataset.src !== url) { img.src = url; img.dataset.src = url; }
+    img.classList.toggle('incrustation', sp.cadre === 'incrustation');
+    if (sp.cadre !== 'incrustation') placer(img, m, 0);
+    img.classList.remove('cache');
     return;
   }
-  const m = media(sp.media);
-  if (!m || m.type !== 'video') return vDessus.classList.add('cache');
+  if (m?.type !== 'video') return;
   mettreMedia(vDessus, m);
   const cible = sp.entree + (t - sp.debut);
   if (!jouer || Math.abs((vDessus.currentTime || 0) - cible) > 0.25) vDessus.currentTime = cible;
-  vDessus.muted = ui.sourdine || !sp.son?.actif;
+  reglerSon(vDessus, sp.son?.gain_db, ui.sourdine || !sp.son?.actif);
   vDessus.classList.toggle('incrustation', sp.cadre === 'incrustation');
   if (sp.cadre !== 'incrustation') placer(vDessus, m, cible);
   vDessus.classList.remove('cache');
@@ -2134,6 +2544,7 @@ function progAfficher() {
     PV.forEach((v) => { v.pause(); v.classList.add('cache'); });
     $('#carte').classList.add('cache');
     vDessus.classList.add('cache');
+    $('#i-dessus').classList.add('cache');
     $('#vis-titre').innerHTML = '';
     afficherVide();
     return;
@@ -2155,10 +2566,16 @@ function progPositionner(t) {
   suivreTete();
 }
 function progLire() {
-  if (!seq.segs.length) return;
+  if (!seq.segs.length) {
+    // la vidéo finale dure ce que durent les plans : ce qui est posé par-dessus seul ne fait pas de vidéo
+    if (P?.superpositions.length) note('Le montage est encore vide : pose une vidéo ou une photo dans sa piste, ce qui est par-dessus se lit avec elle. Pour réécouter un son seul, clique sa vignette dans tes médias.');
+    return;
+  }
   if (ui.vue !== 'montage') montrerVue('montage');
   if (prog.t >= seq.duree - 1e-3) prog.t = 0;
   vRush.pause();
+  // l'audio de la page (sons montés au-dessus de 0 dB) ne démarre que sur un geste : celui-ci
+  if (AUDIO_PAGE.ctx?.state === 'suspended') AUDIO_PAGE.ctx.resume().catch(() => {});
   prog.lecture = true;
   const s = segmentA(seq, prog.t) ?? seq.segs[0];
   demarrerSegment(s, prog.t - s.debut);
@@ -2169,9 +2586,8 @@ function progLire() {
 function progPause() {
   prog.lecture = false;
   cancelAnimationFrame(prog.raf);
-  PV.forEach((v) => v.pause());
-  vDessus.pause();
-  aSon.pause();
+  // tous les lecteurs, dont les sons posés par-dessus (voix off, musique) : ils s'arrêtent avec l'image
+  for (const v of lecteursMontage()) v.pause();
   majBoutonLire();
 }
 function arreterLecture() {
@@ -2308,9 +2724,9 @@ function rendreIndications() {
     if (estEffet(i)) {
       const d = CATALOGUE[i.modele];
       const court = (i.fin - i.debut) * ui.pps < 64;
-      return `<div class="indic effet cat-${d.categorie}${court ? ' court' : ''}${sel ? ' sel' : ''}" data-id="${i.id}" style="${pos};min-width:${court ? 20 : 6}px" title="${esc(resumeEffet(i))}">${court || d.categorie === 'transition' || d.categorie === 'son' ? '' : '<span class="poignee g"></span>'}${ic(ICONE_CAT[d.categorie])}<span class="nom">${esc(resumeEffet(i))}</span>${court || d.categorie === 'transition' || d.categorie === 'son' ? '' : '<span class="poignee d"></span>'}</div>`;
+      return `<div class="indic effet cat-${d.categorie}${court ? ' court' : ''}${sel ? ' sel' : ''}" data-id="${esc(i.id)}" style="${pos};min-width:${court ? 20 : 6}px" title="${esc(resumeEffet(i))}">${court || d.categorie === 'transition' || d.categorie === 'son' ? '' : '<span class="poignee g"></span>'}${ic(ICONE_CAT[d.categorie])}<span class="nom">${esc(resumeEffet(i))}</span>${court || d.categorie === 'transition' || d.categorie === 'son' ? '' : '<span class="poignee d"></span>'}</div>`;
     }
-    return `<div class="indic${sel ? ' sel' : ''}" data-id="${i.id}" style="${pos}" title="${esc(`${GENRES_INDICATION[i.genre]} — ${i.consigne}`)}"><span class="poignee g"></span>${esc(GENRES_INDICATION[i.genre])} — ${esc(i.consigne || '…')}<span class="poignee d"></span></div>`;
+    return `<div class="indic${sel ? ' sel' : ''}" data-id="${esc(i.id)}" style="${pos}" title="${esc(`${GENRES_INDICATION[i.genre]} — ${i.consigne}`)}"><span class="poignee g"></span>${esc(GENRES_INDICATION[i.genre])} — ${esc(i.consigne || '…')}<span class="poignee d"></span></div>`;
   }).join('')}`;
 }
 function rendreDessus() {
@@ -2323,7 +2739,7 @@ function rendreDessus() {
     const m = media(s.media);
     const sel = ui.sel?.type === 'dessus' && ui.sel.id === s.id;
     const son = m?.type === 'audio';
-    return `<div class="dessus${son ? ' son' : ''}${s.voix_off ? ' voix-off' : ''}${sel ? ' sel' : ''}" data-id="${s.id}" style="left:${s.debut * ui.pps}px;width:${Math.max(6, (s.sortie - s.entree) * ui.pps)}px;top:${haut + res.get(s.id) * 28}px" title="${esc(`${s.id} · ${m?.nom ?? ''}`)}">${son ? `<canvas class="onde-dessus" data-onde-dessus="${s.id}"></canvas>` : ''}<span class="poignee g"></span><b>${esc(s.id)}</b> ${esc(s.titre || (s.voix_off ? 'Voix off' : m?.nom) || '')}${!son && s.cadre === 'incrustation' ? ' · incrustation' : ''}<span class="poignee d"></span></div>`;
+    return `<div class="dessus${son ? ' son' : ''}${s.voix_off ? ' voix-off' : ''}${sel ? ' sel' : ''}" data-id="${esc(s.id)}" style="left:${s.debut * ui.pps}px;width:${Math.max(6, (s.sortie - s.entree) * ui.pps)}px;top:${haut + res.get(s.id) * 28}px" title="${esc(`${s.id} · ${m?.nom ?? ''}`)}">${son ? `<canvas class="onde-dessus" data-onde-dessus="${esc(s.id)}"></canvas>` : ''}<span class="poignee g"></span><b>${esc(s.id)}</b> ${esc(s.titre || (s.voix_off ? 'Voix off' : m?.nom) || '')}${!son && s.cadre === 'incrustation' ? ' · incrustation' : ''}<span class="poignee d"></span></div>`;
   }).join('')}`;
   for (const s of P.superpositions) {
     const m = media(s.media);
@@ -2334,7 +2750,7 @@ function rendreDessus() {
 }
 /** La forme du son d'une voix off ou d'une musique posée par-dessus (dessinée seulement sur sa partie visible). */
 function dessinerOndeDessus(s) {
-  const cv = $(`canvas[data-onde-dessus="${s.id}"]`);
+  const cv = $(`#piste-dessus canvas[data-onde-dessus="${CSS.escape(String(s.id))}"]`);
   const m = media(s.media);
   const o = m && C.ondes.get(m.id);
   if (!cv || !o) return;
@@ -2386,25 +2802,29 @@ function rendreMontage() {
       const ext = extraitPlan(it, sonSeul ? 220 : 120);
       const version = versionSon(it);
       const badges = `${it.essentiel ? `<span class="etoile" title="Essentiel : l’IA doit le garder">${ic('etoile', 'plein')}</span>` : ''}${fixe ? '<span>photo</span>' : ''}`;
-      parts.push(`<div class="clip plan${sonSeul ? ' son-seul' : ''}${fixe ? ' fixe' : ''}${it.son?.actif === false ? ' muet' : ''}${sel ? ' sel' : ''}" data-id="${it.id}" style="${pos}" title="${esc(`${it.id} · ${m.nom} ${tc(it.entree, fpsSrc(m))} → ${tc(it.sortie, fpsSrc(m))}`)}"><div class="images">${images}</div>${badges ? `<div class="badges">${badges}</div>` : ''}<div class="titre-clip"><b>${it.id}</b>${esc(it.titre || m.nom)}${version ? ` · ${NOMS_VERSION[version]}` : ''}${ext ? ` <span style="opacity:.7">« ${esc(ext)} »</span>` : ''}</div><canvas data-onde="${it.id}"></canvas><span class="poignee g"></span><span class="poignee d"></span></div>`);
+      parts.push(`<div class="clip plan${sonSeul ? ' son-seul' : ''}${fixe ? ' fixe' : ''}${it.son?.actif === false ? ' muet' : ''}${sel ? ' sel' : ''}" data-id="${esc(it.id)}" style="${pos}" title="${esc(`${it.id} · ${m.nom} ${tc(it.entree, fpsSrc(m))} → ${tc(it.sortie, fpsSrc(m))}`)}"><div class="images">${images}</div>${badges ? `<div class="badges">${badges}</div>` : ''}<div class="titre-clip"><b>${esc(it.id)}</b>${esc(it.titre || m.nom)}${version ? ` · ${NOMS_VERSION[version]}` : ''}${ext ? ` <span style="opacity:.7">« ${esc(ext)} »</span>` : ''}</div><canvas data-onde="${esc(it.id)}"></canvas><span class="poignee g"></span><span class="poignee d"></span></div>`);
       // débordement du son (J-cut avant, L-cut après)
       const {avant, apres} = debordements(it);
       if (avant || apres) parts.push(`<div class="son-deborde" style="left:${(s.debut - avant) * ui.pps}px;width:${(s.fin - s.debut + avant + apres) * ui.pps}px" title="Le son déborde : ${avant ? `${avant} s avant` : ''}${avant && apres ? ', ' : ''}${apres ? `${apres} s après` : ''}"></div>`);
-      aDessiner.push(it);
+      aDessiner.push(s);
       if (!C.mots.has(m.id)) aCharger.add(m);
     } else {
       const nRefs = (P.references ?? []).filter((r) => r.cible === it.id).length;
-      parts.push(`<div class="clip case${sel ? ' sel' : ''}" data-id="${it.id}" style="${pos}" title="Glisse ici des images, des modèles 3D ou des documents pour l’IA"><div class="titre-clip">${nRefs ? `<span class="nb-refs" title="${nRefs} fichier(s) pour l’IA">${ic('trombone')}${nRefs}</span>` : ''}<b>${it.id}</b> À créer · ${esc(GENRES_BLOC[it.genre])}${it.titre ? ` — ${esc(it.titre)}` : ''}<br><span style="opacity:.75">${esc(it.consigne || '')}</span></div><span class="poignee g"></span><span class="poignee d"></span></div>`);
+      parts.push(`<div class="clip case${sel ? ' sel' : ''}" data-id="${esc(it.id)}" style="${pos}" title="Glisse ici des images, des modèles 3D ou des documents pour l’IA"><div class="titre-clip">${nRefs ? `<span class="nb-refs" title="${nRefs} fichier(s) pour l’IA">${ic('trombone')}${nRefs}</span>` : ''}<b>${esc(it.id)}</b> À créer · ${esc(GENRES_BLOC[it.genre])}${it.titre ? ` — ${esc(it.titre)}` : ''}<br><span style="opacity:.75">${esc(it.consigne || '')}</span></div><span class="poignee g"></span><span class="poignee d"></span></div>`);
     }
   }
   piste.innerHTML = parts.join('');
   if (ui.clipsVus) for (const c of $$('.clip', piste)) if (!ui.clipsVus.has(c.dataset.id)) c.classList.add('neuf');
   ui.clipsVus = new Set(P.montage.map((it) => it.id));
-  for (const it of aDessiner) {
-    const m = media(it.media);
-    if (C.ondes.has(m.id)) dessinerOndeClip(it);
-    else charger('ondes', m).then(() => dessinerOndeClip(it));
+  // les toiles retrouvées en un seul passage : chercher chaque plan dans toute la page coûtait le carré du nombre de plans
+  const toiles = toilesOndes();
+  const ondesAttendues = new Set();
+  for (const s of aDessiner) {
+    const m = media(s.it.media);
+    if (C.ondes.has(m.id)) dessinerOndeClip(s, toiles.get(s.it.id));
+    else ondesAttendues.add(m);
   }
+  for (const m of ondesAttendues) charger('ondes', m).then(() => dessinerOndesRush(m.id));
 
   // le texte des plans arrive après coup : on réaffiche une fois chargé
   if (aCharger.size) Promise.all([...aCharger].map((m) => charger('mots', m))).then(() => { rendreMontage(); if (!prog.lecture) progAfficher(); });
@@ -2420,13 +2840,22 @@ function vignettesVisibles(it, m, gauche, L) {
   for (let j = j0; j <= j1; j++) html += `<div style="left:${j * lw}px;${styleVignette(m, it.entree + ((j + 0.5) / n) * (it.sortie - it.entree), 40)}"></div>`;
   return html;
 }
-/** L'onde d'un plan : dessinée seulement sur sa partie visible (la toile ne couvre que cette partie). */
-function dessinerOndeClip(it) {
-  const cv = $(`canvas[data-onde="${it.id}"]`);
-  const m = media(it.media);
+/** Les toiles des ondes de la piste Montage, par id de plan (une seule recherche pour toute la piste). */
+function toilesOndes() {
+  return new Map($$('#piste-montage canvas[data-onde]').map((c) => [c.dataset.onde, c]));
+}
+/** La forme du son d'un rush vient d'arriver : on dessine l'onde de ses plans. */
+function dessinerOndesRush(idMedia) {
+  if (!P) return;
+  const toiles = toilesOndes();
+  for (const s of seq.segs) if (s.it.type === 'plan' && s.it.media === idMedia) dessinerOndeClip(s, toiles.get(s.it.id));
+}
+/** L'onde d'un plan (s : son segment dans la séquence, cv : sa toile) : dessinée seulement sur sa partie visible. */
+function dessinerOndeClip(s, cv) {
+  const it = s?.it;
+  const m = it && media(it.media);
   const o = m && C.ondes.get(m.id);
-  const s = seq.segs.find((x) => x.it.id === it.id);
-  if (!cv || !o || !s) return;
+  if (!cv || !o) return;
   const gauche = s.debut * ui.pps;
   const L = Math.max(3, (s.fin - s.debut) * ui.pps);
   const a = Math.max(0, vueDessinee.x0 - gauche);
@@ -2435,8 +2864,9 @@ function dessinerOndeClip(it) {
   cv.style.left = `${a}px`;
   cv.style.width = `${b - a}px`;
   const W = Math.max(1, Math.round((b - a) * DPR()));
-  const H = Math.round((cv.clientHeight || 16) * DPR());
-  if (!H) return;
+  // 16 px, la hauteur fixée par « .clip canvas » (style.css) : relire cv.clientHeight juste après avoir écrit son style
+  // forçait une mise en page par plan visible
+  const H = Math.round(16 * DPR());
   cv.width = W;
   cv.height = H;
   const g = cv.getContext('2d');
@@ -2458,16 +2888,24 @@ function dessinerOndeClip(it) {
 /** On a fait défiler la timeline hors de la partie dessinée : on dessine la nouvelle (graduations, vignettes, ondes). */
 function dessinerPartieVisible() {
   if (!P || ui.ecran !== 'montage') return;
+  const avant = vueDessinee;
   vueDessinee = vueTl();
   rendreRegle(parseFloat($('#tl-interieur').style.width) || largeurTl());
+  // les plans retrouvés en un seul passage (une recherche dans toute la page par plan coûtait le carré de leur nombre)
+  const clips = new Map($$('#piste-montage > .clip.plan').map((c) => [c.dataset.id, c]));
   for (const s of seq.segs) {
     const it = s.it;
     if (it.type !== 'plan') continue;
+    const gauche = s.debut * ui.pps;
+    const L = Math.max(3, (s.fin - s.debut) * ui.pps);
+    // hors de la partie dessinée avant et de la nouvelle : rien n'y est dessiné, rien à effacer
+    const dehors = (v) => gauche + L <= v.x0 || gauche >= v.x1;
+    if (dehors(avant) && dehors(vueDessinee)) continue;
     const m = media(it.media);
-    const el = m && $(`#piste-montage .clip[data-id="${it.id}"]`);
+    const el = m && clips.get(it.id);
     if (!el) continue;
-    if (m.type !== 'audio') el.querySelector('.images').innerHTML = vignettesVisibles(it, m, s.debut * ui.pps, Math.max(3, (s.fin - s.debut) * ui.pps));
-    dessinerOndeClip(it);
+    if (m.type !== 'audio') el.querySelector('.images').innerHTML = vignettesVisibles(it, m, gauche, L);
+    dessinerOndeClip(s, el.querySelector('canvas[data-onde]'));
   }
   for (const sp of P.superpositions) if (media(sp.media)?.type === 'audio') dessinerOndeDessus(sp);
 }
@@ -2561,7 +2999,8 @@ $('#tl-interieur').addEventListener('pointerdown', (e) => {
   const des = e.target.closest('.dessus');
   if (ui.outil === 'lame' && clip && !poignee) {
     e.preventDefault();
-    return couper(positionLame(e).t);
+    // le plan cliqué, jamais le son par-dessus resté sélectionné après une coupe
+    return couper(positionLame(e).t, {plan: true});
   }
   if (ui.outil === 'lame' && des && !poignee) {
     e.preventDefault();
@@ -2693,7 +3132,7 @@ function rogner(e, id, cote) {
 /** Glisser un élément pour changer l'ordre du montage. */
 function glisser(e, id) {
   const x0 = e.clientX;
-  const el = $(`.clip[data-id="${id}"]`);
+  const el = $(`.clip[data-id="${CSS.escape(String(id))}"]`);
   const ins = $('#insertion');
   let actif = false;
   let cible = null;
@@ -2822,11 +3261,14 @@ function ajouterIndication(genre = 'texte') {
   note(`Note « ${GENRES_INDICATION[i.genre]} » posée à ${tc(debut, F()).slice(3, 8)} : écris la consigne à droite.`);
   setTimeout(() => $('#inspecteur [data-champ="consigne"]')?.focus(), 30);
 }
-/** Couper le plan à un instant du montage (la tête de lecture, ou là où l'on clique en mode ciseaux). */
-function couper(instant = prog.t) {
+/**
+ * Couper le plan à un instant du montage (la tête de lecture, ou là où l'on clique en mode ciseaux).
+ * plan : true pour un clic des ciseaux sur un plan, qui coupe ce plan même si un son par-dessus est sélectionné.
+ */
+function couper(instant = prog.t, {plan = false} = {}) {
   if (ui.mode !== 'montage') definirMode('montage'); // on coupe toujours dans le montage
-  // un clip posé par-dessus est sélectionné, et la tête de lecture est dedans : c'est lui qu'on coupe
-  const sd = ui.sel?.type === 'dessus' ? dessus(ui.sel.id) : null;
+  // S ou ⌘B : un clip posé par-dessus est sélectionné, et la tête de lecture est dedans : c'est lui qu'on coupe
+  const sd = !plan && ui.sel?.type === 'dessus' ? dessus(ui.sel.id) : null;
   if (sd && instant > sd.debut && instant < sd.debut + sd.sortie - sd.entree) return couperDessus(sd.id, instant);
   const s = segmentA(seq, instant);
   if (!s) return note('Place la tête de lecture sur un plan pour le couper.', true);
@@ -2884,6 +3326,8 @@ function rognerATete(cote) {
       if (t <= it.entree + 0.5 / f) return note('La tête de lecture est déjà au début du plan.');
       modifier(() => { it.entree = t; });
     } else {
+      // la tête sur la première image : tout enlever laisserait un plan vide, que l'enregistrement supprimerait sans rien dire
+      if (t <= it.entree + 0.5 / f) return note('La tête de lecture est au début du plan : rien à enlever (⌫ pour le supprimer).', true);
       if (t >= it.sortie - 0.5 / f) return note('La tête de lecture est déjà à la fin du plan.');
       modifier(() => { it.sortie = t; });
     }
@@ -2896,6 +3340,7 @@ function majSelectionClips() {
   $$('#piste-montage .clip').forEach((c) => c.classList.toggle('sel', ui.multi.has(c.dataset.id) || (ui.sel?.type === 'item' && ui.sel.id === c.dataset.id)));
 }
 function basculerMulti(id) {
+  if (ui.motsChoisis) effacerMotsChoisis();
   if (!ui.multi.size && ui.sel?.type === 'item') ui.multi.add(ui.sel.id);
   if (ui.multi.has(id)) ui.multi.delete(id); else ui.multi.add(id);
   ui.sel = ui.multi.size ? {type: 'item', id: [...ui.multi].at(-1)} : null;
@@ -2905,6 +3350,7 @@ function basculerMulti(id) {
 }
 function toutSelectionner() {
   if (!P.montage.length) return;
+  if (ui.motsChoisis) effacerMotsChoisis();
   ui.multi = new Set(P.montage.map((it) => it.id));
   ui.sel = {type: 'item', id: P.montage.at(-1).id};
   majSelectionClips();
@@ -2937,6 +3383,9 @@ function dupliquer() {
 }
 /** Insère des copies d'éléments (copier-coller, dupliquer) à la position k. */
 function inserer(elements, k) {
+  // un plan dont le rush n'est plus dans le projet ne se colle pas (il serait invisible et allongerait le montage)
+  elements = elements.filter((it) => it.type !== 'plan' || media(it.media));
+  if (!elements.length) return note('Ces plans viennent d’un rush qui n’est plus dans le projet.', true);
   let dernier = null;
   modifier(() => {
     for (const it of elements) {
@@ -3008,16 +3457,18 @@ function blocSon(it, m, parDessus = false) {
   const {avant, apres} = debordements(it);
   if (!m.audio) return '';
   return `<div class="groupe-insp"><h3>Son</h3>
-    <div class="rangee" style="margin-bottom:10px"><label class="rangee" style="gap:6px"><input type="checkbox" data-champ="son.actif"${it.son?.actif !== false && !(parDessus && !it.son?.actif) ? ' checked' : ''}> Garder le son</label><span class="espace"></span><label class="rangee" style="gap:6px">Volume <input class="tc-champ" style="width:56px" type="number" step="1" min="-60" max="24" data-champ="son.gain_db" value="${it.son?.gain_db ?? 0}"> dB</label></div>
+    <div class="rangee" style="margin-bottom:10px"><label class="rangee" style="gap:6px"><input type="checkbox" data-champ="son.actif"${it.son?.actif !== false && !(parDessus && !it.son?.actif) ? ' checked' : ''}> Garder le son</label><span class="espace"></span><label class="rangee" style="gap:6px">Volume <input class="tc-champ" style="width:56px" type="number" step="1" min="-60" max="24" data-champ="son.gain_db" value="${borner(Number(it.son?.gain_db) || 0, -60, 24)}"> dB</label></div>
     <div class="segmente quatre" style="width:100%;margin-bottom:8px">${[['original', 'Original'], ['clair', 'Voix claire'], ['voix', 'Voix seule'], ['fond', 'Sans la voix']].map(([k, t]) => `<button style="flex:1" data-version="${k}"${v === k ? ' class="actif"' : ''}${k === 'clair' ? (m.clair ? '' : ' disabled title="Pas encore faite : bouton ci-dessous"') : k !== 'original' && !m.voix ? ' disabled title="Isole d’abord la voix"' : ''}>${t}</button>`).join('')}</div>
     <div class="rangee" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">${m.clair ? `<span class="dim" style="font-size:11.5px">${ic('coche')}Voix claire faite (${esc(FORCES_VOIX[m.clair.force]?.nom ?? m.clair.force)}${m.clair.echo ? ', écho réduit' : ''})</span>` : ''}<button class="btn petit" data-act="voix-claire">${ic('filtre')}${m.clair ? 'Refaire la voix claire' : 'Voix claire'}</button>${m.voix ? '' : `<button class="btn petit" data-act="isoler">${ic('voix')}Isoler la voix</button>`}</div>
-    ${parDessus ? '' : `<div class="deux"><label class="champ" style="margin:0"><span>Le son commence avant (s)</span><input type="number" step="0.1" min="0" max="10" data-champ="son.avant_s" value="${avant}"></label><label class="champ" style="margin:0"><span>Le son continue après (s)</span><input type="number" step="0.1" min="0" max="10" data-champ="son.apres_s" value="${apres}"></label></div>`}
+    ${parDessus ? '' : `<div class="deux"><label class="champ" style="margin:0"><span>Le son commence avant (s)</span><input type="number" step="0.1" min="0" max="10" data-champ="son.avant_s" value="${avant}"></label><label class="champ" style="margin:0"><span>Le son continue après (s)</span><input type="number" step="0.1" min="0" max="10" data-champ="son.apres_s" value="${apres}"></label></div>
+    <p class="dim" style="font-size:11.5px;margin:6px 0 0">Ce son qui déborde s’entend dans la vidéo finale ; l’aperçu, lui, coupe le son au bord du plan.</p>`}
   </div>`;
 }
 /** Les couleurs d'un plan (comme le panneau « Ajuster » de CapCut) : cinq curseurs, Auto, et pour tous les plans. */
 function blocCouleur(it, m) {
   if (m.type === 'audio') return '';
-  const c = it.couleur ?? {};
+  // un projet reçu peut contenir n'importe quoi : seuls des nombres de −100 à 100 entrent dans la page
+  const c = couleurPropre(it.couleur) ?? {};
   const log = m.couleur?.profil && m.couleur.profil !== 'normal';
   const logProbable = !log && m.mesures?.defauts?.some((d) => d.id === 'log');
   return `<div class="groupe-insp etalonnage"><h3>Couleurs<span class="espace"></span><button class="btn petit" data-act="couleur-auto" title="Corrige l’exposition, le contraste et la dominante d’après les mesures du rush">${ic('baguette')}Auto</button><button class="icone-btn" data-act="couleur-zero" title="Revenir aux couleurs d’origine">${ic('annuler')}</button></h3>
@@ -3031,12 +3482,13 @@ function blocCouleur(it, m) {
 function listeRefs(cible) {
   const refs = (P.references ?? []).filter((r) => (r.cible ?? null) === (cible ?? null));
   if (!refs.length) return '';
-  return `<div class="liste-refs">${refs.map((r) => `<div class="ref">${ic(/\.(blend|glb|gltf|fbx|obj|usdz?|stl|abc|dae|ply)$/i.test(r.nom) ? 'cube' : 'trombone')}<span class="nom" title="${esc(r.chemin)}">${esc(r.nom)}</span><button data-act="retirer-ref" data-ref="${r.id}" title="Retirer ce fichier">${ic('fermer')}</button></div>`).join('')}</div>`;
+  return `<div class="liste-refs">${refs.map((r) => `<div class="ref">${ic(/\.(blend|glb|gltf|fbx|obj|usdz?|stl|abc|dae|ply)$/i.test(r.nom) ? 'cube' : 'trombone')}<span class="nom" title="${esc(r.chemin)}">${esc(r.nom)}</span><button data-act="retirer-ref" data-ref="${esc(r.id)}" title="Retirer ce fichier">${ic('fermer')}</button></div>`).join('')}</div>`;
 }
-const zoneRefs = (cible, texte) => `<div class="zone-refs" data-zone="references" data-act="choisir-refs"${cible ? ` data-cible="${cible}"` : ''}>${ic('trombone')}${texte}<br><span style="font-size:11px">Glisse-les ici, ou clique pour les choisir.</span></div>`;
+const zoneRefs = (cible, texte) => `<div class="zone-refs" data-zone="references" data-act="choisir-refs"${cible ? ` data-cible="${esc(cible)}"` : ''}>${ic('trombone')}${texte}<br><span style="font-size:11px">Glisse-les ici, ou clique pour les choisir.</span></div>`;
 function rendreInspecteur() {
   const box = $('#inspecteur');
   if (!P) return;
+  ui.inspecteurAttend = false; // redessiné : plus rien en attente (voir inspecteurQuandLibre)
   const sel = ui.sel;
   // un bloc de l'IA cliqué dans la timeline : la colonne montre ses réglages
   const bloc = !sel && ui.multi.size <= 1 && ui.blocIA ? blocIA(ui.blocIA) : null;
@@ -3091,7 +3543,7 @@ function rendreInspecteur() {
           <label class="champ"><span>Titre</span><input data-champ="titre" value="${esc(it.titre)}" placeholder="Carte Persan – Beaumont"></label>
           <label class="champ"><span>Consigne pour l’IA</span><textarea data-champ="consigne" style="min-height:120px" placeholder="Maquette 3D du Val-d’Oise, l’Oise au milieu, les deux villes se rapprochent, « 4 km » en gros.">${esc(it.consigne)}</textarea></label>
           <label class="champ" style="margin:0"><span>Références</span><textarea data-champ="references" placeholder="Liens, ambiance, style…">${esc(it.references)}</textarea></label></div>
-        <div class="groupe-insp" data-zone="references" data-cible="${it.id}"><h3>Fichiers pour l’IA</h3>${listeRefs(it.id)}${zoneRefs(it.id, 'Images, modèle 3D (.blend, .glb), logo, vidéo de référence…')}</div>
+        <div class="groupe-insp" data-zone="references" data-cible="${esc(it.id)}"><h3>Fichiers pour l’IA</h3>${listeRefs(it.id)}${zoneRefs(it.id, 'Images, modèle 3D (.blend, .glb), logo, vidéo de référence…')}</div>
         <div class="rangee"><button class="btn petit" data-act="dupliquer">Dupliquer</button><button class="btn petit" data-act="supprimer">${ic('poubelle')}Supprimer</button></div>`;
     }
     return;
@@ -3132,6 +3584,27 @@ function rendreInspecteur() {
   }
 }
 const cibleSel = () => (ui.sel?.type === 'item' ? item(ui.sel.id) : ui.sel?.type === 'indic' ? indication(ui.sel.id) : ui.sel?.type === 'dessus' ? dessus(ui.sel.id) : null);
+/**
+ * Redessine l'inspecteur, sauf pendant qu'on écrit dans un de ses champs : le champ disparaîtrait sous les doigts, et
+ * les touches suivantes partiraient dans les raccourcis du montage. Il sera redessiné quand le focus en sortira.
+ */
+function inspecteurQuandLibre() {
+  const f = document.activeElement;
+  if (f && $('#inspecteur').contains(f) && f.matches('textarea, select, [contenteditable], input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"])')) {
+    ui.inspecteurAttend = true;
+    return;
+  }
+  rendreInspecteur();
+}
+// un bouton de la souris enfoncé : ce qui attend se redessine après le clic, jamais sous la souris (le clic serait perdu)
+let sourisEnfoncee = false;
+document.addEventListener('pointerdown', () => { sourisEnfoncee = true; }, true);
+for (const t of ['pointerup', 'pointercancel']) window.addEventListener(t, () => { sourisEnfoncee = false; }, true);
+$('#inspecteur').addEventListener('focusout', (e) => {
+  if (!ui.inspecteurAttend || $('#inspecteur').contains(e.relatedTarget)) return;
+  const refaire = () => setTimeout(() => { if (ui.inspecteurAttend && P) inspecteurQuandLibre(); });
+  if (sourisEnfoncee) window.addEventListener('pointerup', refaire, {once: true}); else refaire();
+});
 $('#inspecteur').addEventListener('input', (e) => {
   const c = e.target.dataset.champ;
   const obj = cibleSel();
@@ -3305,9 +3778,15 @@ function feuilleBrief() {
 }
 function apresFormat() {
   seq = sequence(P);
+  reancrer();
+  // l'habillage (taille des titres, réseau par défaut, cadence) et le cadre de l'aperçu suivent le nouveau format
+  invaliderEtat();
+  majScene(); // refait aussi les zones cachées
   rendreBarre();
   rendreTimeline();
   rendreInspecteur();
+  rendrePanneauIA(); // la carte du brief dit le format
+  if (ui.panneau === 'habiller' && ui.habiller === 'style') rendrePanneauStyle();
   progAfficher();
   majCadre();
 }
@@ -3325,14 +3804,20 @@ async function feuilleParcourir({dossier, dossiers = false} = {}) {
       ${d.entrees.filter((x) => !dossiers || x.type === 'dossier').map((x) => (x.type === 'dossier'
         ? `<div class="fichier" data-aller="${esc(x.chemin)}">${ic(x.projet ? 'film' : 'dossier')}${esc(x.nom)}${x.projet ? ' <span class="dim">· projet Dérush</span>' : ''}</div>`
         : `<label class="fichier"><input type="checkbox" value="${esc(x.chemin)}"${deja(x.chemin) ? ' disabled' : ''}>${ic(/\.(mp3|wav|m4a|aac|aif|aiff|flac|ogg|oga|opus|wma)$/i.test(x.nom) ? 'onde' : 'film')}${esc(x.nom)}${deja(x.chemin) ? ' <span class="dim">· déjà importé</span>' : ''}<span class="taille">${x.taille ? `${(x.taille / 1e6).toLocaleString('fr-FR', {maximumFractionDigits: 1})} Mo` : ''}</span></label>`)).join('') || '<div class="fichier dim">Rien ici.</div>'}</div>
-    <div class="pied">${medias.length ? '<button class="btn" data-tout>Tout cocher</button>' : ''}<span class="espace"></span><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-ok>${dossiers ? 'Ouvrir ce dossier' : 'Importer'}</button></div>`);
+    <div class="pied">${medias.length ? '<button class="btn" data-tout>Tout cocher</button>' : ''}<span class="espace"></span><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-ok>${!dossiers ? 'Importer' : d.projet ? 'Ouvrir ce projet' : d.vide ? 'Créer le projet ici' : 'Ouvrir ce dossier'}</button></div>`);
   f.addEventListener('click', async (e) => {
     const aller = e.target.closest('[data-aller]')?.dataset.aller;
     if (aller) return feuilleParcourir({dossier: aller, dossiers});
     if (e.target.closest('[data-fermer]')) return fermerFeuille();
     if (e.target.closest('[data-tout]')) return $$('input[type=checkbox]:not(:disabled)', f).forEach((c) => { c.checked = true; });
     if (!e.target.closest('[data-ok]')) return;
-    if (dossiers) { fermerFeuille(); return ouvrirProjet(d.dossier); }
+    if (dossiers) {
+      if (!d.projet && dossierTropLarge(d)) return note(MOT_DOSSIER_TROP_LARGE, true);
+      // un dossier déjà rempli (un dossier de tournage) : le projet se range à côté des fichiers, on le dit avant
+      if (d.projet === false && d.vide === false && !confirm('Ce dossier n’est pas un projet Dérush et il contient déjà des fichiers. Dérush y ajoutera son projet, à côté d’eux, sans les toucher. Continuer ?')) return;
+      fermerFeuille();
+      return ouvrirProjet(d.dossier);
+    }
     const chemins = $$('input[type=checkbox]:checked', f).map((c) => c.value);
     if (!chemins.length) return note('Coche au moins un fichier.', true);
     fermerFeuille();
@@ -3368,7 +3853,7 @@ async function feuilleImporter() {
 function feuilleTexte(m) {
   const mo = SRV.moteurs ?? {};
   const w = mo.whisper ?? {};
-  const f = feuille(`<h3>Texte de « ${esc(m.nom)} »</h3><p class="sous-titre">Le texte mot à mot sert à couper au mot près et donne les sous-titres prêts à l’IA.${m.transcription ? ` Ce rush a déjà ${m.transcription.mots} mots : ils seront remplacés.` : ''}</p>
+  const f = feuille(`<h3>Texte de « ${esc(m.nom)} »</h3><p class="sous-titre">Le texte mot à mot sert à couper au mot près et donne les sous-titres prêts à l’IA.${m.transcription ? ` Ce rush a déjà ${Number(m.transcription.mots) || 0} mots : ils seront remplacés.` : ''}</p>
     <div class="moteur"><div class="rond" style="background:rgba(10,132,255,.15);color:var(--bleu)">${ic('texte')}</div><div class="desc"><b>Sur cet ordinateur, avec Whisper</b><small>${w.ok ? 'Gratuit, rien ne sort de l’ordinateur. Environ 1 minute pour 10 minutes de son.' : esc(w.pourquoi ?? 'Indisponible.')}</small></div>${w.ok ? '<button class="btn bleu" data-moteur="whisper">Transcrire</button>' : w.installable ? `<button class="btn" data-installer="whisper">Installer (${esc(w.taille)})</button>` : ''}</div>
     <div class="moteur"><div class="rond" style="background:rgba(255,255,255,.08)">${ic('importer')}</div><div class="desc"><b>Importer un fichier</b><small>JSON d’ElevenLabs, Whisper ou WhisperX, ou sous-titres SRT / VTT.</small></div><label class="btn">Choisir…<input type="file" accept=".json,.jsonl,.srt,.vtt,.txt" hidden data-import></label></div>
     ${mo.elevenlabs?.ok ? `<div class="moteur"><div class="rond" style="background:rgba(255,255,255,.08)">${ic('ia')}</div><div class="desc"><b>ElevenLabs Scribe</b><small>${esc(mo.elevenlabs.detail)}</small></div><button class="btn" data-moteur="elevenlabs">Transcrire</button></div>` : ''}
@@ -3427,6 +3912,8 @@ async function feuilleReglages() {
   };
   const f = feuille(`<h3>Réglages</h3><p class="sous-titre">Les moteurs tournent sur ton ordinateur. Seule ton IA travaille en ligne, avec ton compte.</p>
     <div class="moteur">${logo('claude', 30)}<div class="desc"><b>Connexions</b><small>Ton IA (Claude, Codex ou Gemini), ElevenLabs, Google Drive, Treg pour publier, Blender, les mises à jour.</small></div><button class="btn bleu petit" data-connexions>Ouvrir</button></div>
+    <div class="moteur"><div class="rond" style="background:#64d2ff22;color:#64d2ff">${ic('mallette')}</div><div class="desc"><b>Mes espaces</b><small>Moi, chacun de tes clients, et « Personne » : leur métier, leur kit de marque, leur carnet, leurs séries. Un montage pour un client ne reprend jamais ton style à toi.</small></div><button class="btn bleu petit" data-espaces>Ouvrir</button></div>
+    <div class="moteur"><div class="rond" style="background:#bf5af222;color:#bf5af2">${ic('texte')}</div><div class="desc"><b>Carnet du monteur</b><small>Ce que ton IA a appris d’un montage à l’autre, pour toi et pour chaque client : les rushes, les goûts, les pièges. Elle relit celui du projet.</small></div><button class="btn bleu petit" data-carnet>Ouvrir</button></div>
     ${ligne('whisper', 'texte', '#0a84ff', 'Texte mot à mot — Whisper')}
     ${ligne('voix', 'voix', '#30d158', 'Séparer la voix — Demucs')}
     ${SRV.systeme === 'mac' || mo.vision?.ok || mo.vision?.installable ? ligne('vision', 'cadre', '#ff9f0a', 'Recadrage qui suit les visages — Apple Vision') : ''}
@@ -3444,10 +3931,77 @@ async function feuilleReglages() {
   f.addEventListener('click', async (e) => {
     if (e.target.closest('[data-fermer]')) return fermerFeuille();
     if (e.target.closest('[data-connexions]')) return feuilleConnexions();
+    if (e.target.closest('[data-carnet]')) return feuilleCarnet(ui.ecran === 'montage' ? (ui.espace?.id ?? 'moi') : 'moi');
+    if (e.target.closest('[data-espaces]')) return ESP.feuilleEspaces();
     const inst = e.target.closest('[data-installer]')?.dataset.installer;
     if (inst) {
       try { await api('POST', '/api/moteurs/installer', {nom: inst}); note('Installation lancée : suis-la en haut de la fenêtre.'); fermerFeuille(); suivreFile(); } catch (err) { note(err.message, true); }
     }
+  });
+}
+/**
+ * Le carnet du monteur d'un espace : les leçons que l'IA a notées d'un montage à l'autre (et les mots de la personne
+ * sur ses vidéos) ; chacune s'efface d'un clic. Sans argument : celui de « Moi ». En tête, on passe d'un espace à l'autre.
+ */
+async function feuilleCarnet(espaceId = 'moi') {
+  const esp = await listeEspaces();
+  const espaces = (esp?.espaces ?? [{id: 'moi', nom: 'Moi', type: 'moi'}]).filter((x) => x.type !== 'neutre');
+  let id = espaceId || 'moi';
+  let lecons = [];
+  const charger = async () => {
+    lecons = [];
+    if (id === 'neutre') return;
+    ({lecons} = await api('GET', `/api/espaces/${encodeURIComponent(id)}/carnet`));
+  };
+  try { await charger(); } catch (err) { return note(err.message, true); }
+  const date = (q) => { try { return new Date(q).toLocaleDateString('fr-FR', {day: 'numeric', month: 'short'}); } catch { return ''; } };
+  const lEspace = () => espaceDe(esp?.espaces, id);
+  const sous = () => {
+    const x = lEspace();
+    if (x.type === 'neutre') return '« Personne » n’a pas de carnet : rien n’y est appris, et rien de toi n’est donné à ton IA.';
+    if (x.type === 'client') return `Ce que ton IA a appris en montant pour ${x.nom}. Il ne sert qu’à ses projets : jamais aux tiens, ni à ceux d’un autre client. Efface ce qui ne va pas.`;
+    return 'Ce que ton IA a appris de tes montages : tes rushes, tes goûts, les pièges. Il ne sert qu’à tes projets à toi. Il reste sur ton ordinateur ; efface ce qui ne te va pas.';
+  };
+  const corps = () => {
+    const x = lEspace();
+    if (x.type === 'neutre') return `<div class="carnet-vide">${ill('bobine')}<p class="dim">Choisis un espace en haut pour lire son carnet.</p></div>`;
+    const coupe = x.apprendre === false || x.apprend === false ? `<p class="carnet-coupe">${ic('attention')}<span>${esc(x.type === 'client' ? x.nom : 'Ton espace')} n’apprend plus rien pour l’instant (réglable dans Mes espaces). Ce carnet reste lu par ton IA.</span></p>` : '';
+    return coupe + (lecons.length
+      ? `<div class="carnet-liste">${lecons.map((l) => `<div class="carnet-lecon"><div class="espace"><span>${esc(l.texte)}</span><small>${esc([date(l.quand), l.projet, l.source === 'note' ? 'ton mot' : l.ia ? nomIA(l.ia) : null].filter(Boolean).join(' · '))}</small></div><button class="btn petit" data-oublier="${esc(l.id)}" title="Oublier cette leçon">${ic('poubelle')}</button></div>`).join('')}</div>`
+      : `<div class="carnet-vide">${ill('bobine')}<p class="dim">${x.type === 'client' ? `Le carnet de ${esc(x.nom)} est vide. À la fin d’un montage pour ${esc(x.nom)}, ton IA y note ce qu’elle a appris ; tes mots sur ses vidéos y arrivent aussi.` : 'Le carnet est vide. À la fin d’un montage, ton IA y note ce qu’elle a appris (tes rushes, tes goûts, les pièges des outils) ; elle le relira au projet suivant.'}</p></div>`);
+  };
+  const choixEspaces = () => (espaces.length > 1 ? `<div class="segmente carnet-espaces">${espaces.map((x) => `<button data-carnet-espace="${esc(x.id)}"${x.id === id ? ' class="actif"' : ''} style="--c:${esc(couleurEspace(x))}"><i></i>${esc(x.nom)}</button>`).join('')}</div>` : '');
+  const f = feuille(`<h3>Carnet du monteur</h3>${choixEspaces()}<p class="sous-titre" data-sous>${esc(sous())}</p>
+    <div data-corps>${corps()}</div>
+    <div class="pied"><button class="btn${lecons.length ? '' : ' cache'}" data-vider>Tout effacer</button><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`);
+  const redessiner = () => {
+    $$('[data-carnet-espace]', f).forEach((b) => b.classList.toggle('actif', b.dataset.carnetEspace === id));
+    $('[data-sous]', f).textContent = sous();
+    $('[data-corps]', f).innerHTML = corps();
+    $('[data-vider]', f).classList.toggle('cache', !lecons.length);
+  };
+  f.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-fermer]')) return fermerFeuille();
+    const autre = e.target.closest('[data-carnet-espace]')?.dataset.carnetEspace;
+    if (autre && autre !== id) {
+      id = autre;
+      try { await charger(); } catch (err) { note(err.message, true); }
+      return redessiner();
+    }
+    const lecon = e.target.closest('[data-oublier]')?.dataset.oublier;
+    const vider = e.target.closest('[data-vider]');
+    if (!lecon && !vider) return;
+    const base = `/api/espaces/${encodeURIComponent(id)}/carnet`;
+    try {
+      if (lecon) { await api('DELETE', `${base}/${encodeURIComponent(lecon)}`); lecons = lecons.filter((l) => l.id !== lecon); }
+      else {
+        if (!confirm(`Effacer tout le carnet${lEspace().type === 'client' ? ` de ${lEspace().nom}` : ''} ? Ton IA oubliera ces ${lecons.length} leçon${lecons.length > 1 ? 's' : ''}.`)) return;
+        await api('DELETE', base);
+        lecons = [];
+      }
+      redessiner();
+      rechargerEspaces();
+    } catch (err) { note(err.message, true); }
   });
 }
 /** Après « Brancher » : on attend que la personne ait autorisé Dérush dans son navigateur. */
@@ -3595,9 +4149,13 @@ function appliquerRetour(r, reponse) {
       });
       break;
     }
-    case 'style':
-      modifier(() => { P.style = {...styleDuProjet(), ...(r.style ?? {}), sous_titres: {...styleDuProjet().sous_titres, ...(r.style?.sous_titres ?? {})}}; });
+    case 'style': {
+      // le serveur ne garde que des valeurs connues ; une couleur reste en plus une vraie couleur (elle s'écrit dans l'aperçu)
+      const st = {...(r.style ?? {})};
+      if (st.accent !== undefined && !/^#[0-9a-f]{6}$/i.test(String(st.accent))) delete st.accent;
+      modifier(() => { P.style = {...styleDuProjet(), ...st, sous_titres: {...styleDuProjet().sous_titres, ...(st.sous_titres ?? {})}}; });
       break;
+    }
     case 'question':
       if (reponse?.trim()) {
         modifier(() => {
@@ -3726,6 +4284,7 @@ const ACTIONS = {
   'zoom-': () => zoomer(Number($('#zoom').value) - 10),
   'zoom+': () => zoomer(Number($('#zoom').value) + 10),
   importer: feuilleImporter,
+  drive: () => DR.ouvrir(),
   enregistrer: () => ENR.ouvrir(),
   'fermer-apercu': fermerApercu,
   'effacer-choix': effacerChoix,
@@ -3734,8 +4293,18 @@ document.addEventListener('click', (e) => {
   const a = e.target.closest('[data-a]')?.dataset.a;
   if (a && ACTIONS[a]) ACTIONS[a]();
 });
-$('#b-biblio').addEventListener('click', async () => { await sauver(true); await api('POST', '/api/projets/fermer').catch(() => {}); P = null; afficherBibliotheque(); });
+$('#b-biblio').addEventListener('click', async () => {
+  // fermer le projet pendant un enregistrement (le menu Bibliothèque passe aussi par ici) : la prise n'aurait plus où aller
+  if (ENR.actif()) return note('Un enregistrement est ouvert : arrête-le ou ferme-le d’abord.', true);
+  await sauver(true);
+  await api('POST', '/api/projets/fermer').catch(() => {});
+  P = null;
+  VO.oublier();
+  afficherBibliotheque();
+});
 $('#b-format').addEventListener('click', feuilleBrief);
+$('#b-espace').addEventListener('click', () => changerEspaceProjet());
+$('#b-tableau').addEventListener('click', () => TB.ouvrir({espace: ui.espace?.id ?? P?.espace ?? null}));
 $('#b-claude').addEventListener('click', () => montrerClaude(true));
 $('#b-zones').addEventListener('click', () => { ui.zones = !ui.zones; majZones(); });
 $('#b-reglages').addEventListener('click', feuilleReglages);
@@ -3784,7 +4353,8 @@ document.addEventListener('keydown', (e) => {
     case 'ArrowDown': case ']': e.preventDefault(); return sautElement(1);
     case 'Home': return ACTIONS.debut();
     case 'End': progPause(); if (ui.mode !== 'montage') definirMode('montage'); return progPositionner(seq.duree);
-    case 'Backspace': case 'Delete': e.preventDefault(); return ui.motsChoisis ? couperMotsChoisis() : supprimer();
+    // des mots choisis ne se coupent que s'ils sont à l'écran : sinon, ⌫ supprime la sélection, comme le bouton de la barre
+    case 'Backspace': case 'Delete': e.preventDefault(); return ui.motsChoisis && ui.panneau === 'texte' && ui.texteVue === 'montage' ? couperMotsChoisis() : supprimer();
     case '+': case '=': return zoomer(Number($('#zoom').value) + 8);
     case '-': return zoomer(Number($('#zoom').value) - 8);
     case '0': return toutVoir();
@@ -3972,6 +4542,18 @@ let dernierT = 0;
 const invaliderEtat = () => { ETAT = null; };
 const estEffet = (i) => !!CATALOGUE[i?.modele];
 const styleDuProjet = () => styleComplet(P.style, P.sortie);
+/**
+ * Charge en coulisse le texte (ou le recadrage) d'un rush, puis refait l'affichage une seule fois à son arrivée :
+ * pas un rappel par plan (un podcast nettoyé au mot près a des centaines de plans du même rush) ni par image.
+ */
+const rappelsEnRoute = new Set();
+function chargerPuis(type, m, fn) {
+  const cle = type + m.id;
+  if (rappelsEnRoute.has(cle)) return;
+  rappelsEnRoute.add(cle);
+  charger(type, m).then(() => { rappelsEnRoute.delete(cle); fn(); });
+}
+const apresMots = () => { invaliderEtat(); if (!prog.lecture) majHabillage(); };
 
 /** Les mots dits dans le montage, en temps du montage (pour les sous-titres de l'aperçu). */
 function motsDuMontage() {
@@ -3982,7 +4564,7 @@ function motsDuMontage() {
     const m = media(it.media);
     if (!m?.transcription) continue;
     const mots = C.mots.get(m.id);
-    if (mots === undefined) { charger('mots', m).then(() => { invaliderEtat(); if (!prog.lecture) majHabillage(); }); continue; }
+    if (mots === undefined) { chargerPuis('mots', m, apresMots); continue; }
     if (!mots) continue;
     for (const w of motsEntre(mots, it.entree, it.sortie)) res.push({t: w.t, debut: Math.max(s.debut, s.debut + w.d - it.entree), fin: Math.min(s.fin, s.debut + w.f - it.entree), plan: it.id, ...(w.ev ? {evenement: true} : {})});
   }
@@ -3993,7 +4575,7 @@ function motsDuMontage() {
     const m = media(sp.media);
     if (!m?.transcription) continue;
     const mots = C.mots.get(m.id);
-    if (mots === undefined) { charger('mots', m).then(() => { invaliderEtat(); if (!prog.lecture) majHabillage(); }); continue; }
+    if (mots === undefined) { chargerPuis('mots', m, apresMots); continue; }
     if (!mots) continue;
     const fin = sp.debut + sp.sortie - sp.entree;
     for (const w of motsEntre(mots, sp.entree, sp.sortie)) res.push({t: w.t, debut: Math.max(sp.debut, sp.debut + w.d - sp.entree), fin: Math.min(fin, sp.debut + w.f - sp.entree), plan: sp.id, ...(w.ev ? {evenement: true} : {})});
@@ -4005,7 +4587,9 @@ function motsDuMontage() {
 function etatHabillage() {
   ETAT ??= preparerEtat({
     sortie: P.sortie, duree: seq.duree, coupes: seq.segs.map((s) => s.debut).filter((t) => t > 0),
-    effets: P.indications.filter(estEffet), style: P.style, mots: motsDuMontage(),
+    effets: P.indications.filter(estEffet), style: P.style,
+    // sans sous-titres, les mots ne servent à rien : on ne les cherche pas (ni n'attend leur chargement)
+    mots: styleDuProjet().sous_titres.style === 'aucun' ? [] : motsDuMontage(),
     sansSousTitres: P.montage.filter((it) => it.sans_sous_titres).map((it) => it.id),
   });
   return ETAT;
@@ -4035,7 +4619,7 @@ function placer(el, m, t) {
   let fy = 0.5;
   if (m.type === 'video' && Math.abs(w / h - L / H) > 0.01) {
     const pts = C.cadrage.get(m.id);
-    if (pts === undefined) charger('cadrage', m).then(() => { if (!prog.lecture && ui.mode === 'montage') progAfficher(); });
+    if (pts === undefined) chargerPuis('cadrage', m, () => { if (!prog.lecture && ui.mode === 'montage') progAfficher(); });
     const p = pts ? pointCadrage(pts, t) : {x: 0.5, y: 0.5};
     const fen = fenetreCadrage(p.x, p.y, w / h, L / H);
     fx = fen[2] < 0.999 ? fen[0] / (1 - fen[2]) : 0.5;
@@ -4297,7 +4881,7 @@ $('#p-effets').addEventListener('pointerdown', (e) => {
 function rendrePanneauStyle() {
   const s = styleDuProjet();
   const coche = (cle, nom, v) => `<label class="reglage"><span>${nom}</span><input type="checkbox" data-style="${cle}"${v ? ' checked' : ''}></label>`;
-  const glissiere = (cle, nom, v) => `<label class="reglage"><span>${nom}</span><input type="range" min="0" max="1" step="0.05" data-style="${cle}" value="${v}"></label>`;
+  const glissiere = (cle, nom, v) => `<label class="reglage"><span>${nom}</span><input type="range" min="0" max="1" step="0.05" data-style="${cle}" value="${esc(v)}"></label>`;
   $('#p-style').innerHTML = `<h3>Un style en un clic</h3><p>Il habille tout le film : sous-titres, effet sur chaque coupe, grain. Tout se règle ensuite ici.</p>
     <div class="looks">${Object.entries(LOOKS).map(([k, l]) => `<button class="look${s.look === k ? ' actif' : ''}" data-look="${k}"><b><i style="background:${l.style.accent}"></i>${esc(l.nom)}</b><small>${esc(l.description)}</small></button>`).join('')}</div>
     <h3>Sous-titres</h3><p>Ils viennent du texte de tes rushes (onglet Texte).</p>
@@ -4305,7 +4889,7 @@ function rendrePanneauStyle() {
     ${coche('majuscules', 'En majuscules', s.sous_titres.majuscules)}
     <label class="reglage"><span>Position</span><select data-style="position">${option('bas', 'En bas', s.sous_titres.position !== 'centre')}${option('centre', 'Au centre', s.sous_titres.position === 'centre')}</select></label>
     <h3>Couleur et police</h3>
-    <div class="reglage"><span>Couleur</span><div class="couleurs">${COULEURS_STYLE.map((c) => `<button data-couleur="${c}" style="background:${c}"${s.accent.toUpperCase() === c ? ' class="actif"' : ''} title="${c}"></button>`).join('')}<input type="color" data-style="accent" value="${s.accent}" title="Une autre couleur"></div></div>
+    <div class="reglage"><span>Couleur</span><div class="couleurs">${COULEURS_STYLE.map((c) => `<button data-couleur="${c}" style="background:${c}"${String(s.accent).toUpperCase() === c ? ' class="actif"' : ''} title="${c}"></button>`).join('')}<input type="color" data-style="accent" value="${esc(s.accent)}" title="Une autre couleur"></div></div>
     <label class="reglage"><span>Police des titres</span><select data-style="police_titres">${POLICES_TITRES.map((p) => option(p, p, s.police_titres === p)).join('')}</select></label>
     <h3>Image</h3>
     <label class="reglage"><span>Sur chaque coupe</span><select data-style="transition_auto">${option('aucune', 'Rien', s.transition_auto === 'aucune')}${Object.entries(CATALOGUE).filter(([, d]) => d.categorie === 'transition').map(([k, d]) => option(k, d.nom, s.transition_auto === k)).join('')}</select></label>
@@ -4352,7 +4936,7 @@ function inspecteurEffet(i) {
   const champ = ([k, p]) => {
     if (p.type === 'texte') return `<label class="champ"><span>${esc(p.nom)}</span><input data-reglage="${k}" value="${esc(r[k])}" placeholder="${esc(p.aide || '')}"></label>`;
     if (p.type === 'choix') return `<label class="champ"><span>${esc(p.nom)}</span><select data-reglage="${k}">${Object.entries(p.options).map(([v, n]) => option(v, n, r[k] === v)).join('')}</select></label>`;
-    if (p.type === 'nombre') return `<label class="champ"><span>${esc(p.nom)} · <output>${r[k]} ${esc(p.unite)}</output></span><input type="range" min="${p.min}" max="${p.max}" step="1" data-reglage="${k}" value="${r[k]}" style="padding:0;border:0;background:none;accent-color:var(--accent-2)"></label>`;
+    if (p.type === 'nombre') return `<label class="champ"><span>${esc(p.nom)} · <output>${esc(r[k])} ${esc(p.unite)}</output></span><input type="range" min="${p.min}" max="${p.max}" step="1" data-reglage="${k}" value="${esc(r[k])}" style="padding:0;border:0;background:none;accent-color:var(--accent-2)"></label>`;
     return `<label class="rangee" style="gap:7px;margin-bottom:10px"><input type="checkbox" data-reglage="${k}"${r[k] ? ' checked' : ''}> ${esc(p.nom)}</label>`;
   };
   const sous = seq.segs.filter((s) => s.fin > i.debut && s.debut < i.fin).map((s) => s.it.id);
@@ -4389,47 +4973,63 @@ function majZones() {
 }
 
 // ——— Créer la vidéo ———
-function feuilleCreer() {
+/** Ce que « Créer la vidéo » fabriquera de la vidéo ouverte, en une ligne. */
+function resumeVideoOuverte() {
+  const s = styleDuProjet();
+  return `${FORMATS[P.sortie.preset]?.ratio} · ${P.sortie.largeur} × ${P.sortie.hauteur} · ${F()} i/s · ${dureeLisible(seq.duree)} · ${P.indications.filter(estEffet).length} effet(s) · style « ${LOOKS[s.look]?.nom ?? s.look} »`;
+}
+/**
+ * « Créer la vidéo ». Un projet à plusieurs vidéos (public/sequences.js) propose « celle-ci » ou « toutes les vidéos »
+ * (`choix` : 'toutes' ouvre directement sur toutes).
+ */
+function feuilleCreer(choix = null) {
+  if ((P.sequences?.length ?? 1) > 1) return SQ.feuilleCreer({choix});
   if (!seq.segs.length) return note('Sans IA, Dérush a besoin d’au moins un plan dans le montage. Sinon, demande à ton IA : elle choisira les passages.', true);
   const s = styleDuProjet();
   const mo = SRV.moteurs?.rendu;
   const f = feuille(`<h3>Créer la vidéo</h3><p class="sous-titre">Dérush fabrique la vidéo finale sur ton ordinateur : le montage, les effets, les titres et les sous-titres, avec le son au niveau des réseaux.</p>
     <label class="champ"><span>Pour quel réseau ?</span><select id="cr-reseau">${Object.entries(PLATEFORMES).map(([k, p]) => option(k, p.nom, s.plateforme === k)).join('')}</select></label>
-    <p class="dim" style="font-size:12px">${FORMATS[P.sortie.preset]?.ratio} · ${P.sortie.largeur} × ${P.sortie.hauteur} · ${F()} i/s · ${dureeLisible(seq.duree)} · ${P.indications.filter(estEffet).length} effet(s) · style « ${esc(LOOKS[s.look]?.nom ?? s.look)} »</p>
+    <p class="dim" style="font-size:12px">${esc(resumeVideoOuverte())}</p>
     ${mo?.ok ? '' : `<div class="verif attention petit">${ic('attention')}<div class="espace">La première fois, le moteur de rendu s’installe tout seul (${esc(mo?.taille ?? '500 Mo')}, il faut Internet). Compte quelques minutes de plus.</div></div>`}
     <div class="pied"><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-go>${ic('rendu')}Créer la vidéo</button></div>`);
   f.addEventListener('click', async (e) => {
     if (e.target.closest('[data-fermer]')) return fermerFeuille();
     if (!e.target.closest('[data-go]')) return;
-    const plateforme = $('#cr-reseau', f).value;
-    arreterLecture();
-    await sauver(true);
-    try {
-      const {tache} = await api('POST', '/api/rendre', {plateforme});
-      ui.renduTache = tache;
-      feuille(`<h3>Création de la vidéo…</h3><p class="sous-titre">Découpe des plans, rendu image par image, réglage du son, contrôles. Tu peux masquer cette fenêtre et continuer à travailler : elle reviendra quand la vidéo sera prête.</p>
-        <div class="jauge"><i id="jauge-rendu" style="width:2%"></i></div><p class="dim" id="etat-rendu" style="margin-top:10px">En attente…</p>
-        <div class="pied"><button class="btn" data-fermer>Masquer</button></div>`).querySelector('[data-fermer]').onclick = fermerFeuille;
-      suivreFile();
-    } catch (err) { note(err.message, true); }
+    lancerRenduOuvert($('#cr-reseau', f).value);
   });
 }
-function afficherRendu(t) {
-  ui.renduTache = null;
+/** Crée la vidéo ouverte, figée au clic, puis montre le suivi (la feuille revient quand elle est prête). */
+async function lancerRenduOuvert(plateforme) {
+  arreterLecture();
+  await sauver(true);
+  try {
+    const {tache} = await api('POST', '/api/rendre', {plateforme});
+    ui.renduTache = tache;
+    const v = (P.sequences?.length ?? 1) > 1 ? P.sequences.find((x) => x.id === P.sequence) : null;
+    feuille(`<h3>${v ? `Création de « ${esc(v.nom)} »…` : 'Création de la vidéo…'}</h3><p class="sous-titre">Découpe des plans, rendu image par image, réglage du son, contrôles. Tu peux masquer cette fenêtre et continuer à travailler : elle reviendra quand la vidéo sera prête.${v ? ' Elle est figée au clic : tes retouches suivantes n’y entreront pas.' : ''}</p>
+      <div class="jauge"><i id="jauge-rendu" style="width:2%"></i></div><p class="dim" id="etat-rendu" style="margin-top:10px">En attente…</p>
+      <div class="pied"><button class="btn" data-fermer>Masquer</button></div>`).querySelector('[data-fermer]').onclick = fermerFeuille;
+    suivreFile();
+  } catch (err) { note(err.message, true); }
+}
+/** La vidéo créée : la regarder, l'analyser, la partager. `retour` : revenir à la liste de « Créer toutes les vidéos ». */
+function afficherRendu(t, {retour = null} = {}) {
+  if (!retour) ui.renduTache = null;
   SRV.moteurs = {...SRV.moteurs, rendu: {...(SRV.moteurs?.rendu ?? {}), ok: true}};
   if (t.etat === 'erreur') {
     feuille(`<h3>La vidéo n’a pas pu être créée</h3><p class="resultat">${esc(t.erreur)}</p><div class="pied"><button class="btn principal" data-fermer>OK</button></div>`).querySelector('[data-fermer]').onclick = fermerFeuille;
     return;
   }
   const r = t.resultat;
-  const f = feuille(`<h3>${ic('ok')} Ta vidéo est prête</h3><p class="sous-titre">${esc(r.reseau_nom)} · ${r.largeur} × ${r.hauteur} · ${dureeLisible(r.duree)} · ${esc(r.taille_lisible)}</p>
+  const f = feuille(`<h3>${ic('ok')} ${r.sequence?.nom ? `« ${esc(r.sequence.nom)} » est prête` : 'Ta vidéo est prête'}</h3><p class="sous-titre">${esc(r.reseau_nom)} · ${r.largeur} × ${r.hauteur} · ${dureeLisible(r.duree)} · ${esc(r.taille_lisible)}</p>
     <div class="resultat-video${r.largeur > r.hauteur ? ' large' : ''}"><video src="/video?nom=${encodeURIComponent(r.nom)}&j=${JETON}" controls playsinline></video>
       <div class="verifs" style="margin:0">${r.controles.map((c) => `<div class="verif petit ${c.ok ? (c.info ? 'info' : 'ok') : 'attention'}">${ic(c.ok ? 'ok' : 'attention')}<div class="espace">${esc(c.t)}${c.d ? `<small>${esc(c.d)}</small>` : ''}</div></div>`).join('')}
       ${(r.avertissements ?? []).map((a) => `<div class="verif petit attention">${ic('attention')}<div class="espace">${esc(a)}</div></div>`).join('')}</div></div>
     <div class="apres-rendu"><div><b>Et maintenant ?</b><small>Avant de la publier, fais-la analyser : ton IA te dit ce qui retient les gens et ce qui les fait partir. Puis partage-la avec les bonnes légendes et les bons hashtags.</small></div>
       <button class="btn" data-analyser>${ic('eclair')}Analyser</button><button class="btn claude" data-partager>${ic('publier')}<span>Partager</span></button></div>
-    <div class="pied"><button class="btn" data-finder>${ic('finder')}Afficher dans le dossier</button><span class="espace"></span><button class="btn" data-ia>${ic('etincelle', 'plein')}Aller plus loin avec l’IA</button><button class="btn principal" data-fermer>OK</button></div>`, true);
+    <div class="pied">${retour ? `<button class="btn" data-retour>${ic('retour')}Toutes les vidéos</button>` : ''}<button class="btn" data-finder>${ic('finder')}Afficher dans le dossier</button><span class="espace"></span><button class="btn" data-ia>${ic('etincelle', 'plein')}Aller plus loin avec l’IA</button><button class="btn principal" data-fermer>OK</button></div>`, true);
   const vid = f.querySelector('video');
+  if (retour) f.querySelector('[data-retour]').onclick = () => { vid.pause(); retour(); };
   vid.addEventListener('loadedmetadata', () => { vid.currentTime = Math.min(1.5, vid.duration / 3); }, {once: true});
   f.querySelector('[data-fermer]').onclick = fermerFeuille;
   f.querySelector('[data-finder]').onclick = () => api('POST', '/api/ouvrir', {chemin: r.video}).catch((e) => note(e.message, true));
@@ -4471,10 +5071,18 @@ const LOGOS = {openverse: 'openverse', claude: 'claude', anthropic: 'anthropic',
   blender: 'blender', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', macos: 'macos', linux: 'linux', windows: 'windows',
   premiere: 'adobepremierepro', resolve: 'davinciresolve'};
 const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', remotion: 'film', maj: 'maj', competences: 'outil'};
-/** Un logo sur sa pastille claire : les logos noirs (TikTok, GitHub…) restent lisibles sur le fond sombre. */
-const logo = (cle, taille = 22, cls = '') => (LOGOS[cle]
-  ? `<span class="logo l-${cle} ${cls}" style="--t:${taille}px"><img src="/logos/${LOGOS[cle]}.svg" alt="" draggable="false"></span>`
-  : `<span class="logo picto p-${cle} ${cls}" style="--t:${taille}px">${ic(PICTOS[cle] ?? 'etincelle')}</span>`);
+/**
+ * Un logo sur sa pastille claire : les logos noirs (TikTok, GitHub…) restent lisibles sur le fond sombre.
+ * La clé peut venir d'un fichier écrit par l'IA (un réseau dans la recette, une médiane) : seule une clé connue, ou un
+ * simple mot, entre dans le HTML ; tout le reste devient « inconnu » (jamais un attribut ou une balise de plus).
+ */
+const logo = (cle, taille = 22, cls = '') => {
+  const k = typeof cle === 'string' && /^[a-z0-9-]{1,30}$/.test(cle) ? cle : 'inconnu';
+  const t = Number(taille) || 22;
+  return Object.hasOwn(LOGOS, k)
+    ? `<span class="logo l-${k} ${cls}" style="--t:${t}px"><img src="/logos/${LOGOS[k]}.svg" alt="" draggable="false"></span>`
+    : `<span class="logo picto p-${k} ${cls}" style="--t:${t}px">${ic(Object.hasOwn(PICTOS, k) ? PICTOS[k] : 'etincelle')}</span>`;
+};
 const moteurIA = () => ui.claude?.ia?.choisi ?? SRV.moteurs?.ia_choisie ?? 'claude';
 const NOMS_IA = {claude: 'Claude', codex: 'Codex', gemini: 'Gemini'};
 const COMPTES_IA = {claude: {compte: 'Avec ton compte Claude (Pro ou Max).', relie: 'connecté à Claude'}, codex: {compte: 'Avec ton compte ChatGPT (Plus, Pro ou Business).', relie: 'connecté à ChatGPT'},
@@ -4494,13 +5102,14 @@ const ratioDe = (l, h) => Object.values(FORMATS).find((f) => Math.abs(f.largeur 
 const minSec = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 let minuterieClaude = null;
 let chargementClaude = false;
+let claudeARelire = false; // une relecture demandée pendant qu'une autre était en route (relireClaudeEnSuite)
 
 // ——— adresses des fichiers de la conversation (le jeton est dans l'adresse : les balises <img> n'ont pas d'en-tête) ———
 const urlPiece = (id, quoi = 'apercu') => `/claude/piece/${id}/${quoi}?j=${JETON}&p=${ui.cleProjet ?? ''}`;
 const urlDirect = (r, n) => `/claude/direct/${encodeURIComponent(r.id)}/f-${String(n).padStart(5, '0')}.jpg?j=${JETON}&p=${ui.cleProjet ?? ''}`;
 const urlVue = (n) => `/claude/vue/${n}?j=${JETON}&p=${ui.cleProjet ?? ''}`;
 const urlVideo = (nom) => `/video?nom=${encodeURIComponent(nom)}&j=${JETON}&p=${ui.cleProjet ?? ''}`;
-const urlCreation = (id) => `/creation/${id}?j=${JETON}&p=${ui.cleProjet ?? ''}`;
+const urlCreation = (id) => `/creation/${encodeURIComponent(id)}?j=${JETON}&p=${ui.cleProjet ?? ''}`;
 const ICONES_PIECE = {image: 'image', video: 'film', son: 'onde', pdf: 'texte', police: 'titre', archive: 'dossier', '3d': 'cube', design: 'palette', document: 'texte', autre: 'trombone'};
 const piecesEnAttente = () => (ui.claude?.pieces ?? []).filter((x) => x.message == null);
 const piecesEnvoyees = () => (ui.claude?.pieces ?? []).filter((x) => x.message != null);
@@ -4514,9 +5123,30 @@ async function chargerClaude(force = false) {
   chargementClaude = true;
   const avant = ui.claude;
   try {
-    ui.claude = await api('GET', `/api/claude${force ? '?force=1' : ''}`);
+    // force : true (tout revérifier) ou le nom d'une IA (seule elle est revérifiée)
+    ui.claude = versionsSures(await api('GET', `/api/claude${force ? `?force=${force === true ? 1 : encodeURIComponent(force)}` : ''}`));
   } catch { /* pas de réponse : on réessaie au prochain tour */ } finally { chargementClaude = false; }
   apresClaude(avant);
+  if (claudeARelire) { claudeARelire = false; chargerClaude(); }
+}
+/**
+ * Relit l'écran de l'IA après un changement de la timeline (une autre vidéo ouverte, une vidéo de l'IA devenue une vidéo
+ * du projet). Une relecture déjà en route est partie avant ce changement : une autre la suit, sinon l'écran de l'IA
+ * dirait encore « Mettre dans ma timeline » sous une vidéo qui y est déjà.
+ */
+function relireClaudeEnSuite() {
+  if (chargementClaude) claudeARelire = true;
+  else chargerClaude();
+}
+/**
+ * Les versions viennent de claude/etat.json, un fichier du projet (un projet reçu peut l'avoir réécrit) : une version
+ * sans vrai numéro, ou dont une vidéo n'est pas un simple .mp4 du dossier vidéos/, ne s'affiche pas. Dérush n'en écrit
+ * jamais d'autre (« titre-claude-v3.mp4 »).
+ */
+function versionsSures(c) {
+  const sure = (nom) => typeof nom === 'string' && /^[^/\\]+\.mp4$/i.test(nom);
+  if (c) c.versions = (c.versions ?? []).filter((v) => Number.isInteger(v?.n) && v.videos?.length && v.videos.every((x) => sure(x?.nom)) && (v.nom == null || sure(v.nom)));
+  return c;
 }
 function apresClaude(avant) {
   const c = ui.claude;
@@ -4541,6 +5171,10 @@ function apresClaude(avant) {
     else note(`${qui} a répondu.`, false, true);
     ui.depart = null;
     chargerRetours();
+    // une vidéo livrée a sa fiche : ses pouces, sa série, sa publication à suivre
+    chargerNotes();
+    // l'IA a pu écrire le texte de la voix off ou poser ses questions (rangés par Dérush à la fin) : le micro s'allume
+    VO.charger();
   }
   // un rendu commence : le lecteur le montre en direct (sauf si on regarde déjà autre chose)
   const r = dernierRendu(c);
@@ -4664,10 +5298,18 @@ async function joindreChemins(chemins) {
   await chargerClaude();
   $('#cl-texte')?.focus();
 }
-/** Des fichiers glissés ou collés : retrouvés sur le disque (ils restent à leur place), sinon copiés dans le projet. */
-async function deposerPieces(fichiers) {
+// au-delà, un fichier collé vient sûrement du Finder (une vidéo copiée) : on le cherche, pour qu'il reste à sa place
+const GROS_COLLE = 50 * 1024 * 1024;
+/**
+ * Des fichiers glissés ou collés : retrouvés sur le disque (ils restent à leur place), sinon copiés dans le projet.
+ * Collés (`colles`) : une capture ou une image copiée n'existe pas sur le disque, elle est copiée tout de suite (la
+ * chercher faisait attendre jusqu'à 6 secondes pour rien) ; seul un gros fichier est d'abord cherché.
+ */
+async function deposerPieces(fichiers, colles = false) {
   if (!fichiers.length) return;
-  const chemins = await localiser(fichiers);
+  const aChercher = colles ? fichiers.filter((f) => f.size > GROS_COLLE) : fichiers;
+  const reponses = aChercher.length ? await localiser(aChercher) : [];
+  const chemins = fichiers.map((f) => reponses[aChercher.indexOf(f)] ?? null);
   const trouves = chemins.filter(Boolean);
   let n = 0;
   if (trouves.length) {
@@ -4755,12 +5397,168 @@ function carteVideo(v, k) {
   return `<div class="cl-video-bloc"><div class="cl-video${active ? ' active' : ''}${seule ? ' seule' : ''}" data-version="${v.n}" data-video="${k}" title="${esc(detail)}">${vignetteVideo(x, seule ? 64 : 76)}<div class="txt"><b>${esc(titre)}</b><small>${esc(infos)}</small><small class="${soucis ? 'attention' : 'ok'}">${soucis ? `${soucis} point${soucis > 1 ? 's' : ''} à voir` : 'Contrôles OK'}</small></div>
     <div class="act"><button class="icone-btn" data-cl="menu-video" data-nom="${esc(x.nom)}" title="Plus">${ic('points')}</button>${menu}</div></div>
     <div class="cl-avant-pub"><button class="btn petit" data-cl="analyser" data-nom="${esc(x.nom)}" title="Avant de publier : ton IA note l’accroche, le rythme, le son… et te dit quoi améliorer">${ic('eclair')}<span>Analyser</span></button><button class="btn petit publier" data-cl="partager" data-nom="${esc(x.nom)}" title="Légendes, hashtags, bon moment et publication sur TikTok, Instagram, YouTube, LinkedIn">${ic('publier')}<span>Partager</span></button></div>
+    ${SQ.boutonVideoIA(v, x, k)}
+    ${avisHtml(x)}
     ${(x.publications ?? []).length ? publicationsHtml(x.publications) : ''}</div>`;
+}
+// ——— Dérush apprend de toi : la note d'une vidéo livrée (pouces, un mot), sa série, sa publication à suivre ———
+/** Relit les notes des vidéos livrées de ce projet (seules celles qui ont une fiche y sont) et pour qui il est. */
+async function chargerNotes() {
+  if (!P || ui.ecran !== 'montage') return;
+  const cle = ui.cleProjet;
+  try {
+    const r = await api('GET', '/api/claude/notes');
+    if (ui.cleProjet !== cle || !P) return;
+    ui.notes = r;
+  } catch { /* sans notes, les cartes restent simples */ }
+  rendreClaude();
+}
+/** Sous une vidéo livrée : ton avis (pouces, un mot), « Faire une série », « Lier la publication » et ce qui est suivi. */
+function avisHtml(x) {
+  const n = ui.notes;
+  if (!n) return '';
+  const e = n.espace;
+  if (e?.type === 'neutre') return `<p class="cl-avis-rien">${ic('cadenas')}<span>Personne : rien n’est appris de ce montage</span></p>`;
+  const fiche = n.notes?.[x.nom];
+  if (!fiche) return '';
+  if (e && !e.apprend) return `<p class="cl-avis-rien">${ic('cadenas')}<span>${esc(e.type === 'client' ? e.nom : 'Ton espace')} n’apprend rien pour l’instant</span><button class="btn lien petit" data-cl="regler-espace" data-espace="${esc(e.id)}">Régler</button></p>`;
+  // livrée pour un autre espace (le projet a changé de « pour qui » ensuite) : son avis, sa série et ses vues restent
+  // là-bas ; rien de cette vidéo ne passe dans l'espace du projet
+  if (e && fiche.espace && fiche.espace !== e.id) {
+    const autre = (ui.espaces ?? []).find((y) => y.id === fiche.espace);
+    const pour = autre ? (autre.type === 'moi' ? 'toi' : autre.nom) : 'un ancien client';
+    return `<p class="cl-avis-rien">${ic('cadenas')}<span>Montée pour ${esc(pour)} : son avis, sa série et ses vues restent dans ${autre?.type === 'moi' ? 'ton espace' : 'cet espace-là'}</span></p>`;
+  }
+  const nom = esc(x.nom);
+  const nt = fiche.note;
+  const pubs = (fiche.publications ?? []).filter((p) => p.reseau);
+  return `<div class="cl-avis">
+      <span class="cl-avis-q">Ton avis</span>
+      <button class="cl-pouce oui${nt === 1 ? ' actif' : ''}" data-cl="avis" data-note="1" data-nom="${nom}" title="${nt === 1 ? 'Retirer mon avis' : 'Ça me plaît'}">${ic('pouce')}</button>
+      <button class="cl-pouce non${nt === -1 ? ' actif' : ''}" data-cl="avis" data-note="-1" data-nom="${nom}" title="${nt === -1 ? 'Retirer mon avis' : 'Pas comme ça'}">${ic('pouce', 'bas')}</button>
+      <button class="cl-avis-mot${fiche.mot ? ' ecrit' : ''}" data-cl="avis-mot" data-nom="${nom}" title="${fiche.mot ? 'Changer mon mot' : 'Dis-lui en une phrase ce qui t’a plu, ou pas : elle s’en souviendra'}">${ic('crayon')}<span>${fiche.mot ? `« ${esc(fiche.mot)} »` : 'Ajouter un mot'}</span></button>
+    </div>
+    <div class="cl-avis-plus">
+      <button class="btn petit" data-cl="serie" data-nom="${nom}" title="${x.atelier_present ? 'Ce montage devient un modèle : tes prochains épisodes gardent son accroche, son habillage, sa musique et son rythme' : 'Le dossier de travail de ce montage n’existe plus : il ne peut pas devenir un modèle'}"${x.atelier_present ? '' : ' disabled'}>${ic('calques')}<span>Faire une série</span></button>
+      <button class="btn petit" data-cl="lier" data-nom="${nom}" title="Colle le lien de la vidéo publiée : Dérush suit ses vues dans ton Tableau de bord">${ic('lien')}<span>${pubs.length ? 'Lier une autre' : 'Lier la publication'}</span></button>
+    </div>
+    ${pubs.length ? `<div class="cl-suivi">${pubs.map((p) => `<button class="cl-suivi-pub" data-cl="ouvrir-lien" data-lien="${esc(p.lien ?? '')}" title="${esc(`${RESEAUX_UI[p.reseau] ?? p.reseau}${p.lien ? ' : ouvrir la publication' : ''}`)}"${p.lien ? '' : ' disabled'}>${logo(p.reseau, 16)}</button>`).join('')}<span>Suivie : ses vues arrivent dans ton Tableau de bord</span><button class="btn lien petit" data-cl="tableau" title="Ouvrir le Tableau de bord">${ic('tableau')}</button></div>` : ''}`;
+}
+/** Un pouce sur une vidéo livrée ; le même pouce, recliqué, retire l'avis. Le mot déjà écrit est gardé. */
+async function noterVideoLivree(nom, valeur) {
+  const avant = ui.notes?.notes?.[nom];
+  if (!avant) return;
+  const nouvelle = avant.note === valeur ? 0 : valeur;
+  const r = await api('POST', '/api/claude/note', {video: nom, note: nouvelle, mot: avant.mot ?? ''});
+  ui.notes.notes[nom] = {...avant, note: r.fiche ? r.fiche.note ?? null : nouvelle || null, mot: r.fiche ? r.fiche.mot ?? null : avant.mot ?? null};
+  rendreClaude();
+  note(nouvelle === 1 ? 'Noté : ce montage te plaît. Ton IA s’en souviendra.'
+    : nouvelle === -1 ? (avant.mot ? 'Noté. Change ton mot pour lui dire pourquoi : elle s’en souviendra au prochain montage.' : 'Noté. Dis-lui pourquoi avec « Ajouter un mot » : elle s’en souviendra au prochain montage.') : 'Avis retiré.');
+}
+/** « Ajouter un mot » : une phrase sur la vidéo (dans une feuille : la colonne se redessine pendant le travail de l'IA). */
+function feuilleMotVideo(nom) {
+  const x = ui.notes?.notes?.[nom];
+  if (!x) return;
+  const e = ui.notes.espace;
+  let nt = x.note ?? 0;
+  const pouces = () => `<button class="cl-pouce oui${nt === 1 ? ' actif' : ''}" data-pouce="1" title="Ça me plaît">${ic('pouce')}</button><button class="cl-pouce non${nt === -1 ? ' actif' : ''}" data-pouce="-1" title="Pas comme ça">${ic('pouce', 'bas')}</button>`;
+  const f = feuille(`<h3>Un mot pour ton IA</h3><p class="sous-titre">Ce qui t’a plu, ou pas, en une phrase. Il rejoint ${e?.type === 'client' ? `le carnet de ${esc(e.nom)}` : 'ton carnet'} : ton IA le relira au prochain montage${e?.type === 'client' ? ` pour ${esc(e.nom)}` : ''}.</p>
+    <div class="cl-avis grand"><span class="cl-avis-q">Ton avis</span><span data-pouces>${pouces()}</span></div>
+    <label class="champ"><span>Ton mot</span><textarea id="mot-video" maxlength="200" rows="3" placeholder="Exemple : trop long, l’accroche ne se voit pas">${esc(x.mot ?? '')}</textarea></label>
+    <div class="pied">${x.mot ? '<button class="btn" data-effacer>Effacer mon mot</button>' : ''}<span class="espace"></span><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-ok>Enregistrer</button></div>`);
+  const ta = $('#mot-video', f);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  const envoyer = async (mot) => {
+    try {
+      const r = await api('POST', '/api/claude/note', {video: nom, note: nt, mot});
+      if (ui.notes?.notes?.[nom]) ui.notes.notes[nom] = {...ui.notes.notes[nom], note: r.fiche?.note ?? (nt || null), mot: r.fiche?.mot ?? (mot || null)};
+      fermerFeuille();
+      rendreClaude();
+      note(mot ? `Ton mot est noté : ton IA le relira au prochain montage${e?.type === 'client' ? ` pour ${e.nom}` : ''}.` : 'Ton avis est noté.');
+    } catch (err) { note(err.message, true); }
+  };
+  f.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-fermer]')) return fermerFeuille();
+    const p = ev.target.closest('[data-pouce]');
+    if (p) { const v = Number(p.dataset.pouce); nt = nt === v ? 0 : v; $('[data-pouces]', f).innerHTML = pouces(); return; }
+    if (ev.target.closest('[data-effacer]')) return envoyer('');
+    if (ev.target.closest('[data-ok]')) return envoyer(ta.value.trim());
+  });
+  ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); envoyer(ta.value.trim()); } });
+}
+/** « Faire une série » : ce montage devient le modèle des prochains épisodes (Nouveau projet → Comme d'habitude). */
+function feuilleSerieVideo(nom) {
+  const e = ui.notes?.espace;
+  const f = feuille(`<h3>Faire une série</h3><p class="sous-titre">Ce montage devient un modèle${e?.type === 'client' ? ` pour ${esc(e.nom)}` : ''}. Au prochain projet, choisis « Comme d’habitude » : ton IA garde son accroche, son habillage, sa musique et son rythme. Seul le contenu change.</p>
+    <div class="guide guide-serie">${geste('bobine', '01', 'Ce montage', 'Il te plaît : il devient le modèle.')}${FLECHE}${geste('extraits', '02', 'Comme d’habitude', 'Un clic dans « Nouveau projet ».')}${FLECHE}${geste('claude', '03', 'Un épisode', 'Même habillage, nouveau contenu.')}</div>
+    <label class="champ"><span>Nom de la série</span><input id="nom-serie" maxlength="60" value="${esc(P?.titre ?? '')}" spellcheck="false"></label>
+    <div class="pied"><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-ok>${ic('calques')}Créer la série</button></div>`, true);
+  const champ = $('#nom-serie', f);
+  champ.select();
+  const creer = async () => {
+    const b = $('[data-ok]', f);
+    if (!champ.value.trim()) return champ.focus();
+    b.disabled = true;
+    try {
+      const r = await api('POST', '/api/series', {video: nom, nom: champ.value.trim()});
+      fermerFeuille();
+      note(`Série « ${r.serie?.nom ?? champ.value.trim()} » créée : retrouve-la dans Nouveau projet → Comme d’habitude.`, false, true);
+      rechargerEspaces();
+      chargerNotes();
+    } catch (err) { note(err.message, true); b.disabled = false; }
+  };
+  f.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-fermer]')) return fermerFeuille();
+    if (ev.target.closest('[data-ok]')) return creer();
+  });
+  champ.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); creer(); } });
+}
+/** « Lier la publication » : le lien de la vidéo publiée, pour suivre ses vues (Treg pour YouTube et TikTok, l'IA sinon). */
+function feuilleLierVideo(nom) {
+  const x = ui.notes?.notes?.[nom] ?? {publications: []};
+  const liees = (x.publications ?? []).filter((p) => p.reseau);
+  const deja = new Set(liees.map((p) => p.lien).filter(Boolean));
+  // les publications faites par l'IA (avec Treg) qui ne sont pas encore suivies : un clic les propose
+  const video = (ui.claude?.versions ?? []).flatMap((v) => v.videos ?? []).find((y) => y.nom === nom);
+  const proposees = [...new Map((video?.publications ?? []).filter((p) => /^https:\/\//.test(p.lien ?? '') && !deja.has(p.lien)).map((p) => [p.lien, p])).values()];
+  const f = feuille(`<h3>Lier la publication</h3><p class="sous-titre">Tu as publié cette vidéo ? Colle son lien : Dérush relève ses vues un jour, une semaine et un mois après, et les range dans ton Tableau de bord. C’est comme ça qu’il apprend ce qui marche.</p>
+    <div class="lier-reseaux">${['youtube', 'tiktok', 'instagram', 'linkedin'].map((r) => logo(r, 28)).join('')}</div>
+    ${liees.length ? `<div class="champ"><span>Déjà suivie</span><div class="ia-pubs">${liees.map((p) => `<div class="ia-pub e-publie">${logo(p.reseau, 20)}<span><b>${esc(RESEAUX_UI[p.reseau] ?? p.reseau)}</b><small class="selectionnable">${esc(p.lien ?? '')}</small></span></div>`).join('')}</div></div>` : ''}
+    ${proposees.length ? `<div class="champ"><span>Publiée par ton IA</span><div class="ia-idees np-idees">${proposees.map((p) => `<button data-lien="${esc(p.lien)}">${logo(p.reseau, 14)}${esc(RESEAUX_UI[p.reseau] ?? p.reseau)}</button>`).join('')}</div></div>` : ''}
+    <div class="champ"><span>Lien de la vidéo publiée</span><div class="lier-champ"><input id="lien-video" placeholder="https://www.tiktok.com/@toi/video/…" spellcheck="false" autocomplete="off"><button class="btn" data-coller title="Coller le lien copié">${ic('copier')}Coller</button></div></div>
+    <p class="lier-aide">YouTube, TikTok, Instagram ou LinkedIn. Les vues de YouTube et de TikTok se relèvent avec Treg ; pour les autres, ton IA peut les relire, sur ta demande, depuis le Tableau de bord.</p>
+    <div class="pied"><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-ok>${ic('lien')}Lier</button></div>`);
+  const champ = $('#lien-video', f);
+  champ.focus();
+  const lier = async () => {
+    const lien = champ.value.trim();
+    if (!lien) return champ.focus();
+    const b = $('[data-ok]', f);
+    b.disabled = true;
+    try {
+      const r = await api('POST', '/api/suivi/lier', {video: nom, lien});
+      fermerFeuille();
+      note(`Publication ${RESEAUX_UI[r.reseau] ?? r.reseau ?? ''} liée : ses vues arriveront dans ton Tableau de bord.`, false, true);
+      chargerNotes();
+    } catch (err) { note(err.message, true); b.disabled = false; }
+  };
+  f.addEventListener('click', async (ev) => {
+    if (ev.target.closest('[data-fermer]')) return fermerFeuille();
+    const l = ev.target.closest('[data-lien]');
+    if (l) { champ.value = l.dataset.lien; return champ.focus(); }
+    if (ev.target.closest('[data-coller]')) {
+      try { champ.value = String((await (NATIF ? demanderNatif('coller') : navigator.clipboard.readText())) ?? '').trim(); } catch { note('Le presse-papiers ne se lit pas : colle le lien avec ⌘V.', true); }
+      return champ.focus();
+    }
+    if (ev.target.closest('[data-ok]')) return lier();
+  });
+  champ.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); lier(); } });
 }
 /** Les fichiers remis avec la vidéo (image fixe, storyboard, master, liste des sons…) : leur nombre, leurs noms, leur dossier. */
 const annexesHtml = (v) => (v.annexes?.nombre ? `<div class="cl-annexes" title="${esc(v.annexes.fichiers.map((f) => `${f.nom} · ${f.taille_lisible}`).join('\n'))}">${ic('trombone')}<span><b>${v.annexes.nombre} fichier${v.annexes.nombre > 1 ? 's' : ''} joint${v.annexes.nombre > 1 ? 's' : ''} · ${esc(v.annexes.taille_lisible)}</b><small>${esc(v.annexes.fichiers.map((f) => f.nom.split('/').pop()).join(', '))}</small></span><button class="btn petit" data-cl="annexes" data-version="${v.n}">Ouvrir</button></div>` : '');
 const cartesVideos = (v) => (v.videos.length > 1
-  ? `<div class="cl-lot"><span>${v.videos.length} vidéos · version ${v.n}</span><div class="cl-videos">${v.videos.map((_, k) => carteVideo(v, k)).join('')}</div></div>`
+  ? `<div class="cl-lot"><span>${v.videos.length} vidéos · version ${v.n}</span>${SQ.boutonLotIA(v)}<div class="cl-videos">${v.videos.map((_, k) => carteVideo(v, k)).join('')}</div></div>`
   : carteVideo(v, 0));
 function bulleHumain(x, c) {
   const pj = (x.pieces ?? []).map((id) => c.pieces.find((p) => p.id === id)).filter(Boolean);
@@ -4779,7 +5577,12 @@ function bulleClaude(x, c) {
   const v = x.version ? c.versions.find((y) => y.n === x.version) : null;
   const long = x.texte.length > 520;
   const m = x.moteur ?? 'claude';
-  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
+  // les questions qu'elle pose à la fin de sa dernière réponse : « Répondre » prépare la réponse dans la zone d'écriture ;
+  // « Au micro » ouvre les questions de la voix off (réponse écrite ou dite), s'il en reste
+  const questions = x === c.echanges.at(-1) && !c.en_cours && !x.erreur ? questionsALaFin(x.texte) : [];
+  const repondre = questions.length ? `<div class="cl-repondre"><button class="btn petit" data-cl="repondre" data-n="${questions.length}" title="Prépare tes réponses, numérotées, dans la zone d’écriture">${ic('bulle')}Répondre</button>${VO.questionsOuvertes()
+    ? `<button class="btn petit" data-cl="vo-ouvrir" title="Réponds question par question, par écrit ou au micro : tes réponses servent à ta voix off">${ic('micro')}Au micro</button>` : ''}</div>` : '';
+  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
 }
 /** La bulle de l'IA au travail : la bobine tourne, une ligne dit ce qu'elle fait, son rendu passe en petit ; le détail se déplie. */
 // Ce qu'une demande dure d'ordinaire à chaque niveau (avant que cet ordinateur en ait mesuré une lui-même)
@@ -4906,12 +5709,16 @@ const menuIA = (c, suite) => `<div class="ia-menu" role="menu">
   ${elementMenu('profil', 'profil', 'Mon profil de créateur')}
   ${elementMenu('brief', 'texte', 'Brief et format')}
   ${elementMenu('studio', 'onde', 'Créer avec ElevenLabs')}
+  ${elementMenu('vo-ouvrir', 'micro', 'Voix off : questions et choix')}
   ${elementMenu('creer', 'rendu', 'Créer la vidéo sans IA')}
   ${elementMenu('pack', 'dossier', 'Pack pour une autre IA')}
   ${c.atelier_chemin ? elementMenu('atelier', 'finder', 'Dossier de travail de l’IA') : ''}
   ${suite ? elementMenu('oublier', 'poubelle', 'Effacer la conversation') : ''}
 </div>`;
 
+/** Ce qui, dans les notes des vidéos livrées, change l'affichage des cartes (pour la clé de rendreClaude). */
+const signatureNotes = () => (ui.notes ? [ui.notes.espace?.id ?? '', !!ui.notes.espace?.apprend, ui.notes.espace?.type ?? '',
+  Object.entries(ui.notes.notes ?? {}).map(([k, v]) => [k, v.note ?? 0, v.mot ?? '', v.espace ?? '', (v.publications ?? []).map((p) => p.lien ?? p.reseau).join(' ')])] : null);
 /** La colonne de l'IA : une conversation simple. En haut l'IA choisie, au milieu les messages et les vidéos, en bas la zone d'écriture. */
 function rendreClaude() {
   const box = $('#claude');
@@ -4925,10 +5732,19 @@ function rendreClaude() {
   const pret = iaPrete(m);
   const suite = c.echanges.length > 0;
   const peutSuivre = suite && !!c.session;
-  const depart = !peutSuivre ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
+  // « Pour qui ? » a changé : le serveur repart d'un dossier et d'une conversation neufs, quoi qu'on choisisse
+  const depart = !peutSuivre || c.espace_change ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
   const attente = piecesEnAttente();
   const envoyees = piecesEnvoyees();
-  const cle = JSON.stringify([modeProjet(), ui.reglagesIA.map((r) => r.texte), m, pret, qualiteIA(), modeleIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs]);
+  const cle = JSON.stringify([modeProjet(), ui.reglagesIA.map((r) => r.texte), m, pret, qualiteIA(), modeleIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.espace_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs,
+    // pour qui l'IA monte (ligne « Pour : »), et les notes des vidéos livrées (pouces, mot, publications suivies)
+    ui.espace ? [ui.espace.id, ui.espace.nom, ui.espace.couleur] : null, signatureNotes(), ui.driveCarte,
+    // la carte « Une voix off ? » (et le bouton « Au micro » sous les questions de l'IA)
+    VO.signature(),
+    // les vidéos de la timeline : laquelle est ouverte, leurs noms, une vidéo de l'IA qui y entre (public/sequences.js)
+    SQ.signature(), c.sequence_change, c.sequence_atelier?.nom ?? null,
+    // ce que devient chaque vidéo livrée dans la timeline (plan par plan ou le fichier) et la vidéo qui en est déjà faite
+    c.versions.map((v) => v.videos.map((x) => [x.timeline ?? null, x.dans_timeline?.id ?? null]))]);
   if (box.dataset.cle === cle) return majTravail(c);
   const ancien = $('#cl-texte', box);
   const focus = !!ancien && document.activeElement === ancien;
@@ -4957,17 +5773,20 @@ function rendreClaude() {
   const accueil = suite || c.en_cours ? '' : modeP === 'motion' && !P.medias.length
     ? `<div class="ia-accueil">${ill('motion')}<h2>Décris ton animation</h2><p>Pas besoin de vidéo : le sujet, les mots à afficher, la durée, le style. Joins ton logo ou ta charte si tu en as.</p>${pret ? blocIdees(false) : ''}</div>`
     : !P.medias.length && !c.pieces.length
-    ? `<div class="ia-accueil">${ill(DESSINS_MODE[modeP] === 'claude' ? 'rushes' : DESSINS_MODE[modeP])}<h2>D’abord, ta matière</h2><p>${matiere}</p><button class="btn principal" data-a="importer">${ic('plus')}Importer</button></div>`
+    ? `<div class="ia-accueil">${ill(DESSINS_MODE[modeP] === 'claude' ? 'rushes' : DESSINS_MODE[modeP])}<h2>D’abord, ta matière</h2><p>${matiere}</p><div class="ia-accueil-act"><button class="btn principal" data-a="importer">${ic('plus')}Importer</button><button class="btn" data-a="drive" title="Retrouver tes rushes dans ton Google Drive, par jour">${logo('drive', 16)}Depuis mon Drive</button></div></div>`
     : `<div class="ia-accueil">${ill('claude')}<h2>Qu’est-ce qu’on monte&nbsp;?</h2><p>Écris ce que tu veux. Joins tes références, ta charte ou ton logo si tu en as.</p>${pret ? blocIdees(false) : ''}</div>`;
   const fil = suite || c.en_cours ? `<div class="cl-fil">${c.echanges.map((x) => bulleClaude(x, c)).join('')}${c.en_cours ? bulleTravail(c) : ''}</div>` : '';
+  const dansOuverte = SQ.dansOuverte();
   const reprendre = suite && c.decoupe_ia && !c.en_cours
-    ? `<button class="ia-reprendre" data-cl="decoupe">${ic('ciseaux')}<span><b>Mettre sa découpe dans ma timeline</b><small>${c.decoupe_ia} passages choisis par l’IA, à retoucher si tu veux.</small></span></button>` : '';
+    ? `<button class="ia-reprendre" data-cl="decoupe">${ic('ciseaux')}<span><b>Mettre sa découpe dans ma timeline</b><small>${c.decoupe_ia} passages choisis par l’IA, à retoucher si tu veux.${dansOuverte ? ` Ils iront dans « ${esc(dansOuverte)} », la vidéo ouverte.` : ''}</small></span></button>` : '';
   const dansLeFil = new Set(c.echanges.map((x) => x.version).filter(Boolean));
   const anciennes = c.versions.filter((v) => !dansLeFil.has(v.n));
   const bande = anciennes.length ? `<div class="cl-anciennes"><span>${suite ? 'Versions d’avant' : 'Vidéos déjà faites'}</span>${anciennes.map((v) => `<button data-version="${v.n}"${ui.vue === 'claude' && ui.versionVue === v.n ? ' class="actif"' : ''} title="Regarder la version ${v.n}">${ic('lire', 'plein')}v${v.n}${v.videos.length > 1 ? ` · ${v.videos.length}` : ''}</button>`).join('')}</div>` : '';
   const relances = suite && pret && !c.en_cours && c.echanges.at(-1)?.role === 'claude' && !c.echanges.at(-1)?.erreur ? blocIdees(true) : '';
   // en bas : le montage a changé depuis ? (sinon, rien à choisir) puis la zone d'écriture
-  const changement = peutSuivre && !c.en_cours && c.montage_change ? `<div class="ia-change">${ic('attention')}<span>Tu as modifié ton montage.</span><div class="segmente"><button data-depart="nouveau"${depart === 'nouveau' ? ' class="actif"' : ''} title="L’IA repart de ton montage tel qu’il est maintenant, en gardant tes demandes">Repartir de lui</button><button data-depart="suite"${depart === 'suite' ? ' class="actif"' : ''} title="L’IA continue son propre travail">Continuer</button></div></div>` : '';
+  // (l'espace a changé : montage_change est vrai aussi, car l'empreinte du montage contient l'espace ; rien à choisir)
+  const changement = suite && !c.en_cours && c.espace_change ? `<div class="ia-change">${ic('attention')}<span>Ce projet est maintenant pour ${esc(ui.espace?.nom ?? 'un autre espace')} : ton IA repartira d’un dossier et d’une conversation neufs.</span></div>`
+    : peutSuivre && !c.en_cours && c.montage_change ? `<div class="ia-change${c.sequence_change && c.sequence_atelier?.nom ? ' seq' : ''}">${ic('attention')}<span>${c.sequence_change && c.sequence_atelier?.nom ? `L’IA a préparé son dossier pour « ${esc(c.sequence_atelier.nom)} ».` : 'Tu as modifié ton montage.'}</span><div class="segmente"><button data-depart="nouveau"${depart === 'nouveau' ? ' class="actif"' : ''} title="${c.sequence_change ? 'L’IA repart de la vidéo ouverte dans la timeline, en gardant tes demandes' : 'L’IA repart de ton montage tel qu’il est maintenant, en gardant tes demandes'}">Repartir de lui</button><button data-depart="suite"${depart === 'suite' ? ' class="actif"' : ''} title="L’IA continue son propre travail">Continuer</button></div></div>` : '';
   const qui = nomIA(m);
   const texteVide = !pret ? 'Branche d’abord ton IA (Connexions)…' : c.en_cours ? (c.en_cours.ecoute ? `Écris à ${nomIA(c.en_cours.moteur)} pendant qu’il travaille : il le lira au prochain geste…` : `Écris la suite : elle partira dès que ${nomIA(c.en_cours.moteur)} aura fini…`)
     : attente.length ? `Dis à ${qui} quoi en faire, ou envoie tel quel…`
@@ -4980,8 +5799,14 @@ function rendreClaude() {
     <div class="cl-envoi"><button class="cl-joindre" data-cl="joindre" title="Joindre des fichiers : références, vidéos, charte graphique, logo, polices, zip… Tu peux aussi les glisser ou les coller ici.">${ic('trombone')}</button>${c.drive?.synchronise ? `<button class="cl-joindre" data-cl="joindre-drive" title="Joindre depuis ton Google Drive">${logo('drive', 16)}</button>` : ''}
     <span class="espace"></span>${c.en_cours ? `<button data-cl="arreter" class="stop" title="Arrêter ${qui}">${ic('stop', 'plein')}</button><button data-cl="envoyer" id="cl-envoyer" title="${c.en_cours.ecoute ? `Lui écrire pendant son travail (⌘↵)` : 'Envoyer à la fin de son travail (⌘↵)'}">${ic('envoi')}</button>` : `<button data-cl="envoyer" id="cl-envoyer" title="Envoyer à ${qui} (⌘↵)">${ic('envoi')}</button>`}</div>
     <div class="cl-depot-ici">${ic('trombone')}<span>Lâche ici : ${qui} le recevra avec ton message</span></div></div>`;
+  // pour qui l'IA monte ce projet : toujours visible près de la zone d'écriture (un clic pour changer)
+  const E = ui.espace;
+  const pour = E ? `<button class="cl-pour${E.type === 'neutre' ? ' neutre' : ''}" data-cl="pour-qui" style="--c:${esc(E.couleur)}" title="Pour qui ton IA monte ce projet. Un clic pour changer"><i></i><span>Pour : <b>${esc(E.nom)}</b></span><small>${E.type === 'client' ? 'sa marque, son carnet' : E.type === 'neutre' ? 'neutre, rien n’est appris' : 'ton style, ton carnet'}</small>${ic('img-plus')}</button>` : '';
+  // les cartes du pied (le montage a changé, le Drive, la voix off, la vidéo ouverte) : elles défilent entre elles quand la
+  // colonne est courte, pour que la conversation garde sa place (style.css, .cl-cartes)
+  const cartesPied = `${changement}${carteDrive()}${VO.carte()}${SQ.ligneIA()}`.trim();
   box.innerHTML = `${tete}<div class="cl-haut" id="cl-haut">${recus}${brancher}${accueil}${fil}${reprendre}${bande}${relances}</div>
-    <div class="cl-pied">${changement}${compose}</div>`;
+    <div class="cl-pied">${cartesPied ? `<div class="cl-cartes">${cartesPied}</div>` : ''}${pour}${compose}</div>`;
   const haut = $('#cl-haut', box);
   const ta = $('#cl-texte', box);
   ta.value = ui.brouillon;
@@ -4994,33 +5819,68 @@ function rendreClaude() {
   if (nouvelEchange && suite && !c.en_cours && derniere) haut.scrollTop = derniere.offsetTop - 8;
   else if ((suite || c.en_cours) && (nouvelEchange || enBas)) haut.scrollTop = haut.scrollHeight;
   else haut.scrollTop = defile;
+  ajusterAccueil(haut);
 }
 
+// L'accueil de la colonne de l'IA et les cartes du pied (Drive, voix off, vidéos) se partagent la hauteur : quand la
+// place manque, le dessin s'efface, puis la phrase, plutôt qu'un titre coupé en deux. Revu quand la zone change de taille.
+const tailleAccueil = typeof ResizeObserver === 'function' ? new ResizeObserver((x) => ajusterAccueil(x.at(-1)?.target)) : null;
+function ajusterAccueil(haut) {
+  if (!haut?.isConnected) return;
+  if (tailleAccueil && haut.dataset.suivi !== '1') { haut.dataset.suivi = '1'; tailleAccueil.disconnect(); tailleAccueil.observe(haut); }
+  // les cartes du pied qui défilent : un fondu en bas dit qu'il y a une suite
+  const cartes = haut.parentElement?.querySelector('.cl-pied > .cl-cartes');
+  if (cartes) {
+    const fondu = () => cartes.classList.toggle('deborde', cartes.scrollTop + cartes.clientHeight < cartes.scrollHeight - 2);
+    if (!cartes.dataset.suivi) { cartes.dataset.suivi = '1'; cartes.addEventListener('scroll', fondu, {passive: true}); }
+    fondu();
+  }
+  const a = haut.querySelector(':scope > .ia-accueil');
+  if (!a) return;
+  a.classList.remove('serre', 'tres-serre');
+  const deborde = () => haut.scrollHeight > haut.clientHeight + 1;
+  if (deborde()) a.classList.add('serre');
+  if (deborde()) a.classList.add('tres-serre');
+}
+
+// une demande à l'IA est en route (un message, une publication) : un double clic ou un second ⌘↵ ne l'envoie pas deux fois
+// (deux IA lancées dans le même dossier, des crédits dépensés deux fois, une vidéo publiée deux fois)
+let envoiDemande = false;
 async function envoyerDemande() {
   const c = ui.claude;
   const texte = ui.brouillon.trim();
   const pj = piecesEnAttente();
-  if (!c) return;
+  if (!c || envoiDemande) return;
   // l'IA travaille : le message lui est ajouté (lu en route par Claude, envoyé à la fin pour Codex et Gemini)
   if (c.en_cours) {
     if (!texte) return $('#cl-texte')?.focus();
     const b = $('#cl-envoyer');
     if (b) b.disabled = true;
+    envoiDemande = true;
     try {
       const r = await api('POST', '/api/claude/ajouter', {message: texte});
       ui.brouillon = '';
       note(r.lu_en_route ? `${nomIA(c.en_cours.moteur)} lira ton message au prochain geste.` : `Ton message partira dès que ${nomIA(c.en_cours.moteur)} aura fini.`);
       await chargerClaude();
-    } catch (err) { note(err.message, true); majEnvoi(); }
+    } catch (err) { note(err.message, true); majEnvoi(); } finally { envoiDemande = false; }
     return;
   }
   if (!iaPrete()) return feuilleConnexions();
   const reglages = texteReglages();
   if (!texte && !pj.length && !reglages) return $('#cl-texte')?.focus();
+  // « va dans mon Drive, prends les vidéos de mon séjour… » : Dérush propose d'abord de les chercher lui-même (« Depuis mon
+  // Drive » : un plan borné, les vraies dates de prise de vue, l'accord avant tout téléchargement), puis renvoie cette
+  // demande à l'IA. Sinon elle fouillerait drive/ seule. La personne peut aussi l'envoyer telle quelle.
+  if (texte && !ui.apresDrive && !ui.driveDeja?.has(texte) && parleDuDrive(texte)) {
+    ui.driveCarte = {etape: 'proposer', texte};
+    ui.brouillon = '';
+    return rendreClaude();
+  }
   const peutSuivre = c.echanges.length > 0 && !!c.session;
-  const depart = !peutSuivre ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
+  const depart = !peutSuivre || c.espace_change ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
   const b = $('#cl-envoyer');
   if (b) b.disabled = true;
+  envoiDemande = true;
   try {
     await sauver(true);
     const message = [texte || (reglages ? 'Applique ces réglages sur ta vidéo, sans rien changer d’autre.' : ''), reglages].filter(Boolean).join('\n\n');
@@ -5029,7 +5889,65 @@ async function envoyerDemande() {
     ui.reglagesIA = [];
     ui.depart = null;
     await chargerClaude();
-  } catch (err) { note(err.message, true); majEnvoi(); }
+  } catch (err) { note(err.message, true); majEnvoi(); } finally { envoiDemande = false; }
+}
+/**
+ * « Répondre », sous les questions que l'IA pose à la fin de sa réponse : une ligne numérotée par question dans la zone
+ * d'écriture (après ce qui y était déjà), le curseur sur la première. Rien ne part sans « Envoyer ».
+ */
+function preparerReponse(n) {
+  const ta = $('#cl-texte');
+  if (!ta || ta.disabled) return;
+  const {texte, curseur} = reponsePreparee(n, ui.brouillon);
+  ui.brouillon = texte;
+  ta.value = texte;
+  hauteurTexte(ta);
+  majEnvoi();
+  ta.focus();
+  ta.setSelectionRange(curseur, curseur);
+  ta.scrollTop = 0;
+}
+/** Envoie une demande sans repasser par « Depuis mon Drive » : après l'import de ses rushes, ou « Envoyer tel quel ». */
+async function envoyerSansDetour(message) {
+  ui.driveCarte = null;
+  ui.brouillon = String(message ?? '');
+  ui.apresDrive = true;
+  montrerClaude();
+  try { await envoyerDemande(); } finally {
+    ui.apresDrive = false;
+    rendreClaude();
+    // la zone d'écriture suit : vide si la demande est partie, sinon la demande, à relire
+    const ta = $('#cl-texte');
+    if (ta && ta.value !== ui.brouillon) { ta.value = ui.brouillon; hauteurTexte(ta); majEnvoi(); }
+  }
+}
+/**
+ * La carte « Je cherche d'abord dans ton Drive ? » au-dessus de la zone d'écriture : la demande qui parle du Drive attend
+ * là (proposer), pendant la recherche (attente), puis une fois ses rushes importés (pret).
+ */
+function carteDrive() {
+  const d = ui.driveCarte;
+  if (!d) return '';
+  const qui = nomIA();
+  const synchro = ui.claude?.drive?.synchronise !== false;
+  const citation = `<blockquote class="selectionnable">${esc(d.texte)}</blockquote>`;
+  const garder = `<button class="icone-btn" data-cl="drive-annuler" title="Remettre ma demande dans la zone d’écriture">${ic('fermer')}</button>`;
+  if (d.etape === 'pret') {
+    return `<div class="cl-drive pret"><div class="cl-drive-tete">${logo('drive', 18)}<b>Tes rushes sont dans le projet</b>${garder}</div>
+      <p>${esc([d.import?.texte, d.resume].filter(Boolean).join(' '))}</p>${citation}
+      <div class="cl-drive-act"><button class="btn principal petit" data-cl="drive-envoyer">${ic('envoi')}Envoyer ma demande à ${esc(qui)}</button></div></div>`;
+  }
+  if (d.etape === 'import') {
+    return `<div class="cl-drive"><div class="cl-drive-tete">${logo('drive', 18)}<b>Dérush importe tes rushes</b>${garder}</div>${citation}
+      <div class="cl-drive-act"><button class="btn petit" data-cl="drive-reprendre">${ic('importer')}Suivre l’import</button></div></div>`;
+  }
+  if (d.etape === 'attente') {
+    return `<div class="cl-drive"><div class="cl-drive-tete">${logo('drive', 18)}<b>Ta demande attend tes rushes</b>${garder}</div>${citation}
+      <div class="cl-drive-act"><button class="btn principal petit" data-cl="drive-reprendre">${ic('loupe')}Reprendre la recherche</button><button class="btn petit" data-cl="drive-tel-quel" title="${esc(qui)} reçoit ta demande sans les rushes du Drive">Envoyer tel quel</button></div></div>`;
+  }
+  return `<div class="cl-drive"><div class="cl-drive-tete">${logo('drive', 18)}<b>Je cherche d’abord dans ton Drive ?</b>${garder}</div>
+    <p>${synchro ? `Dérush retrouve tes rushes, lit le vrai jour et la vraie heure de chaque prise, et te montre combien de fichiers et de Go avant de les télécharger. Ensuite, ta demande part à ${esc(qui)}.` : 'Google Drive pour ordinateur n’est pas sur cet ordinateur : Dérush ne voit pas encore ton Drive.'}</p>${citation}
+    <div class="cl-drive-act"><button class="btn principal petit" data-cl="drive-chercher">${synchro ? `${ic('loupe')}Chercher dans ton Drive` : `${ic('aide')}Voir comment faire`}</button><button class="btn petit" data-cl="drive-tel-quel" title="${esc(qui)} reçoit ta demande telle quelle">Envoyer tel quel</button></div></div>`;
 }
 /** Ouvre la colonne de Claude (en retirant la sélection), prête à écrire. */
 function montrerClaude(ecrire = false) {
@@ -5043,14 +5961,14 @@ $('#claude').addEventListener('input', (e) => {
   majEnvoi();
 });
 $('#claude').addEventListener('keydown', (e) => {
-  if (e.target.id === 'cl-texte' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); envoyerDemande(); }
+  if (e.target.id === 'cl-texte' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (!e.repeat) envoyerDemande(); }
 });
 // un fichier collé dans la conversation (capture d'écran, image copiée…) devient une pièce jointe
 $('#claude').addEventListener('paste', (e) => {
   const fichiers = [...(e.clipboardData?.files ?? [])];
   if (!fichiers.length) return;
   e.preventDefault();
-  deposerPieces(fichiers);
+  deposerPieces(fichiers, true);
 });
 $('#claude').addEventListener('change', async (e) => {
   const id = e.target.dataset?.role;
@@ -5109,6 +6027,15 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'analyser') return PUB.ouvrir(e.target.closest('[data-nom]').dataset.nom, 'analyse');
     if (act === 'partager') return PUB.ouvrir(e.target.closest('[data-nom]').dataset.nom, 'partage');
     if (act === 'lien-pub') { const l = e.target.closest('[data-lien]').dataset.lien; if (/^https:\/\//.test(l)) window.open(l, '_blank', 'noopener'); return; }
+    // Dérush apprend de toi : l'avis sur une vidéo livrée, sa série, sa publication suivie, et pour qui l'IA monte
+    if (act === 'avis') { const b = e.target.closest('[data-note]'); return await noterVideoLivree(b.dataset.nom, Number(b.dataset.note)); }
+    if (act === 'avis-mot') return feuilleMotVideo(e.target.closest('[data-nom]').dataset.nom);
+    if (act === 'serie') return feuilleSerieVideo(e.target.closest('[data-nom]').dataset.nom);
+    if (act === 'lier') return feuilleLierVideo(e.target.closest('[data-nom]').dataset.nom);
+    if (act === 'ouvrir-lien') { const l = e.target.closest('[data-lien]').dataset.lien; if (/^https:\/\//.test(l)) await api('POST', '/api/lien', {url: l}); return; }
+    if (act === 'tableau') return TB.ouvrir({espace: ui.notes?.espace?.id ?? ui.espace?.id ?? null});
+    if (act === 'pour-qui') return changerEspaceProjet();
+    if (act === 'regler-espace') return ESP.feuilleEspace(e.target.closest('[data-espace]').dataset.espace);
     if (act === 'copier') { await copierTexte(e.target.closest('[data-texte]').dataset.texte); return note('Copié : colle-le dans l’app du réseau.'); }
     if (act === 'finder') return await api('POST', '/api/ouvrir', {chemin: c.versions.flatMap((v) => v.videos).find((x) => x.nom === e.target.closest('[data-nom]').dataset.nom)?.chemin});
     if (act === 'annexes') return await api('POST', '/api/ouvrir', {chemin: c.versions.find((v) => String(v.n) === e.target.closest('[data-version]').dataset.version)?.annexes?.chemin});
@@ -5120,6 +6047,30 @@ $('#claude').addEventListener('click', async (e) => {
     }
     if (carte && !act) return montrerVue('claude', Number(carte.dataset.version), carte.dataset.video != null ? Number(carte.dataset.video) : 0, true);
     if (act === 'envoyer') return envoyerDemande();
+    // « Je cherche d'abord dans ton Drive ? » (carteDrive)
+    if (act === 'drive-chercher' && ui.driveCarte) {
+      const d = ui.driveCarte;
+      ui.driveCarte = {...d, etape: 'attente'};
+      rendreClaude();
+      return DR.ouvrir({onglet: 'ia', demande: d.texte, origine: d.texte});
+    }
+    if (act === 'drive-reprendre') return DR.ouvrir({onglet: 'ia', origine: ui.driveCarte?.texte ?? null});
+    if (act === 'drive-tel-quel' && ui.driveCarte) return envoyerSansDetour(ui.driveCarte.texte);
+    if (act === 'drive-envoyer' && ui.driveCarte) { const d = ui.driveCarte; return envoyerSansDetour(DR.message(d.texte, d.import, d.resume)); }
+    if (act === 'drive-annuler') {
+      const d = ui.driveCarte;
+      ui.driveCarte = null;
+      // ses rushes sont arrivés : la demande revient avec leur liste, et ne repasse plus par le Drive
+      if (d) ui.brouillon = d.etape === 'pret' ? DR.message(d.texte, d.import, d.resume) : d.texte;
+      if (d?.etape === 'pret') (ui.driveDeja ??= new Set()).add(ui.brouillon.trim());
+      rendreClaude();
+      return $('#cl-texte')?.focus();
+    }
+    // la voix off proposée (public/enregistrer.js : la carte, la feuille des questions) et « Répondre » sous les questions de l'IA
+    if (act === 'repondre') return preparerReponse(Number(e.target.closest('[data-n]').dataset.n));
+    if (act?.startsWith('vo-')) return await VO.clic(act, e.target.closest('[data-cl]'));
+    // une vidéo livrée par l'IA devient une vidéo de la timeline (public/sequences.js)
+    if (act?.startsWith('seq-')) return await SQ.clic(act, e.target.closest('[data-cl]'));
     if (act === 'pourquoi-long') return feuillePourquoiLong();
     if (act === 'joindre') return joindreFichiers();
     if (act === 'joindre-drive') {
@@ -5172,6 +6123,15 @@ $('#claude').addEventListener('click', async (e) => {
 // Connexions : l'IA (Claude ou Codex), ElevenLabs, Google Drive, Treg, Blender, les compétences, les mises à jour
 // =====================================================================
 let minuterieConnexions = null;
+/** Les installations en cours (le serveur suit chacune) : leurs noms. */
+const occupesCx = (d) => Object.entries({claude: d.claude?.action, codex: d.codex?.action, gemini: d.gemini?.action, blender: d.blender_action, remotion: d.competences?.action,
+  realsfx: d.sons?.realsfx?.action, earshot: d.sons?.earshot?.action}).filter(([, a]) => enCours(a)).map(([k]) => k);
+/** L'IA dont on attend la connexion, lancée d'ici (navigateur ou terminal) : 15 minutes au plus, même si la feuille a été fermée. */
+const cxAttendu = () => (ui.cxSuivre?.jusqua > Date.now() ? ui.cxSuivre.quoi : null);
+/** Le temps entre deux vérifications de cette IA : 5 s la première minute, puis 15 s. */
+const pasCx = () => (Date.now() - (ui.cxSuivre?.debut ?? 0) < 60000 ? 5000 : 15000);
+/** Ce que l'éditeur montre de l'IA : quand cela change dans Connexions, l'éditeur le relit. */
+const etatIAs = (d) => JSON.stringify([d?.claude?.ok, d?.codex?.ok, d?.gemini?.ok, d?.choisi, d?.qualite, d?.modele]);
 const etatCarte = (ok, attente = false) => (ok ? 'ok' : attente ? 'attente' : 'manque');
 const carteCx = ({etat, lg, titre, sous, actions = '', plus = ''}) => `<div class="cx-carte ${etat}">${lg}<div class="cx-txt"><b>${titre}<i class="cx-point"></i></b><small>${sous}</small>${plus}</div><div class="cx-act">${actions}</div></div>`;
 const enCours = (a) => a?.etat === 'en_cours';
@@ -5208,7 +6168,10 @@ function sectionSons(d) {
 }
 async function feuilleConnexions() {
   let d;
-  try { d = await api('GET', '/api/connexions'); } catch (e) { return note(e.message, true); }
+  // une connexion lancée d'ici et pas encore vue : cette IA (seule) est revérifiée à l'ouverture
+  const attendu = cxAttendu();
+  if (attendu) ui.cxSuivre.vu = Date.now();
+  try { d = await api('GET', `/api/connexions${attendu ? `?force=${attendu}` : ''}`); } catch (e) { return note(e.message, true); }
   ui.cxMontree = true;
   const f = feuille('', true);
   f.classList.add('connexions');
@@ -5236,21 +6199,46 @@ async function feuilleConnexions() {
     <section class="cx-section"><h4>${ic('cube')}La 3D</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(bl.ok, enCours(d.blender_action)), lg: logo('blender', 42), titre: 'Blender', sous: esc(bl.ok ? `${bl.nom} : l’IA s’en sert pour la 3D réaliste.` : 'Facultatif : sans lui, l’IA fait la 3D dans la page (Three.js).'), actions: bl.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : enCours(d.blender_action) ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : '<button class="btn petit" data-cx="blender/installer">Installer</button>', plus: erreurAction(d.blender_action)})}</div></section>
     <section class="cx-section"><h4>${ic('outil')}Dérush</h4><div class="cx-grille deux">
-      ${carteCx({etat: etatCarte(d.competences?.remotion, enCours(d.competences?.action)), lg: logo('competences', 42), titre: `${d.competences?.nombre ?? 0} compétences`, sous: esc(`Montage, FFmpeg, étalonnage, sous-titres, son, motion design, TikTok, Reels, Shorts, publication${d.competences?.remotion ? ', Remotion' : ''} : l’IA les lit avant de travailler.`), actions: d.competences?.remotion ? `<span class="etiq ok">${ic('coche')}Prêtes</span>` : enCours(d.competences?.action) ? `<span class="etiq">${anneau(0.5)}Téléchargement…</span>` : '<button class="btn petit" data-cx="competences/remotion" title="Les compétences Remotion se téléchargent depuis leur dépôt officiel">Ajouter Remotion</button>', plus: erreurAction(d.competences?.action)})}
+      ${carteCx({etat: etatCarte(d.competences?.remotion, enCours(d.competences?.action)), lg: logo('competences', 42), titre: `${d.competences?.nombre ?? 0} compétences`, sous: esc(`Montage, FFmpeg, étalonnage, sous-titres, son, motion design, TikTok, Reels, Shorts, publication${d.competences?.remotion ? ', Remotion' : ''}${d.competences?.ajoutees ? `, et ${d.competences.ajoutees} ajoutée${d.competences.ajoutees > 1 ? 's' : ''} par toi` : ''} : l’IA les lit avant de travailler.`), actions: `${d.competences?.remotion ? '' : enCours(d.competences?.action) ? `<span class="etiq">${anneau(0.5)}Téléchargement…</span>` : '<button class="btn petit" data-cx="competences/remotion" title="Les compétences Remotion se téléchargent depuis leur dépôt officiel">Ajouter Remotion</button>'}<button class="btn ${d.competences?.remotion ? 'bleu ' : ''}petit" data-competences title="Une compétence trouvée sur GitHub ou dans l’annuaire skills.sh">${d.competences?.ajoutees ? 'Gérer' : 'Ajouter une compétence'}</button>`, plus: erreurAction(d.competences?.action)})}
       ${carteCx({etat: etatCarte(maj.possible !== false && !maj.en_retard, enCours(maj.action)), lg: logo('maj', 42), titre: `Version ${esc(d.version)}`, sous: esc(maj.possible === false ? `${maj.version_distante && maj.version_distante !== d.version ? `La version ${maj.version_distante} est sortie. ` : ''}${maj.message}` : maj.en_retard ? `Nouvelle version${maj.version_distante ? ` ${maj.version_distante}` : ''} : ${maj.nouveautes?.[0]?.titre ?? (maj.notes?.slice(0, 2).join(' · ') || `${maj.en_retard} changement(s)`)}.` : maj.le ? `Dérush est à jour. ${maj.prevenir === false ? 'Il ne te prévient plus des nouvelles versions.' : 'Il te prévient quand une nouvelle version sort.'}` : 'Dérush te prévient quand une nouvelle version sort.'), actions: `${maj.en_retard ? '<button class="btn principal petit" data-cx="maj/installer">Mettre à jour</button>' : '<button class="btn petit" data-cx="maj/verifier">Vérifier</button>'}<label class="interrupteur" title="Me prévenir quand une nouvelle version sort"><input type="checkbox" data-cx-bascule="maj/prevenir"${maj.prevenir === false ? '' : ' checked'}><i></i></label>`})}</div></section>
     <div class="pied"><span class="dim" style="font-size:12px">${esc(d.systeme ?? '')} · Dérush ${esc(d.version ?? '')} · bêta test</span><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`;
   };
-  const relire = async (force = true) => {
-    try { d = await api('GET', `/api/connexions${force ? '?force=1' : ''}`); } catch { return; }
+  // force : rien (l'état gardé par le serveur), ou les noms de ce qu'il faut revérifier (« claude », « blender,earshot ») ;
+  // toujours : redessiner même si rien n'a changé (après un clic, pour rendre la main au bouton)
+  const relire = async (force = false, toujours = true) => {
+    const avant = JSON.stringify(d);
+    const iaAvant = etatIAs(d);
+    try { d = await api('GET', `/api/connexions${force ? `?force=${encodeURIComponent(force)}` : ''}`); } catch { return; }
     if (!feuilleOuverte() || !f.isConnected) return;
-    rendre();
-    if (ui.claude) chargerClaude(true);
+    if (toujours || JSON.stringify(d) !== avant) rendre();
+    // l'éditeur suit ce qui a changé pour l'IA (prête, choisie, qualité, modèle) : le serveur vient de le vérifier
+    if (ui.claude && etatIAs(d) !== iaAvant) chargerClaude();
   };
+  // Le suivi pendant une installation ou une connexion lancée d'ici. Une installation se relit sans rien revérifier
+  // (le serveur suit l'action), puis ce qu'elle a installé est revérifié une fois quand elle finit. Une connexion dans
+  // le navigateur ou un terminal, que rien ne suit côté serveur : seule cette IA est revérifiée, toutes les 5 s pendant
+  // une minute puis toutes les 15 s, jusqu'à ce qu'elle soit prête (au plus 15 minutes). Avant, tout (claude, codex,
+  // agy models, Blender, Earshot) était revérifié de force toutes les 3,5 s pendant 15 minutes, même feuille fermée.
   const suivre = () => {
     clearTimeout(minuterieConnexions);
-    const attente = [d.claude?.action, d.codex?.action, d.gemini?.action, d.blender_action, d.competences?.action, d.sons?.realsfx?.action, d.sons?.earshot?.action].some(enCours) || d.elevenlabs?.attente || ui.cxSuivre > Date.now();
-    if (attente) minuterieConnexions = setTimeout(async () => { if (!f.isConnected) return; await relire(); suivre(); }, 3500);
+    if (cxAttendu() && d[ui.cxSuivre.quoi]?.ok) ui.cxSuivre = null;
+    const occupe = occupesCx(d).length > 0 || !!d.elevenlabs?.attente;
+    if (!occupe && !cxAttendu()) return;
+    minuterieConnexions = setTimeout(async () => {
+      if (!f.isConnected || !feuilleOuverte()) return;
+      const attendu = cxAttendu();
+      const forcer = attendu && Date.now() - ui.cxSuivre.vu >= pasCx() - 200 ? attendu : '';
+      if (forcer) ui.cxSuivre.vu = Date.now();
+      const avant = occupesCx(d);
+      await relire(forcer, false);
+      const finis = avant.filter((k) => k !== 'remotion' && !occupesCx(d).includes(k));
+      if (finis.length && f.isConnected && feuilleOuverte()) await relire(finis.join(','), false);
+      suivre();
+    }, occupe ? 3500 : pasCx());
   };
+  // la feuille se ferme (OK, Échap, un clic à côté) : le suivi s'arrête, et l'éditeur relit l'état des connexions
+  // (l'IA qu'on attend encore est revérifiée, une fois)
+  f.avantFermeture = () => { clearTimeout(minuterieConnexions); if (ui.claude) chargerClaude(cxAttendu() ?? false); };
   rendre();
   suivre();
   f.addEventListener('change', async (e) => {
@@ -5260,8 +6248,9 @@ async function feuilleConnexions() {
     await relire(false);
   });
   f.addEventListener('click', async (e) => {
-    if (e.target.closest('[data-fermer]')) { clearTimeout(minuterieConnexions); fermerFeuille(); if (ui.claude) chargerClaude(true); return; }
+    if (e.target.closest('[data-fermer]')) return fermerFeuille(); // avantFermeture arrête le suivi et relit l'éditeur
     if (e.target.closest('[data-guide-treg]')) { clearTimeout(minuterieConnexions); return PUB.guideTreg(() => feuilleConnexions()); }
+    if (e.target.closest('[data-competences]')) { clearTimeout(minuterieConnexions); return CP.ouvrir({retour: () => feuilleConnexions()}); }
     const lien = e.target.closest('[data-lien]')?.dataset.lien;
     if (lien) return api('POST', '/api/lien', {url: lien}).catch((err) => note(err.message, true));
     const b = e.target.closest('[data-cx]');
@@ -5272,11 +6261,13 @@ async function feuilleConnexions() {
     b.disabled = true;
     try {
       await api('POST', `/api/connexions/${action}`, corps);
-      if (/\/(installer|connecter|brancher)$/.test(action)) { ui.cxSuivre = Date.now() + 15 * 60000; note(action === 'gemini/connecter' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google, puis reviens ici.' : /connecter|brancher/.test(action) ? 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.' : 'Installation lancée : ça prend une à deux minutes.'); }
+      if (/^(claude|codex|gemini)\/connecter$/.test(action)) ui.cxSuivre = {quoi: action.split('/')[0], debut: Date.now(), vu: Date.now(), jusqua: Date.now() + 15 * 60000};
+      if (/\/(installer|connecter|brancher)$/.test(action)) { note(action === 'gemini/connecter' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google, puis reviens ici.' : /connecter|brancher/.test(action) ? 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.' : 'Installation lancée : ça prend une à deux minutes.'); }
       if (action === 'maj/installer') { note('Mise à jour installée : Dérush redémarre…', false, true); voileMaj(); return; }
       if (action === 'earshot/installer') note('Earshot s’installe : 2,5 Go, compte une dizaine de minutes. Tu peux continuer à travailler.');
     } catch (err) { note(err.message, true); }
-    await relire(!action.startsWith('ia/'));
+    // rien à revérifier de force : l'action vient d'être prise par le serveur, le suivi fait le reste
+    await relire();
     suivre();
   });
 }
@@ -5345,14 +6336,19 @@ function feuillePublier(nom) {
     if (r) { if (choix.has(r)) choix.delete(r); else choix.add(r); prefs.ecrire('publier.reseaux', [...choix]); return maj(); }
     const v = e.target.closest('[data-visi]')?.dataset.visi;
     if (v) { visibilite = v; prefs.ecrire('publier.visibilite', v); $$('[data-visi]', f).forEach((b) => b.classList.toggle('actif', b.dataset.visi === v)); return; }
-    if (e.target.closest('[data-go]')) {
+    const go = e.target.closest('[data-go]');
+    if (go) {
+      // un double clic n'envoie qu'une demande (sinon deux IA, et deux publications)
+      if (go.disabled || envoiDemande) return;
+      go.disabled = true;
+      envoiDemande = true;
       try {
         await api('POST', '/api/claude/demander', {moteur: moteurIA(), qualite: qualiteIA(), publier: {video: nom, reseaux: [...choix], visibilite, consigne: $('#pub-consigne', f).value.trim()}});
         fermerFeuille();
         montrerClaude();
         note(`${qui} prépare la publication : suis-la dans la colonne de droite.`);
         await chargerClaude();
-      } catch (err) { note(err.message, true); }
+      } catch (err) { note(err.message, true); go.disabled = false; } finally { envoiDemande = false; }
     }
   });
 }
@@ -5769,6 +6765,9 @@ async function chargerStudio() {
   try { ui.studio = await api('GET', '/api/studio'); } catch { /* on réessaiera */ } finally { ui.chargementStudio = false; }
   const s = ui.studio;
   if (!s) return;
+  // creations.json vient du projet (un projet reçu peut l'avoir réécrit) : seul un vrai numéro (« C12 ») part dans la
+  // page et dans les adresses ; le serveur n'en accepte pas d'autre
+  s.creations = (s.creations ?? []).filter((x) => /^C\d+$/.test(x?.id));
   clearTimeout(ui.minuterieStudio);
   const enCours = s.creations.some((x) => x.etat === 'en_cours') || s.bruitages.en_cours;
   if (enCours) ui.minuterieStudio = setTimeout(chargerStudio, 2000);
@@ -5855,13 +6854,13 @@ function champsStudio(type, s) {
 function itemCreation(x) {
   const couleur = COULEURS_STUDIO[x.type] ?? '#888';
   const vig = x.etat === 'pret' && x.type === 'image'
-    ? `<span class="st-vig image" style="background-image:url('${urlCreation(x.id)}')" data-st="voir" data-id="${x.id}"></span>`
-    : `<span class="st-vig" style="--c:${couleur}" ${x.etat === 'pret' ? `data-st="${['video', 'doublage'].includes(x.type) ? 'voir' : 'ecouter'}" data-id="${x.id}"` : ''}>${x.etat === 'pret' && !['video', 'doublage'].includes(x.type) ? ic(ui.ecoute === x.id ? 'pause' : 'lire', 'plein') : x.etat === 'pret' ? ic('lire', 'plein') : ic(ICONES_STUDIO[x.type] ?? 'onde')}</span>`;
+    ? `<span class="st-vig image" style="background-image:url('${urlCreation(x.id)}')" data-st="voir" data-id="${esc(x.id)}"></span>`
+    : `<span class="st-vig" style="--c:${couleur}" ${x.etat === 'pret' ? `data-st="${['video', 'doublage'].includes(x.type) ? 'voir' : 'ecouter'}" data-id="${esc(x.id)}"` : ''}>${x.etat === 'pret' && !['video', 'doublage'].includes(x.type) ? ic(ui.ecoute === x.id ? 'pause' : 'lire', 'plein') : x.etat === 'pret' ? ic('lire', 'plein') : ic(ICONES_STUDIO[x.type] ?? 'onde')}</span>`;
   const infos = [x.type_lisible, x.duree ? dureeLisible(x.duree) : null, x.largeur ? `${x.largeur}×${x.hauteur}` : null, x.cout > 0 ? `${x.cout.toLocaleString('fr-FR')} crédits` : null].filter(Boolean).join(' · ');
   const bas = x.etat === 'en_cours' ? `<div class="st-jauge"><i style="width:${Math.max(4, Math.round((x.progression ?? 0) * 100))}%"></i></div>`
     : x.etat === 'erreur' ? `<small class="st-erreur">${esc(x.erreur ?? 'Échec.')}</small>` : `<small>${esc(infos)}</small>`;
-  const actions = x.etat === 'pret' ? `<button class="icone-btn" data-st="aux-medias" data-id="${x.id}" title="Mettre dans mes médias (puis la glisser sur la timeline)">${ic('importer')}</button>${ui.claude?.drive?.synchronise ? `<button class="icone-btn" data-st="drive" data-id="${x.id}" title="Envoyer sur mon Google Drive">${ic('nuage')}</button>` : ''}` : '';
-  return `<div class="st-item ${x.etat}" style="--c:${couleur}">${vig}<div class="txt"><b title="${esc(x.titre)}">${esc(x.titre)}</b>${bas}</div>${actions}${x.etat !== 'en_cours' ? `<button class="icone-btn" data-st="supprimer" data-id="${x.id}" title="Supprimer">${ic('poubelle')}</button>` : ''}</div>`;
+  const actions = x.etat === 'pret' ? `<button class="icone-btn" data-st="aux-medias" data-id="${esc(x.id)}" title="Mettre dans mes médias (puis la glisser sur la timeline)">${ic('importer')}</button>${ui.claude?.drive?.synchronise ? `<button class="icone-btn" data-st="drive" data-id="${esc(x.id)}" title="Envoyer sur mon Google Drive">${ic('nuage')}</button>` : ''}` : '';
+  return `<div class="st-item ${esc(x.etat)}" style="--c:${couleur}">${vig}<div class="txt"><b title="${esc(x.titre)}">${esc(x.titre)}</b>${bas}</div>${actions}${x.etat !== 'en_cours' ? `<button class="icone-btn" data-st="supprimer" data-id="${esc(x.id)}" title="Supprimer">${ic('poubelle')}</button>` : ''}</div>`;
 }
 function majListeStudio() {
   const s = ui.studio;
@@ -5897,7 +6896,8 @@ function rendreStudio(force = false) {
   majListeStudio();
 }
 $('#p-creer').addEventListener('click', async (e) => {
-  const t = e.target.closest('[data-type]');
+  // seulement les boutons de la rangée des types : le formulaire porte lui aussi data-type (lu par input et submit)
+  const t = e.target.closest('.st-types [data-type]');
   if (t) { ui.studioType = t.dataset.type; prefs.ecrire('studio.type', ui.studioType); return rendreStudio(true); }
   const act = e.target.closest('[data-st]')?.dataset.st;
   const id = e.target.closest('[data-id]')?.dataset.id;
@@ -5933,7 +6933,7 @@ $('#p-creer').addEventListener('click', async (e) => {
     if (act === 'supprimer' && x) {
       if (!confirm(`Supprimer « ${x.titre.slice(0, 60)} » ? Le fichier est effacé du projet.`)) return;
       if (ui.ecoute === x.id) { ECOUTE.pause(); ui.ecoute = null; }
-      await api('DELETE', `/api/studio/creations/${x.id}`);
+      await api('DELETE', `/api/studio/creations/${encodeURIComponent(x.id)}`);
       return chargerStudio();
     }
     if (act === 'bruitages') {
@@ -5946,7 +6946,7 @@ $('#p-creer').addEventListener('click', async (e) => {
 });
 async function creationAuxMedias(x) {
   try {
-    await api('POST', `/api/studio/creations/${x.id}/medias`);
+    await api('POST', `/api/studio/creations/${encodeURIComponent(x.id)}/medias`);
     await rafraichirMedias();
     note(`« ${x.titre.slice(0, 50)} » est dans tes médias : glisse-la sur la timeline.`);
   } catch (err) { note(err.message, true); }
@@ -5989,7 +6989,7 @@ async function rafraichirMedias() {
   // une installation vient de finir : on relit l'état des moteurs
   if (avantFile?.en_cours?.meta?.type === 'installation' && !r.file.en_cours) SRV.moteurs = await api('GET', '/api/moteurs').catch(() => SRV.moteurs);
   // un détourage vient de finir : les masques qui manquaient sont peut-être là
-  if (avantFile?.en_cours?.meta?.type === 'detourage' && r.file.en_cours?.id !== avantFile.en_cours.id) { SRV.moteurs = await api('GET', '/api/moteurs').catch(() => SRV.moteurs); oublierMasquesAbsents(); if (ui.sel) rendreInspecteur(); if (!prog.lecture) majHabillage(); }
+  if (avantFile?.en_cours?.meta?.type === 'detourage' && r.file.en_cours?.id !== avantFile.en_cours.id) { SRV.moteurs = await api('GET', '/api/moteurs').catch(() => SRV.moteurs); oublierMasquesAbsents(); if (ui.sel) inspecteurQuandLibre(); if (!prog.lecture) majHabillage(); }
   if (!P) return;
   const avant = new Map(P.medias.map((m) => [m.id, m]));
   P.medias = r.medias;
@@ -6001,13 +7001,25 @@ async function rafraichirMedias() {
     if (it) { modifier(() => { it.son = {...(it.son ?? {}), version: 'clair'}; }); note('Voix claire prête : le plan l’utilise.', false, true); }
   }
   if (P.sortie.auto && r.medias.some((m) => !avant.has(m.id) || (!avant.get(m.id).largeur && m.largeur))) appliquerFormatAuto();
+  // la timeline et l'inspecteur se redessinent une fois, après la boucle ; l'inspecteur seulement si le média de
+  // l'élément sélectionné a changé (pendant une préparation, chaque étape de chaque rush passe par ici)
+  let refaireTl = false;
+  let refaireInsp = false;
+  const cible = ui.sel ? cibleSel() : null;
   for (const m of P.medias) {
     const a = avant.get(m.id);
+    const cleV = (x) => x?.vignettes && cleVignettes(x.vignettes);
     const change = !a || a.etat !== m.etat || JSON.stringify(a.etapes) !== JSON.stringify(m.etapes) || a.voix?.cree_le !== m.voix?.cree_le
-      || (a.vignettes && cleVignettes(a.vignettes)) !== (m.vignettes && cleVignettes(m.vignettes));
+      || cleV(a) !== cleV(m);
     const texte = a?.transcription?.cree_le !== m.transcription?.cree_le;
+    if (cible?.media === m.id && (change || texte || a?.clair?.cree_le !== m.clair?.cree_le)) refaireInsp = true;
     if (change || texte) {
-      oublier(m.id);
+      // n'oublier que ce qui a changé : la courbe du son et les vignettes d'un rush déjà là ne se retéléchargent pas à
+      // chaque étape (l'analyse est aussi complétée par les mesures et par ce qui est incrusté)
+      const etape = (...k) => k.some((x) => a?.etapes?.[x] !== m.etapes?.[x]);
+      oublier(m.id, !a || a.etat !== m.etat || a.voix?.cree_le !== m.voix?.cree_le ? undefined : [
+        ...(etape('ondes') ? ['ondes'] : []), ...(etape('analyse', 'mesures', 'incrustes') ? ['analyse'] : []),
+        ...(etape('cadrage') ? ['cadrage'] : []), ...(texte ? ['mots'] : []), ...(etape('vignettes') || cleV(a) !== cleV(m) ? ['sprites'] : [])]);
       if (ui.src.id === m.id) {
         if (m.type === 'video' && m.etapes?.proxy === true && a?.etapes?.proxy !== true) {
           const t = vRush.currentTime;
@@ -6021,12 +7033,39 @@ async function rafraichirMedias() {
         for (const v of [...PV, vDessus]) if (v.error && v.dataset.media?.startsWith(`${m.id}:`)) delete v.dataset.media;
         if (!prog.lecture && ui.mode === 'montage') progAfficher();
       }
-      if ([...P.montage, ...P.superpositions].some((it) => it.media === m.id)) rendreTimeline();
-      if (ui.sel) rendreInspecteur();
+      if ([...P.montage, ...P.superpositions].some((it) => it.media === m.id)) refaireTl = true;
     }
   }
+  // les premiers médias arrivent (un import depuis le Drive, par exemple) : la timeline vide ne dit plus « Importe tes vidéos »
+  if (refaireTl || (avant.size === 0) !== (P.medias.length === 0)) rendreTimeline();
+  if (refaireInsp) inspecteurQuandLibre();
   rendreRushes();
   majTaches();
+  // un import, un texte écrit par Whisper, une analyse : l'avis de la voix off peut changer
+  VO.surMedias(P.medias);
+}
+/**
+ * La fin d'un rendu ou d'un pack ne remplace pas ce qu'on est en train de faire : une prise de « Me filmer » (elle
+ * s'arrêterait), une autre fenêtre ouverte (une réponse en cours de saisie). Seule la jauge du travail se remplace.
+ * Sinon le résultat attend, et s'ouvre dès que la fenêtre se ferme.
+ */
+const resultatDoitAttendre = () => ENR.actif() || (ecranOuvert() && !$('#jauge-rendu') && !$('#jauge-export') && !$('#seq-rendus'));
+function quandLibre(t, genre) {
+  if (!resultatDoitAttendre()) return (genre === 'rendu' ? afficherRendu : afficherExport)(t);
+  if (genre === 'rendu') ui.renduTache = null; else ui.exportTache = null;
+  ui.resultatEnAttente = {t, genre, projet: ui.cleProjet};
+  if (t.etat === 'erreur') note(genre === 'rendu' ? 'La vidéo n’a pas pu être créée : le détail s’affichera quand tu auras fini.' : 'Le pack n’a pas pu être préparé : le détail s’affichera quand tu auras fini.', true);
+  else note(genre === 'rendu' ? 'Ta vidéo est prête : elle s’affichera quand tu auras fini.' : 'Le pack est prêt : il s’affichera quand tu auras fini.');
+}
+function montrerResultatEnAttente() {
+  if (ui.ecran !== 'montage' || resultatDoitAttendre()) return;
+  // « Créer toutes les vidéos » a fini pendant qu'une autre fenêtre était ouverte (public/sequences.js)
+  if (SQ.enAttente()) return SQ.montrerRendus();
+  const r = ui.resultatEnAttente;
+  if (!r) return;
+  ui.resultatEnAttente = null;
+  if (r.projet !== ui.cleProjet) return; // un autre projet est ouvert : sa vidéo est dans le dossier du premier
+  (r.genre === 'rendu' ? afficherRendu : afficherExport)(r.t);
 }
 let suiviEnCours = false;
 async function suivreFile() {
@@ -6034,10 +7073,13 @@ async function suivreFile() {
   suiviEnCours = true;
   try {
     await rafraichirMedias();
+    if (ui.resultatEnAttente || SQ.enAttente()) montrerResultatEnAttente();
+    // « Créer toutes les vidéos » : chaque vidéo avance (public/sequences.js)
+    SQ.suivreRendus();
     if (ui.renduTache) {
       const f = SRV.file;
       const t = [f.en_cours, ...f.attente, ...f.recents].find((x) => x && x.id === ui.renduTache);
-      if (t && (t.etat === 'fini' || t.etat === 'erreur')) afficherRendu(t);
+      if (t && (t.etat === 'fini' || t.etat === 'erreur')) quandLibre(t, 'rendu');
       else if (t) {
         const j = $('#jauge-rendu');
         if (j) j.style.width = `${Math.max(2, Math.round(t.progression * 100))}%`;
@@ -6048,7 +7090,7 @@ async function suivreFile() {
     if (ui.exportTache) {
       const f = SRV.file;
       const t = [f.en_cours, ...f.attente, ...f.recents].find((x) => x && x.id === ui.exportTache);
-      if (t && (t.etat === 'fini' || t.etat === 'erreur')) afficherExport(t);
+      if (t && (t.etat === 'fini' || t.etat === 'erreur')) quandLibre(t, 'export');
       else if (t) {
         const j = $('#jauge-export');
         if (j) j.style.width = `${Math.max(2, Math.round(t.progression * 100))}%`;
@@ -6229,7 +7271,7 @@ async function demarrer() {
   if (e.mode === 'projet') await demarrerEditeur();
   else await afficherBibliotheque();
   MAJ.demarrer(e.maj);
-  setInterval(() => { if (!ui.remplacee && (SRV.file?.en_cours || SRV.file?.attente?.length || ui.exportTache || ui.renduTache)) suivreFile(); }, 900);
+  setInterval(() => { if (!ui.remplacee && (SRV.file?.en_cours || SRV.file?.attente?.length || ui.exportTache || ui.renduTache || SQ.suit())) suivreFile(); }, 900);
   setInterval(() => { if (ui.remplacee) return; if (ui.ecran === 'montage') suivreFile(); else api('POST', '/api/signe').catch(() => {}); }, 6000);
   setInterval(() => { if (!ui.remplacee && ui.ecran === 'montage') chargerRetours(); }, 20000);
   requestAnimationFrame(boucle);
@@ -6253,7 +7295,7 @@ const CR = creerCreateur({
 /** Coupe (ou rend) le son de l'aperçu : pendant qu'on enregistre sa voix sans casque, le micro l'entendrait. */
 function sourdine(oui) {
   ui.sourdine = !!oui;
-  if (oui) for (const e of [...PV, vDessus, aSon, aVoix]) e.muted = true;
+  if (oui) for (const e of lecteursMontage()) { e.muted = true; const n = AUDIO_PAGE.gains.get(e); if (n) n.gain.value = 0; }
   else progAfficher();
 }
 /** Un enregistrement vient d'arriver dans les médias : la voix se pose par-dessus le montage, la vidéo à sa suite. */
@@ -6292,6 +7334,33 @@ const ENR = creerEnregistreur({
   feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(),
   lecture: {t: () => prog.t, lire: () => { if (ui.mode !== 'montage') definirMode('montage'); progLire(); }, pause: () => progPause(), sourdine: (oui) => sourdine(oui), aDuMontage: () => seq.segs.length > 0},
   surFini: (x) => apresEnregistrement(x),
+  // la voix off proposée : le texte à lire défile pendant l'enregistrement, « Ma voix » s'allume quand elle est conseillée
+  voixOff: {texte: () => VO.texteALire(), ecrire: (t) => VO.ecrireTexte(t), conseil: () => VO.conseil(), questions: () => VO.ouvrir()},
+});
+/**
+ * La voix off proposée (public/enregistrer.js, lib/voix-off.mjs) : le bouton du micro s'allume quand une voix off
+ * aiderait, la carte « Une voix off ? » dans la colonne de l'IA, la feuille des questions (réponses écrites ou dites au
+ * micro, jamais posées dans le montage) et le choix, que l'IA reçoit à sa prochaine demande.
+ */
+const VO = creerVoixOff({
+  api, note, esc, ic, ill, enr: ENR,
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
+  prefs: {lire: (k, d) => prefs.lire(k, d), ecrire: (k, v) => prefs.ecrire(k, v)},
+  // la vignette du rush à l'instant que la question éclaire (une photo : elle-même)
+  vignette: (id, t, h) => {
+    const m = media(id);
+    if (m?.type === 'video' && m.vignettes) return `<i style="${styleVignette(m, t, h)}"></i>`;
+    if (m?.type === 'image') return `<img src="${urlMedia(encodeURIComponent(m.id), 'lecture')}" alt="" draggable="false">`;
+    return ic(m?.type === 'audio' ? 'onde' : 'film');
+  },
+  urlMedia: (id, quoi) => urlMedia(encodeURIComponent(id), quoi),
+  cleProjet: () => ui.cleProjet ?? null, actif: () => !!P && ui.ecran === 'montage',
+  // la demande en cours (ce qu'on écrit, sinon le dernier message) : « un vlog du vendredi » aide l'avis et les questions
+  demande: () => ui.brouillon?.trim() || [...(ui.claude?.echanges ?? [])].reverse().find((x) => x.role === 'humain' && x.texte)?.texte || '',
+  nomIA: () => nomIA(), moteurIA: () => moteurIA(), iaPrete: () => iaPrete(),
+  demanderIA: (texte) => demanderIA(texte), connexions: () => feuilleConnexions(),
+  relireMedias: () => rafraichirMedias().catch(() => {}),
+  surChangement: () => { if (ui.ecran === 'montage' && P) { rendreClaude(); rendreRushes(); } },
 });
 /** La petite fenêtre des mises à jour (public/maj.js) : une nouvelle version est sortie, ou vient d'être installée. */
 const MAJ = creerMaj({
@@ -6312,10 +7381,14 @@ const PUB = creerPublication({
   lirePressePapiers: () => (NATIF ? demanderNatif('coller') : navigator.clipboard.readText()),
   /** Publie avec les textes relus dans « Partager » (le serveur reprend ceux du plan enregistré). */
   publier: async ({video, reseaux, visibilite}) => {
-    await api('POST', '/api/claude/demander', {moteur: moteurIA(), qualite: qualiteIA(), publier: {video, reseaux, visibilite, avec_plan: true}});
-    montrerClaude();
-    note(`${nomIA()} publie ta vidéo : suis-le dans la colonne de droite.`);
-    await chargerClaude();
+    if (envoiDemande) return; // une demande part déjà : un double clic ne publie pas deux fois
+    envoiDemande = true;
+    try {
+      await api('POST', '/api/claude/demander', {moteur: moteurIA(), qualite: qualiteIA(), publier: {video, reseaux, visibilite, avec_plan: true}});
+      montrerClaude();
+      note(`${nomIA()} publie ta vidéo : suis-le dans la colonne de droite.`);
+      await chargerClaude();
+    } finally { envoiDemande = false; }
   },
   surFermeture: () => { if (ui.ecran === 'montage' && !ui.claude?.en_cours) chargerClaude(); },
 });
@@ -6332,6 +7405,77 @@ function tutoriel(auto = false) {
     if (ui.ecran === 'biblio') proposerConnexions();
   }});
 }
+/** Les espaces de travail : « Moi », chaque client, « Personne » ; leur métier, leur kit de marque, leur carnet (public/espaces.js). */
+const ESP = creerEspaces({
+  api, note, esc, ic, ill, logo, JETON,
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
+  prefs: {lire: (k, d) => prefs.lire(k, d), ecrire: (k, v) => prefs.ecrire(k, v)},
+  carnet: (id) => feuilleCarnet(id),
+  choisirSurOrdinateur: (usage) => choisirSurOrdinateur(usage),
+  // un client créé, renommé, recoloré ou retiré : la pastille du projet, ou les cartes de la bibliothèque, suivent
+  surChangement: (d) => {
+    if (ui.ecran === 'montage' && P) { rendreEspace(); chargerNotes(); }
+    else if (ui.ecran === 'biblio' && ui.biblio && d?.espaces) { ui.biblio.espaces = d.espaces; rendreProjetsBiblio(); }
+  },
+});
+/** « Ajouter une compétence » : celles que la personne trouve sur GitHub ou dans l'annuaire skills.sh (public/competences.js). */
+const CP = creerCompetences({
+  api, note, esc, ic, ill, logo,
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
+});
+/** « Depuis mon Drive » : retrouver des rushes dans le Google Drive, par une phrase ou dossier par dossier, et les importer (public/drive.js). */
+const DR = creerDrive({
+  api, note, esc, ic, ill, logo,
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
+  moteurIA: () => moteurIA(), nomIA: () => nomIA(), iaPrete: () => iaPrete(), connexions: () => feuilleConnexions(),
+  systeme: () => SRV?.systeme ?? null,
+  surImportLance: () => { if (ui.driveCarte && ui.driveCarte.etape !== 'pret') { ui.driveCarte = {...ui.driveCarte, etape: 'import'}; rendreClaude(); } },
+  // un import est fini (feuille ouverte ou non) : les rushes arrivent dans les médias ; la demande qui les attendait peut partir
+  surImportFini: async (x, {resume} = {}) => {
+    if (!P || ui.ecran !== 'montage') return;
+    await rafraichirMedias().catch(() => {});
+    choisirPanneau('medias');
+    if (!ui.src.id && x.ajoutes?.[0] && media(x.ajoutes[0])) chargerRush(x.ajoutes[0], null, null, false);
+    if (ui.driveCarte && (x.ajoutes?.length ?? 0) + (x.deja ?? 0) > 0) {
+      ui.driveCarte = {...ui.driveCarte, etape: 'pret', import: {ajoutes: x.ajoutes ?? [], deja: x.deja ?? 0, texte: x.texte}, resume: resume ?? null};
+      rendreClaude();
+    }
+  },
+  envoyerDemande: (message) => envoyerSansDetour(message),
+});
+/**
+ * Plusieurs vidéos dans une timeline (public/sequences.js) : les onglets au-dessus de la timeline, « Créer toutes les
+ * vidéos », et « Mettre dans ma timeline » sous les vidéos livrées par l'IA. Une autre vidéo arrive par poserVideo().
+ */
+const SQ = creerSequences({
+  api, note, esc, ic,
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(),
+  projet: () => (ui.ecran === 'montage' ? P : null), cleProjet: () => ui.cleProjet,
+  dureeOuverte: () => seq.duree, dureeDe: ({montage, sortie}) => sequence({montage, sortie}).duree, formats: () => FORMATS,
+  sauver: () => sauver(true), poser: (projet) => poserVideo(projet), recharger: () => relireProjet(),
+  // pendant une prise (micro, webcam), la vidéo ouverte ne change pas : la prise y sera posée
+  bloque: () => (ENR.actif() ? 'Un enregistrement est ouvert : arrête-le ou ferme-le d’abord.' : null),
+  avantRendu: () => arreterLecture(), rendreIA: () => rendreClaude(), nomIA: (m) => nomIA(m),
+  reseaux: () => { const s = styleDuProjet(); return Object.entries(PLATEFORMES).map(([k, x]) => ({k, nom: x.nom, choisi: s.plateforme === k})); },
+  resumeOuverte: () => resumeVideoOuverte(), moteurRendu: () => SRV.moteurs?.rendu ?? null, creerOuverte: (plateforme) => lancerRenduOuvert(plateforme),
+  file: () => SRV.file, suivreFile: () => suivreFile(), voirRendu: (t, retour) => afficherRendu(t, {retour}),
+  ouvrirChemin: (chemin) => api('POST', '/api/ouvrir', {chemin}).catch((e) => note(e.message, true)),
+  libre: () => ui.ecran === 'montage' && !resultatDoitAttendre(),
+});
+/** Le tableau de bord : les vidéos livrées, leurs vues, la recette qui marche, les séries, par espace (public/tableau.js). */
+const TB = creerTableau({
+  api, note, esc, ic, ill, logo, copierTexte,
+  prefs: {lire: (k, d) => prefs.lire(k, d), ecrire: (k, v) => prefs.ecrire(k, v)},
+  feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
+  nomIA: (m) => nomIA(m), moteurIA: () => moteurIA(),
+  // ouvrir un projet depuis le tableau : on enregistre celui qui est ouvert, le tableau se ferme, l'éditeur arrive
+  ouvrirProjet: async (dossier) => { if (P) await sauver(true).catch(() => {}); TB.fermer(); await ouvrirProjet(dossier); },
+  nouveauProjet: async (x) => { TB.fermer(); if (P) await sauver(true).catch(() => {}); return feuilleNouveauProjet(x ?? {}); },
+  reglerEspace: (id) => ESP.feuilleEspace(id),
+  carnet: (id) => feuilleCarnet(id),
+  couleurEspace: (e) => couleurEspace(e),
+  connexions: () => feuilleConnexions(), guideTreg: (apres) => PUB.guideTreg(apres), profil: () => CR.ouvrir(),
+});
 
 // Une petite porte d'entrée pour piloter l'interface depuis la console du navigateur (essais, automatisation).
 window.derush = {
@@ -6352,6 +7496,19 @@ window.derush = {
   // le zoom appliqué tout de suite (pour mesurer son coût dans les essais)
   zoomer: (v, centre) => { zoomer(v, centre); appliquerZoom(); },
   joindre: (chemins) => joindreChemins(chemins), studio: () => ui.studio, creerOnglet: () => choisirPanneau('creer'),
+  // 13 — Dérush apprend de toi : les espaces, le tableau de bord, les notes des vidéos livrées (essais)
+  tableau: (o) => TB.ouvrir(o ?? {}), espaces: () => ESP.feuilleEspaces(), espace: () => ui.espace, notes: () => ui.notes,
+  competences: (o) => CP.ouvrir(o ?? {}),
+  // « Depuis mon Drive » (essais) : la feuille, et la carte de la colonne de l'IA
+  drive: (o) => DR.ouvrir(o ?? {}), driveCarte: () => ui.driveCarte,
+  // la voix off proposée (essais) : son état, le relire, la feuille des questions ; relire la conversation
+  voixOff: {etat: () => VO.etat(), charger: () => VO.charger(), ouvrir: (o) => VO.ouvrir(o ?? {}), enPrise: () => VO.enPrise(), poser: (e) => VO.poser(e)},
+  relireIA: () => chargerClaude(),
+  // les vidéos de la timeline (essais) : la liste, la vidéo ouverte, les gestes des onglets, celles de l'IA
+  videos: {liste: () => SQ.videos(), ouverte: () => P?.sequence ?? null, activer: (id) => SQ.activer(id), ajouter: (o) => SQ.ajouter(o ?? {}),
+    renommer: (id) => SQ.renommer(id), supprimer: (id) => SQ.supprimer(id), ordonner: (ids) => SQ.ordonner(ids), creer: (choix) => feuilleCreer(choix ?? null),
+    depuisIA: (o) => SQ.depuisIA(o ?? {}), historique: () => ({annuler: ui.annuler.length, refaire: ui.refaire.length})},
+  nouveauProjet: (o) => feuilleNouveauProjet(o ?? {}), carnet: (id) => feuilleCarnet(id), pourQui: () => changerEspaceProjet(),
   // — pour la fenêtre native (outils/coque-mac.swift) —
   /** Avant de quitter : on enregistre, et on dit si un travail est en cours (rendu, IA). */
   avantDeQuitter: async () => {
@@ -6369,17 +7526,20 @@ window.derush = {
     const M = {
       reglages: () => feuilleReglages(), connexions: () => feuilleConnexions(), aide: () => feuilleAide(), tutoriel: () => tutoriel(),
       profil: () => CR.ouvrir(), accueil: () => CR.accueil(),
+      tableau: () => TB.ouvrir({espace: ui.ecran === 'montage' ? (ui.espace?.id ?? P?.espace ?? null) : null}), espaces: () => ESP.feuilleEspaces(), competences: () => CP.ouvrir(),
       nouveau: async () => { if (P) { await sauver(true).catch(() => {}); } feuilleNouveauProjet(); },
       bibliotheque: () => { if (ui.ecran === 'montage') $('#b-biblio').click(); },
       importer: () => projet() && feuilleImporter(),
+      drive: () => projet() && DR.ouvrir(),
       'creer-video': () => projet() && feuilleCreer(),
+      'creer-toutes': () => projet() && feuilleCreer('toutes'),
       viralite: () => projet() && feuilleViralite(),
       partager: () => projet() && feuillePartager(),
       dossier: () => projet() && api('POST', '/api/ouvrir', {chemin: SRV.racine}).catch((e) => note(e.message, true)),
       ia: () => projet() && montrerClaude(true),
       'tout-voir': () => projet() && toutVoir(),
     };
-    if (feuilleOuverte() && !['aide', 'tutoriel', 'reglages', 'connexions', 'accueil'].includes(action)) fermerFeuille();
+    if (feuilleOuverte() && !['aide', 'tutoriel', 'reglages', 'connexions', 'accueil', 'espaces'].includes(action)) fermerFeuille();
     return M[action]?.();
   },
 };

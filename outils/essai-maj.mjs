@@ -1,13 +1,15 @@
 // Dérush — les essais des mises à jour (pour qui modifie Dérush) : Dérush voit-il qu'une version est sortie, le dit-il
-// une fois à l'IA, se tait-il après « Plus tard », s'installe-t-il, dit-il ce qui vient d'arriver ?
+// une fois à l'IA, se tait-il après « Plus tard », s'installe-t-il, dit-il ce qui vient d'arriver ? Relancé, ouvre-t-il
+// sa fenêtre avec sa clé, et refuse-t-il de démarrer en double ?
 //   node outils/essai-maj.mjs
 // Rien ne touche GitHub ni la vraie installation : l'essai fabrique, dans un dossier temporaire, un faux dépôt
 // (« origine »), une copie installée (« poste ») et un auteur qui publie une version 99.0.
 import fs from 'node:fs';
 import http from 'node:http';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import {execFile} from 'node:child_process';
+import {execFile, spawn} from 'node:child_process';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 
 const D = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -150,6 +152,42 @@ try {
   r = await dans(copie, 'await m.verifierMaj({auto: true}); return {e: m.etatMaj(), r: m.resumeMaj()};', {DERUSH_MAJ_SOURCE: 'http://127.0.0.1:9'});
   essai('sans internet, elle ne dit rien', r.r.disponible === false && r.r.a_montrer === false, r);
   serveur.close();
+
+  // ——— le lancement qui suit une mise à jour : la clé de la fenêtre, une seule instance
+  const libre = await new Promise((ok) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => ok(p)); }); });
+  const envLancement = {...process.env, DERUSH_SUPPORT: SUPPORT, DERUSH_BIBLIOTHEQUE: path.join(T, 'bibliotheque'), DERUSH_SANS_NAVIGATEUR: '1', DERUSH_SANS_MAJ: '1'};
+  delete envLancement.TREG_TOKEN;
+  const lancerDerush = () => spawn(process.execPath, [path.join(D, 'derush.mjs'), '--port', String(libre)], {cwd: T, env: envLancement, stdio: ['ignore', 'pipe', 'pipe']});
+  const fini = (p) => new Promise((ok) => { if (p.exitCode !== null) ok(p.exitCode); else p.on('exit', (code) => ok(code)); });
+  const premier = lancerDerush();
+  try {
+    let sortie = '';
+    premier.stdout.on('data', (b) => { sortie += b; });
+    premier.stderr.on('data', (b) => { sortie += b; });
+    for (let k = 0; k < 150 && !/Adresse de la fenêtre/.test(sortie) && premier.exitCode === null; k++) await new Promise((ok) => setTimeout(ok, 200));
+    const adresse = /Adresse de la fenêtre : (\S+)/.exec(sortie)?.[1] ?? '';
+    let cle = '';
+    try { cle = fs.readFileSync(path.join(SUPPORT, 'cle-fenetre'), 'utf8').trim(); } catch { /* pas de clé : l'essai le dit */ }
+    essai('lancé sans fenêtre, Dérush donne l’adresse de sa fenêtre, avec la clé rangée dans son dossier', /^[a-f0-9]{48}$/.test(cle) && adresse === `http://127.0.0.1:${libre}/?c=${cle}`, sortie.slice(-400));
+    essai('la ligne qui peut aller au journal (« … sur http://… ») ne porte pas la clé', /sur http:\/\/127\.0\.0\.1:\d+\/ /.test(sortie) && !/sur \S+\?c=/.test(sortie), sortie.slice(-400));
+    const sans = await fetch(`http://127.0.0.1:${libre}/`);
+    const corpsSans = await sans.text();
+    const avec = adresse ? await fetch(adresse) : null;
+    const corpsAvec = avec ? await avec.text() : '';
+    essai('sans la clé, la page d’accueil ne donne pas le jeton ; avec, si', sans.status === 403 && !/derush-jeton/.test(corpsSans) && avec?.status === 200 && /name="derush-jeton" content="[a-f0-9]+"/.test(corpsAvec), [sans.status, avec?.status]);
+    // un second lancement sur le même port, sans fenêtre à ouvrir : il le dit et s'arrête en erreur
+    const second = lancerDerush();
+    let erreur = '';
+    second.stderr.on('data', (b) => { erreur += b; });
+    second.stdout.resume();
+    const code = await Promise.race([fini(second), new Promise((ok) => setTimeout(ok, 30000, 'trop long'))]);
+    if (code === 'trop long') second.kill('SIGKILL');
+    essai('un second Dérush sans fenêtre, sur un port déjà pris, dit que rien n’est lancé (et ne sort pas en silence)', code === 1 && new RegExp(`tourne déjà sur le port ${libre}`).test(erreur), [code, erreur.slice(-300)]);
+  } finally {
+    premier.kill('SIGTERM');
+    await Promise.race([fini(premier), new Promise((ok) => setTimeout(ok, 10000))]);
+    if (premier.exitCode === null && premier.signalCode === null) premier.kill('SIGKILL');
+  }
 } catch (e) {
   essai('les essais sont allés au bout', false, e.message);
 } finally {

@@ -8,6 +8,7 @@
     "rendu": "node rendre.mjs Montage ../rendu/montage.mp4"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "0.21.0",
     "@remotion/animation-utils": "4.0.538",
     "@remotion/cli": "4.0.538",
     "@remotion/effects": "4.0.538",
@@ -21,10 +22,12 @@
     "@remotion/three": "4.0.538",
     "@remotion/transitions": "4.0.538",
     "@react-three/fiber": "8.18.0",
+    "@react-three/postprocessing": "2.19.1",
     "animejs": "4.5.0",
     "konva": "10.9.1",
     "lottie-web": "5.13.0",
     "planck": "1.5.1",
+    "postprocessing": "6.39.6",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-konva": "18.2.16",

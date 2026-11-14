@@ -12,6 +12,10 @@
 //   (le rendu passe alors par le relais de Dérush, comme avec la vraie commande).
 // AGY_FAUX_MODELES=perso : la liste d'un compte personnel (Gemini 4 Argon et Flash, sans Carbon).
 // AGY_FAUX_ANNEXES=1 : dans « montage », remet aussi deux fichiers dans rendu/livraison/annexes/.
+// AGY_FAUX_JOURNAL=<fichier> : chaque lancement y ajoute une ligne (« --version », « models » ou « -p »), pour compter
+//   combien de fois Dérush lance la commande, et une ligne « cle agy … » de plus si elle a reçu la clé Treg ou ElevenLabs
+//   (agy ne doit jamais avoir la clé Treg). AGY_FAUX_LENTEUR=<ms> : attend avant de répondre à « --version » et à
+//   « models », comme la vraie commande, qui démarre d'abord son serveur de langage.
 import fs from 'node:fs';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
@@ -19,6 +23,10 @@ const a = process.argv.slice(2);
 const sc = process.env.AGY_FAUX ?? 'normal';
 const dire = (o) => process.stdout.write(`${JSON.stringify(o)}\n`);
 const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
+if (process.env.AGY_FAUX_JOURNAL) fs.appendFileSync(process.env.AGY_FAUX_JOURNAL, `${['--version', 'models'].includes(a[0]) ? a[0] : '-p'}\n`);
+// une clé confiée par Dérush (Treg, ElevenLabs) reçue par agy : notée à part (« cle agy … »), pour les essais
+if (process.env.AGY_FAUX_JOURNAL && (process.env.TREG_TOKEN || process.env.ELEVENLABS_API_KEY)) fs.appendFileSync(process.env.AGY_FAUX_JOURNAL, `cle agy ${['--version', 'models'].includes(a[0]) ? a[0] : '-p'}\n`);
+if (['--version', 'models'].includes(a[0])) await attendre(Number(process.env.AGY_FAUX_LENTEUR) || 0);
 if (a[0] === '--version') { console.log('1.5.6'); process.exit(0); }
 if (sc === 'auth') { console.error('ERROR: authentication required. Run `agy` to sign in.'); process.exit(1); }
 if (a[0] === 'models') {

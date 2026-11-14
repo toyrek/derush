@@ -141,7 +141,10 @@ export function creerCreateur(o) {
   async function accueil({premiere = false} = {}) {
     let cx;
     let cr;
-    try { [cx, cr] = await Promise.all([api('GET', '/api/connexions'), api('GET', '/api/createur')]); } catch (e) { return note(e.message, true); }
+    // l'une après l'autre : la seconde trouve en mémoire ce que la première vient de vérifier (sinon les deux relancent
+    // chacune claude, codex, agy…)
+    const lire = async (force = false) => { cx = await api('GET', `/api/connexions${force ? '?force=ia' : ''}`); cr = await api('GET', '/api/createur'); };
+    try { await lire(); } catch (e) { return note(e.message, true); }
     const f = o.feuille('', true);
     f.classList.add('accueil');
     const vu = () => api('POST', '/api/reglages/interface', {accueil_vu: true}).catch(() => {});
@@ -166,18 +169,34 @@ export function creerCreateur(o) {
           <button class="btn ${p || !cr.possible?.ok ? '' : 'claude'}" data-ac="profil"${p || cr.possible?.ok || cr.analyse ? '' : ' disabled title="Relie d’abord tes réseaux (étape 2)"'}>${p ? 'Voir mon profil' : cr.analyse?.etat === 'en_cours' ? 'Analyse en cours…' : 'Analyser mon profil'}</button></div>`)}
         <div class="pied"><span class="dim ac-plus">Tu retrouves tout ici : bouton « Mise en route », sur l’écran des projets.</span><span class="espace"></span><button class="btn principal" data-ac="fini">${prete ? 'C’est parti' : 'Plus tard'}</button></div>`;
     };
-    const relire = async () => { try { [cx, cr] = await Promise.all([api('GET', '/api/connexions?force=1'), api('GET', '/api/createur')]); } catch { return; } if (f.isConnected && f.classList.contains('accueil')) rendreAccueil(); };
+    // la Mise en route est-elle encore à l'écran ? Fermée (Échap, clic à côté, « C'est parti »), la feuille reste dans la
+    // page, vidée : sans ce test, chaque retour sur la fenêtre relançait les vérifications
+    const ouverte = () => f.isConnected && f.classList.contains('accueil') && !!f.firstElementChild && (o.feuilleOuverte?.() ?? true);
+    let enCours = false;
+    let forceeA = 0;
+    const relire = async () => {
+      if (enCours) return;
+      enCours = true;
+      // une vérification forcée (l'IA branchée dans un terminal) seulement tant qu'aucune IA n'est prête, et au plus
+      // toutes les 30 s ; sinon les états gardés par le serveur suffisent (Treg et le profil ne sont pas gardés)
+      const prete = ['claude', 'codex', 'gemini'].some((m) => cx[m]?.ok);
+      const force = !prete && Date.now() - forceeA > 30000;
+      if (force) forceeA = Date.now();
+      try { await lire(force); } catch { return; } finally { enCours = false; }
+      if (ouverte()) rendreAccueil();
+    };
     rendreAccueil();
+    const arreter = () => window.removeEventListener('focus', retour);
     f.addEventListener('click', (e) => {
       const a = e.target.closest('[data-ac]')?.dataset.ac;
       if (!a) return;
-      if (a === 'fini') { vu(); return o.fermerFeuille(); }
-      if (a === 'connexions') { vu(); return o.connexions?.(); }
-      if (a === 'relier') { vu(); return o.guideTreg?.(() => accueil()); }
-      if (a === 'profil') { vu(); o.fermerFeuille(); return ouvrir(); }
+      if (a === 'fini') { vu(); arreter(); return o.fermerFeuille(); }
+      if (a === 'connexions') { vu(); arreter(); return o.connexions?.(); }
+      if (a === 'relier') { vu(); arreter(); return o.guideTreg?.(() => accueil()); }
+      if (a === 'profil') { vu(); arreter(); o.fermerFeuille(); return ouvrir(); }
     });
-    // un branchement fait ailleurs (page du navigateur) se voit en revenant sur Dérush
-    const retour = () => { if (!f.isConnected || !f.classList.contains('accueil')) return window.removeEventListener('focus', retour); relire(); };
+    // un branchement fait ailleurs (page du navigateur, terminal) se voit en revenant sur Dérush
+    function retour() { if (!ouverte()) return arreter(); relire(); }
     window.addEventListener('focus', retour);
   }
 

@@ -4,11 +4,14 @@
 Deux usages :
   detourer.py masques  <vidéo> <dossier> <t0> <t1> <fps> [largeur]
       Masques légers pour l'aperçu : m_<n>.png, n = numéro de l'image dans la vidéo (temps × fps).
-  detourer.py decoupes <vidéo> <dossier> <i0> <i1> [côté max]
+  detourer.py decoupes <vidéo> <dossier> <i0> <i1> [côté max] [fps]
       Personne détourée pour le rendu : d_<i>.webp (image + transparence), pour les images i0 à i1 du fichier.
+      Avec la cadence (donnée, sinon lue dans le fichier), FFmpeg se place juste avant l'image i0 et s'arrête après
+      l'image i1 : il ne décode plus tout le rush pour quelques secondes utiles.
 
 La progression est écrite sur la sortie d'erreur (« progress=NN% »).
 """
+import json
 import os
 import shutil
 import subprocess
@@ -23,6 +26,40 @@ import Vision
 from Foundation import NSURL
 
 FFMPEG = os.environ.get("DERUSH_FFMPEG", "ffmpeg")
+FFPROBE = os.environ.get("DERUSH_FFPROBE", "ffprobe")
+
+
+STANDARDS = (23.976, 24, 25, 29.97, 30, 48, 50, 59.94, 60, 100, 119.88, 120)
+
+
+def cadence(video):
+    """La cadence nominale de la vidéo, choisie comme Dérush la choisit (lib/medias.mjs) : une valeur standard de
+    préférence, car les téléphones filment en cadence variable. None si elle ne se lit pas."""
+    try:
+        r = subprocess.run(
+            [FFPROBE, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate,avg_frame_rate", "-of", "json", video],
+            capture_output=True, text=True, check=True,
+        )
+        flux = json.loads(r.stdout)["streams"][0]
+    except (OSError, subprocess.CalledProcessError, ValueError, KeyError, IndexError):
+        return None
+
+    def ratio(txt):
+        try:
+            a, _, b = str(txt or "0/1").partition("/")
+            return float(a) / float(b) if b and float(b) else float(a)
+        except ValueError:
+            return 0.0
+
+    for cle in ("r_frame_rate", "avg_frame_rate"):
+        v = ratio(flux.get(cle))
+        if 0 < v <= 240 and any(abs(n - v) < 0.02 for n in STANDARDS):
+            return v
+    v = ratio(flux.get("avg_frame_rate")) or ratio(flux.get("r_frame_rate"))
+    if not v > 0:
+        return None
+    proche = min(STANDARDS, key=lambda n: abs(n - v))
+    return proche if abs(proche - v) < 1 else round(v, 3)
 
 
 def masque_personne(chemin):
@@ -171,7 +208,14 @@ def main():
         elif mode == "decoupes":
             i0, i1 = int(sys.argv[4]), int(sys.argv[5])
             cote = int(sys.argv[6]) if len(sys.argv) > 6 else 1920
-            extraire(video, tmp, f"select='between(n,{i0},{i1})',scale='if(gt(iw,ih),min({cote},iw),-2)':'if(gt(iw,ih),-2,min({cote},ih))'", None, None, i0)
+            fps = float(sys.argv[7]) if len(sys.argv) > 7 and float(sys.argv[7]) > 0 else cadence(video)
+            echelle = f"scale='if(gt(iw,ih),min({cote},iw),-2)':'if(gt(iw,ih),-2,min({cote},ih))'"
+            if fps:
+                # comme pour les masques : on se place une demi-image avant i0, et on s'arrête après i1
+                extraire(video, tmp, echelle, (i0 - 0.5) / fps, i1 - i0 + 1, i0)
+            else:
+                # cadence illisible : les images comptées depuis le début, mais on s'arrête quand même après i1
+                extraire(video, tmp, f"select='between(n,{i0},{i1})',{echelle}", None, i1 - i0 + 1, i0)
 
             def ecrire(n, chemin, m):
                 with Image.open(chemin) as im:

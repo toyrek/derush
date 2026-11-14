@@ -4,7 +4,10 @@
 //
 //   node remotion/rendre.mjs [Composition] [sortie.mp4] [--props '{"cle": "valeur"}'] [--titre "Clip 1"] [--crf 16]
 //
-// Par défaut : la composition « Montage », rendue dans ../rendu/montage.mp4.
+// Par défaut : la composition « Montage », rendue dans ../rendu/montage.mp4. La vidéo à livrer se rend dans
+// ../rendu/final.mp4 : node remotion/rendre.mjs Montage rendu/final.mp4.
+// Un rendu est une vidéo à montrer : les repères de travail du kit (cases « À créer », notes jaunes de l'humain) n'y
+// sont pas dessinés (`afficherConsignes: false`). Pour les voir quand même : --props '{"afficherConsignes": true}'.
 // Pour plusieurs vidéos (plusieurs clips, plusieurs formats) : une composition par vidéo, rendue chacune dans
 // ../rendu/livraison/<nom>.mp4 (voir « Livrer plusieurs vidéos » dans LISEZMOI-IA.md).
 //
@@ -16,6 +19,7 @@
 // (DERUSH_RELAIS), ou, quand le bac à sable coupe aussi le réseau local, un dossier où déposer la demande
 // (DERUSH_RELAIS_BOITE). Rien à changer ici.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -112,12 +116,17 @@ const option = (nom, defaut = null) => {
   args.splice(i, 2);
   return v;
 };
-const props = JSON.parse(option('--props', '{}'));
+// sans cela, une note de l'humain (« Texte : nom à l'écran ») restait incrustée dans la vidéo livrée
+const props = {afficherConsignes: false, ...JSON.parse(option('--props', '{}'))};
 const titreDonne = option('--titre');
 const crf = Number(option('--crf', '16'));
 const composition = args[0] ?? 'Montage';
 const sortie = path.resolve(args[1] ?? path.join(ICI, '..', 'rendu', 'montage.mp4'));
 fs.mkdirSync(path.dirname(sortie), {recursive: true});
+// Remotion cherche son navigateur de rendu à partir du dossier courant (le premier package.json au-dessus) : lancé
+// depuis la racine du pack, qui n'en a pas, il en téléchargeait une copie de 570 Mo dans chaque projet. Depuis le
+// dossier du kit, il prend celui de Dérush (node_modules/.remotion). Tous les chemins sont déjà absolus.
+process.chdir(ICI);
 
 // le dossier que Dérush surveille
 const id = `${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${composition.replace(/[^\w-]/g, '').slice(0, 30)}`;
@@ -145,12 +154,61 @@ const ajouterApercu = (avec) => (avec ? ({type, args: a}) => {
   return [...a, '-map', '0:v:0', '-vf', 'scale=270:-2', '-r', '2', '-frame_pts', '1', '-q:v', '6', '-y', path.join(direct, 'f-%05d.jpg')];
 } : undefined);
 
+/**
+ * Quand Dérush rend pour une IA en bac à sable (le relais : DERUSH_PROJET_REMOTION), l'assemblage ne prend que des
+ * fichiers du dossier de travail (le kit importe ../../montage.json et ../../sous-titres/mots.json) et du moteur de
+ * rendu : le dossier node_modules où est @remotion/bundler, jamais un node_modules que l'IA aurait relié ailleurs.
+ * Webpack suit les liens : sans cela, un import par un chemin absolu, ou par un lien posé n'importe où dans le dossier
+ * de travail, faisait entrer dans la vidéo un fichier que l'IA n'a pas le droit de lire. Un « loader » est du code lancé
+ * pendant l'assemblage, hors du bac à sable : il ne peut venir que du moteur. Le cache « unsafeCache » de webpack est
+ * coupé, pour que chaque import passe par cette vérification.
+ */
+const REFUS = 'Rendu refusé :';
+function gardien() {
+  const vrai = (f) => { try { return fs.realpathSync(f); } catch { return null; } };
+  const dedans = (d, f) => { if (!d || !f) return false; const rel = path.relative(d, f); return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel)); };
+  const atelier = vrai(path.join(ICI, '..'));
+  let moteur = vrai(fileURLToPath(import.meta.resolve('@remotion/bundler')));
+  while (moteur && path.basename(moteur) !== 'node_modules') moteur = path.dirname(moteur) === moteur ? null : path.dirname(moteur);
+  const permis = (f) => { const r = vrai(f); return dedans(atelier, r) || dedans(moteur, r); };
+  const refus = (quoi) => new Error(`${REFUS} ${quoi} mène à un fichier hors du dossier de travail. Copie dans le dossier de travail ce dont le kit a besoin (un fichier de remotion/public se charge avec staticFile()).`);
+  return {
+    apply(compiler) {
+      compiler.hooks.normalModuleFactory.tap('DerushDossierDeTravail', (usine) => usine.hooks.afterResolve.tap('DerushDossierDeTravail', (donnees) => {
+        const c = donnees.createData ?? {};
+        const fichier = c.resourceResolveData?.path || String(c.resource ?? '').replace(/[?#].*$/s, '');
+        if (!/^data:/i.test(fichier) && !permis(fichier)) throw refus(`« ${donnees.request} »`);
+        for (const l of c.loaders ?? []) if (!dedans(moteur, vrai(l.loader))) throw new Error(`${REFUS} « ${donnees.request} » demande un loader qui ne vient pas du moteur de rendu (« ${path.basename(String(l.loader))} » : du code lancé hors du bac à sable). Importe le fichier sans loader.`);
+      }));
+      // require.context : le dossier lu doit lui aussi être dans le dossier de travail ou le moteur
+      compiler.hooks.contextModuleFactory.tap('DerushDossierDeTravail', (usine) => usine.hooks.afterResolve.tap('DerushDossierDeTravail', (donnees) => {
+        if (donnees) for (const d of [].concat(donnees.resource ?? [])) if (!permis(String(d))) throw refus(`« ${donnees.request ?? d} »`);
+        return donnees;
+      }));
+    },
+  };
+}
+const garder = process.env.DERUSH_PROJET_REMOTION
+  ? (config) => ({...config, module: {...config.module, unsafeCache: false}, plugins: [...(config.plugins ?? []), gardien()]})
+  : undefined;
+
+// les assemblages de Remotion (dans le dossier temporaire du système) : effacés à la fin, sinon ils s'empilent
+// (de 30 à 200 Mo chacun, un par rendu) jusqu'à remplir le disque
+const assemblages = [];
+const nettoyer = () => { for (const d of assemblages) { try { fs.rmSync(d, {recursive: true, force: true}); } catch { /* déjà parti */ } } };
+
 async function rendre(avecApercu) {
   etat.etape = 'assemblage';
   noter(true);
+  // à un nom que Dérush reconnaît : s'il reste après un rendu interrompu, il est effacé au démarrage suivant ; noté avant
+  // l'assemblage, pour être effacé à la fin même si l'assemblage échoue
+  const outDir = fs.mkdtempSync(path.join(os.tmpdir(), 'derush-assemblage-'));
+  assemblages.push(outDir);
   const serveUrl = await bundle({
     entryPoint: path.join(ICI, 'src', 'index.ts'), rootDir: ICI, publicDir: path.join(ICI, 'public'), enableCaching: true, symlinkPublicDir: true,
+    outDir,
     onProgress: () => noter(),
+    ...(garder ? {webpackOverride: garder} : {}),
   });
   const comp = await selectComposition({serveUrl, id: composition, inputProps: props});
   Object.assign(etat, {total: comp.durationInFrames, fps: comp.fps, largeur: comp.width, hauteur: comp.height, etape: 'rendu'});
@@ -186,12 +244,14 @@ const fini = () => {
   Object.assign(etat, {etape: 'fini', rendues: etat.total, fin: new Date().toISOString()});
   noter(true);
   console.log(`Vidéo rendue : ${sortie} (${etat.largeur}×${etat.hauteur}, ${etat.total} images, en ${Math.round((Date.now() - debut) / 1000)} s)`);
+  nettoyer();
   process.exit(0);
 };
 const echec = (e) => {
   Object.assign(etat, {etape: 'erreur', erreur: String(e?.message ?? e).slice(0, 600), fin: new Date().toISOString()});
   noter(true);
   console.error(`Le rendu a échoué : ${e?.stack ?? e}`);
+  nettoyer();
   process.exit(1);
 };
 // si le ffmpeg de l'aperçu s'arrête, Node le signale hors de la promesse (EPIPE) : on bascule sur le rendu sans aperçu
@@ -199,5 +259,6 @@ process.on('uncaughtException', (e) => {
   if (!secours && /EPIPE|ECONNRESET/.test(String(e?.code ?? e?.message ?? e))) sansApercu(e?.message ?? e).then(fini, echec);
   else if (!secours) echec(e);
 });
-// l'aperçu en direct ne doit jamais faire échouer un rendu : en cas d'erreur, on recommence sans lui
-rendre(true).then(() => (secours ? secours : null)).then(fini, (e) => sansApercu(e?.message ?? e).then(fini, echec));
+// l'aperçu en direct ne doit jamais faire échouer un rendu : en cas d'erreur, on recommence sans lui (sauf un import
+// refusé : le second essai le refuserait de même)
+rendre(true).then(() => (secours ? secours : null)).then(fini, (e) => (String(e?.message ?? e).includes(REFUS) ? echec(e) : sansApercu(e?.message ?? e).then(fini, echec)));

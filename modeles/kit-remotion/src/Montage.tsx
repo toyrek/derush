@@ -193,9 +193,11 @@ export const Montage: React.FC<{afficherConsignes: boolean}> = ({afficherConsign
           </Sequence>
         );
       })}
-      {/* bruitages des transitions, des titres, et ceux posés à la main */}
+      {/* bruitages des transitions, des titres, et ceux posés à la main. La place laissée à chacun est large (2 s) : un
+          bruitage refait avec ElevenLabs a une traîne plus longue que celui d'origine (jusqu'à 1,2 s) et serait coupé net
+          à la durée du catalogue ; <Audio> s'arrête de lui-même à la fin de son fichier. */}
       {(ETAT.sons as {t: number; fichier: string; volume: number}[]).map((s, i) => (
-        <Sequence key={`bruitage-${i}`} name={`bruitage ${s.fichier}`} from={Math.round(s.t * fps)} durationInFrames={Math.max(1, Math.ceil((dureeSon(s.fichier) + 0.05) * fps))} layout="none">
+        <Sequence key={`bruitage-${i}`} name={`bruitage ${s.fichier}`} from={Math.round(s.t * fps)} durationInFrames={Math.max(1, Math.ceil(Math.max(2, dureeSon(s.fichier) + 0.05) * fps))} layout="none">
           <Audio src={staticFile(`sons/${s.fichier}`)} volume={s.volume} />
         </Sequence>
       ))}

@@ -74,10 +74,18 @@ export function creerMaj(o) {
   }
 
   async function installer(b) {
-    if (o.occupe()) return note('Un travail est en cours : mets à jour quand il sera fini.');
+    const occupe = 'Un travail est en cours (ton IA, une analyse, un export, un enregistrement) : mets à jour quand il sera fini.';
+    if (o.occupe()) return note(occupe);
+    const c = carte;
+    const boutons = [...c.querySelectorAll('button')];
+    for (const x of boutons) x.disabled = true;
+    // le serveur voit aussi ce que cette fenêtre ne voit pas : une analyse de l'IA (recette, profil, viralité, plan,
+    // relecture des vues), un travail lancé depuis une autre fenêtre. Redémarrer la couperait en route.
+    const ping = await api('GET', '/api/ping').catch(() => null);
+    if (carte !== c) return;
+    if (ping?.occupe) { for (const x of boutons) x.disabled = false; return note(occupe); }
     const erreur = carte.querySelector('.maj-erreur');
     erreur.hidden = true;
-    for (const x of carte.querySelectorAll('button')) x.disabled = true;
     b.innerHTML = '<i class="maj-tourne"></i>Mise à jour…';
     ajuster();
     try {

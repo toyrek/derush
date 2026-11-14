@@ -6,5 +6,8 @@
  */
 export const PLANS_SANS_SOUS_TITRES: string[] = [];
 
-/** Affiche les cases à créer et les notes pendant le travail. Dérush passe `false` pour le rendu final. */
+/**
+ * Affiche les cases à créer et les notes de l'humain pendant le travail (le studio, `images.mjs`). Un rendu ne les
+ * dessine jamais : `rendre.mjs` et « Créer la vidéo » de Dérush passent `afficherConsignes: false`.
+ */
 export const AFFICHER_CONSIGNES = true;

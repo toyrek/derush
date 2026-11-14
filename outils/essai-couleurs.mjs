@@ -66,7 +66,7 @@ console.log('Appliqué par FFmpeg à une mire S-Log3');
   execFileSync(FFMPEG, ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=500x100:d=0.2:r=5', '-vf', `geq=lum='${expr}':cb=128:cr=128,format=yuv420p`, '-color_range', 'tv', '-c:v', 'libx264', '-qp', '0', mire]);
   const lut = path.join(tmp, 'slog3.cube');
   fs.writeFileSync(lut, C.lutProfil('slog3'));
-  const brut = execFileSync(FFMPEG, ['-v', 'error', '-i', mire, '-frames:v', '1', '-vf', `lut3d=file='${lut}':interp=tetrahedral,scale=5:1:flags=area,format=rgb24`, '-f', 'rawvideo', 'pipe:1']);
+  const brut = execFileSync(FFMPEG, ['-v', 'error', '-i', mire, '-frames:v', '1', '-vf', `${C.filtreCube(lut)},scale=5:1:flags=area,format=rgb24`, '-f', 'rawvideo', 'pipe:1']);
   const g = [0, 1, 2, 3, 4].map((k) => brut[k * 3 + 1] / 255);
   essai('le gris 18 % sort vers 41 % (norme BT.709)', proche(g[2], 0.41, 0.035), g.map((x) => x.toFixed(2)).join(' '));
   essai('les cinq gris restent dans l’ordre', g.every((v, i) => i === 0 || v > g[i - 1]));
@@ -82,7 +82,12 @@ essai('Sony plat en 10 bits → S-Log3', C.profilSuggere(video('Sony ILCE-7SM3')
 essai('DJI plat → D-Log M (LUT officiel ou automatique)', C.profilSuggere(video('DJI OsmoPocket3'), plat)?.id === 'dlogm');
 essai('caméra inconnue, plat en 10 bits → conversion automatique', C.profilSuggere(video(''), plat)?.id === 'auto');
 essai('image normale → rien à convertir', C.profilSuggere(video('Sony ILCE-7SM3'), normal) === null);
-essai('iPhone en Apple Log (BT.2020, 10 bits, pas HDR) → Apple Log', C.profilSuggere(video('Apple iPhone 16 Pro', {primaires: 'bt2020', hdr: false}), normal)?.id === 'applelog');
+// l'iPhone se reconnaît à l'appareil écrit dans le fichier (« Apple iPhone 16 Pro »), son logiciel n'est que la version d'iOS
+const iphone = {...video(''), tournage: {appareil: 'Apple iPhone 16 Pro', logiciel: '18.1'}, primaires: 'bt2020', hdr: false};
+essai('iPhone en Apple Log (BT.2020, 10 bits, pas HDR) → Apple Log', C.profilSuggere(iphone, normal)?.id === 'applelog');
+essai('iPhone en couleurs normales, même terne → rien à convertir', C.profilSuggere({...iphone, primaires: 'bt709'}, plat) === null);
+// un ProRes porte « Apple ProRes » comme encodeur : ce n'est pas un iPhone, et son Log n'est pas de l'Apple Log
+essai('ProRes d’une autre caméra (encodeur « Apple ProRes »), plat en 10 bits → pas Apple Log', C.profilSuggere(video('Apple ProRes 422 HQ', {primaires: 'bt2020'}), plat)?.id === 'auto');
 
 console.log('Le LUT d’un rush');
 essai('pas de profil → pas de LUT', C.lutDe({id: 'M1'}) === null);
@@ -91,7 +96,29 @@ const f = C.lutDe({id: 'M1', couleur: {profil: 'vlog'}});
 essai('V-Log → un fichier .cube calculé une fois', !!f && fs.existsSync(f) && /LUT_3D_SIZE 33/.test(fs.readFileSync(f, 'utf8')));
 const fa = C.lutDe({id: 'M2', couleur: {profil: 'auto', ombres: 0.14, lumieres: 0.5}});
 essai('automatique → un .cube propre à ce rush', !!fa && fs.existsSync(fa));
-essai('le filtre FFmpeg échappe le chemin', /^lut3d=file='.*':interp=tetrahedral$/.test(C.filtreLut({id: 'M1', couleur: {profil: 'vlog'}})));
+essai('le filtre FFmpeg désigne le LUT calculé', C.filtreLut({id: 'M1', couleur: {profil: 'vlog'}}) === C.filtreCube(f) && /^lut3d=file=.*vlog-v\d+\.cube:interp=tetrahedral$/.test(C.filtreCube(f)));
+{
+  // un LUT rangé dans un dossier au nom difficile : une apostrophe (« LUT d'usine »), le « : » d'un disque Windows
+  // (« C:/… »), une virgule, des crochets, un point-virgule. FFmpeg doit lire le bon fichier, dans -vf comme dans
+  // -filter_complex (entre guillemets, l'apostrophe fermait le texte et le « : » coupait l'option en deux)
+  const dur = path.join(tmp, 'LUT d’usine', "LUT d'usine, C: [Sony];1");
+  fs.mkdirSync(dur, {recursive: true});
+  const lutDur = path.join(dur, 'slog3.cube');
+  fs.copyFileSync(f, lutDur);
+  const lit = (args) => { try { execFileSync(FFMPEG, ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=gray:s=16x16:d=0.04', ...args, '-frames:v', '1', '-f', 'null', '-'], {stdio: 'pipe'}); return ''; } catch (e) { return String(e.stderr ?? e.message).slice(-200); } };
+  const r1 = lit(['-vf', C.filtreCube(lutDur)]);
+  essai('un chemin avec apostrophe, « : », « , », crochets et « ; » : lu par FFmpeg (-vf)', r1 === '', r1);
+  const r2 = lit(['-filter_complex', `[0:v]${C.filtreCube(lutDur)},split[a][b];[a][b]hstack[s]`, '-map', '[s]']);
+  essai('… et dans un graphe de filtres (-filter_complex)', r2 === '', r2);
+  const police = ['/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/Library/Fonts/Arial Bold.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf'].find((x) => fs.existsSync(x));
+  if (police) {
+    // la police de Windows est « C:/Windows/Fonts/arialbd.ttf » : le même « : » dans un drawtext
+    const policeDure = path.join(dur, 'arialbd.ttf');
+    fs.copyFileSync(police, policeDure);
+    const r3 = lit(['-vf', `drawtext=fontfile=${C.cheminFiltre(policeDure)}:text='01\\:02':fontsize=8`]);
+    essai('… et une police au même endroit (drawtext)', r3 === '', r3);
+  }
+}
 
 console.log('L’étalonnage d’un plan');
 essai('rien de réglé → null', C.couleurPropre({exposition: 0, contraste: 0}) === null);

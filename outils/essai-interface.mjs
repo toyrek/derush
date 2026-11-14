@@ -1,9 +1,13 @@
 // Dérush — essai de l'interface sans fenêtre (pour qui modifie Dérush) : pilote Chrome par son protocole de débogage.
 //
-// 1. Lance un serveur d'essai sur une copie de projet, sans toucher à la vraie bibliothèque :
-//      DERUSH_BIBLIOTHEQUE=<dossier d'essai> DERUSH_SANS_NAVIGATEUR=1 node derush.mjs <projet> --port 4334
-//    (il ajoute ce projet à recents.json, partagé avec la vraie app : sauvegarde ce fichier avant, remets-le après)
-// 2. node outils/essai-interface.mjs http://127.0.0.1:4334/ etapes.json [largeur] [hauteur]
+// 1. Lance un serveur d'essai sur une copie de projet, sans toucher à la vraie installation :
+//      DERUSH_SUPPORT=<support d'essai> DERUSH_BIBLIOTHEQUE=<bibliothèque d'essai> DERUSH_SANS_NAVIGATEUR=1 DERUSH_SANS_MAJ=1 \
+//        node derush.mjs <projet> --port 4334
+//    (recents.json et la clé de la fenêtre se rangent dans le support d'essai, jamais dans le vrai dossier de Dérush)
+// 2. node outils/essai-interface.mjs "http://127.0.0.1:4334/?c=<clé>" etapes.json [largeur] [hauteur]
+//    La page (et son jeton) n'est donnée qu'à l'adresse qui porte la clé de la fenêtre : le serveur l'écrit en démarrant
+//    (« Adresse de la fenêtre : … »), et la clé est rangée dans <support d'essai>/cle-fenetre. Sans « ?c=… » dans
+//    l'adresse, la clé est lue là si DERUSH_SUPPORT est donné à cette commande aussi.
 //
 // etapes.json est une liste d'étapes :
 //   {"js": "expression", "dire": "nom"}   évalue du JavaScript dans la page (et affiche le résultat si « dire »)
@@ -20,7 +24,19 @@ import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const [url, fichierEtapes, largeur = '1480', hauteur = '920'] = process.argv.slice(2);
+const [adresse, fichierEtapes, largeur = '1480', hauteur = '920'] = process.argv.slice(2);
+// l'adresse, écrite comme Chrome l'écrira (pour retrouver la page), avec la clé de la fenêtre si elle n'y est pas
+const url = (() => {
+  const u = new URL(adresse);
+  if (!u.searchParams.has('c') && process.env.DERUSH_SUPPORT) {
+    try {
+      const c = fs.readFileSync(path.join(process.env.DERUSH_SUPPORT, 'cle-fenetre'), 'utf8').trim();
+      if (/^[a-f0-9]{48}$/.test(c)) u.searchParams.set('c', c);
+    } catch { /* pas de clé : l'adresse telle quelle */ }
+  }
+  return u.href;
+})();
+if (!new URL(url).searchParams.has('c')) console.log('⚠️ l’adresse ne porte pas la clé de la fenêtre (« ?c=… ») : Dérush refusera la page (voir l’en-tête de ce fichier)');
 const etapes = JSON.parse(fs.readFileSync(fichierEtapes, 'utf8'));
 const ICI = process.env.TMPDIR || '/tmp';
 const PORT = 9341;

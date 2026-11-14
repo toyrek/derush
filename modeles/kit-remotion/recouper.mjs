@@ -14,15 +14,20 @@
 //     {"plan": "P1", "de": 40.2, "a": 44.0}
 //   ]
 //
-// - "plan" : un plan du montage d'origine. On peut reprendre plusieurs fois le même, dans n'importe quel ordre.
+// - "plan" : un plan du montage d'origine (P1, P2… ; dans un pack sans découpe, le nom du rush : M1, M2…). On peut
+//   reprendre plusieurs fois le même, dans n'importe quel ordre.
 // - "de" / "a" : le début et la fin du passage, en secondes du rush. Sans eux, le plan est gardé en entier.
-//   Pour une photo, seule la durée (a − de) compte.
+//   Pour une photo, seule la durée (a − de) compte. Un passage peut dépasser le plan d'origine, dans ses poignées.
 // - "case" : une case à créer du montage d'origine, gardée à cet endroit avec sa durée.
 // - "titre", "notes" : facultatifs.
 //
-// L'outil réécrit `montage.json` (plans, temps, durée totale) et `sous-titres/` (mots recalés sur le nouveau montage).
-// L'original est gardé dans `montage.origine.json` : on peut relancer l'outil autant de fois qu'on veut, il repart
-// toujours de l'original. Le kit (`npm run rendu`) monte ensuite exactement ces passages.
+// L'outil refait, dans `montage.json`, les plans (`montage`) et la durée (`sortie`), et dans `sous-titres/` les mots
+// recalés sur le nouveau montage (lus dans `transcriptions/` : un passage allongé garde tous ses mots). Tout le reste
+// de `montage.json` est gardé tel que tu l'as laissé : le style, les effets (`habillage`), les notes, les plans
+// par-dessus (les mots de la voix off suivent la place que tu leur as donnée). Les plans d'origine sont dans
+// `montage.origine.json` : on peut relancer l'outil autant de fois qu'on veut, il repart toujours d'eux. Le kit
+// (`node remotion/rendre.mjs Montage rendu/final.mp4`) monte ensuite exactement ces passages.
+// `--origine` remet tout `montage.json` et `sous-titres/` comme au départ, tes changements compris.
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -82,6 +87,45 @@ function sousTitres(mots) {
   });
   return cues;
 }
+/**
+ * Une seule voix à la fois dans les sous-titres (la même règle que Dérush quand il prépare le pack) : la voix off
+ * (`voixOff`, les ids de ses plans par-dessus) passe devant les plans qu'elle recouvre ; sinon, la voix qui parlait la
+ * première finit sa phrase. Sans cela, les sous-titres changent de voix à chaque mot.
+ */
+function uneVoixALaFois(mots, voixOff) {
+  const phrases = [];
+  const enCours = new Map();
+  for (const w of mots) {
+    if (w.evenement) continue;
+    let q = enCours.get(w.plan);
+    if (!q || w.debut - q.fin >= 0.6) {
+      q = {plan: w.plan, debut: w.debut, fin: w.fin, mots: []};
+      phrases.push(q);
+      enCours.set(w.plan, q);
+    }
+    q.mots.push(w);
+    q.fin = Math.max(q.fin, w.fin);
+  }
+  if (new Set(phrases.map((q) => q.plan)).size < 2) return mots;
+  phrases.sort((a, b) => Number(voixOff.has(b.plan)) - Number(voixOff.has(a.plan)) || a.debut - b.debut);
+  const prises = [];
+  const retires = new Set();
+  for (const q of phrases) {
+    const gardes = q.mots.filter((w) => {
+      const c = (w.debut + w.fin) / 2;
+      return !prises.some((x) => x.plan !== q.plan && c >= x.debut && c < x.fin);
+    });
+    for (const w of q.mots) if (!gardes.includes(w)) retires.add(w);
+    if (gardes.length) prises.push({plan: q.plan, debut: gardes[0].debut, fin: gardes.at(-1).fin});
+  }
+  return retires.size ? mots.filter((w) => !retires.has(w)) : mots;
+}
+/** Écrit montage.srt et montage.vtt d'après les mots (temps du montage). */
+function ecrireSousTitres(mots) {
+  const cues = sousTitres(mots);
+  fs.writeFileSync(fSrt, cues.map((q, n) => `${n + 1}\n${horo(q.debut, ',')} --> ${horo(q.fin, ',')}\n${q.lignes.join('\n')}\n`).join('\n'));
+  fs.writeFileSync(fVtt, `WEBVTT\n\n${cues.map((q) => `${horo(q.debut, '.')} --> ${horo(q.fin, '.')}\n${q.lignes.join('\n')}\n`).join('\n')}`);
+}
 
 const arg = process.argv[2];
 if (!arg) erreur('Usage : node remotion/recouper.mjs coupes.json   (ou --origine pour revenir au montage d’origine)');
@@ -89,20 +133,46 @@ const fMontage = f('montage.json');
 const fOrigine = f('montage.origine.json');
 const fMots = f('sous-titres', 'mots.json');
 const fMotsOrigine = f('sous-titres', 'mots.origine.json');
+const fSrt = f('sous-titres', 'montage.srt');
+const fVtt = f('sous-titres', 'montage.vtt');
+const double = (chemin) => chemin.replace(/(\.\w+)$/, '.origine$1');
 if (!fs.existsSync(fMontage)) erreur(`montage.json introuvable dans ${PACK}`);
-// la première fois, on met l'original de côté
-if (!fs.existsSync(fOrigine)) fs.copyFileSync(fMontage, fOrigine);
+// la première fois, on met l'original de côté (montage.json, et les sous-titres .srt et .vtt tant qu'ils sont ceux du départ)
+if (!fs.existsSync(fOrigine)) {
+  fs.copyFileSync(fMontage, fOrigine);
+  for (const x of [fSrt, fVtt]) if (fs.existsSync(x)) fs.copyFileSync(x, double(x));
+}
 if (!fs.existsSync(fMotsOrigine) && fs.existsSync(fMots)) fs.copyFileSync(fMots, fMotsOrigine);
 
 if (arg === '--origine') {
   fs.copyFileSync(fOrigine, fMontage);
   if (fs.existsSync(fMotsOrigine)) fs.copyFileSync(fMotsOrigine, fMots);
-  console.log('Montage d’origine remis en place (montage.json et sous-titres/mots.json). Les fichiers .srt et .vtt ne sont pas refaits.');
+  // les .srt et .vtt du départ : leur double, ou, pour un pack recoupé avant qu'on les garde, refaits d'après les mots
+  if (fs.existsSync(double(fSrt)) && fs.existsSync(double(fVtt))) { fs.copyFileSync(double(fSrt), fSrt); fs.copyFileSync(double(fVtt), fVtt); }
+  else if (fs.existsSync(fMotsOrigine)) ecrireSousTitres(lire(fMotsOrigine).mots ?? []);
+  console.log('Montage d’origine remis en place : montage.json et sous-titres/ (mots.json, .srt, .vtt) sont comme au départ. Ce que tu avais changé dans montage.json (style, effets, plans par-dessus, notes) est revenu à l’original lui aussi.');
   process.exit(0);
 }
 
+// Les plans viennent de l'original ; tout le reste (style, effets, notes, plans par-dessus) vient du montage.json
+// d'aujourd'hui : ce que l'IA y a changé entre deux recoupes n'est jamais effacé.
 const O = lire(fOrigine);
+let A;
+try { A = lire(fMontage); } catch (e) { erreur(`montage.json est illisible (${e.message}) : corrige-le, ou reviens à l’original avec --origine.`); }
 const motsOrigine = fs.existsSync(fMotsOrigine) ? lire(fMotsOrigine) : {mots: []};
+let motsActuels = [];
+try { motsActuels = lire(fMots).mots ?? []; } catch { /* pas de mots.json lisible : ceux d'origine serviront */ }
+/** Les mots d'un rush, en temps du rush : sa transcription complète (elle couvre aussi ce qui dépasse du plan d'origine). */
+const transcriptions = new Map();
+function motsDuRush(idSource) {
+  if (!transcriptions.has(idSource)) {
+    const src = (O.sources ?? []).find((x) => x.id === idSource);
+    let liste = null;
+    try { if (src?.transcription) liste = lire(f(src.transcription)).mots; } catch { /* pas de transcription lisible */ }
+    transcriptions.set(idSource, Array.isArray(liste) ? {chemin: src.transcription, mots: liste} : null);
+  }
+  return transcriptions.get(idSource);
+}
 const fps = O.sortie.fps;
 let coupes;
 try { coupes = lire(path.resolve(arg)); } catch (e) { erreur(`Liste de coupes illisible (${arg}) : ${e.message}`); }
@@ -124,6 +194,7 @@ coupes.forEach((c, k) => {
   usages.set(id, n + 1);
   const nouvelId = n ? `${id}${lettres[n] ?? `-${n + 1}`}` : id;
   const it = structuredClone(orig);
+  delete it.mots; // un ancien pack les répétait ici : ils sont dans sous-titres/mots.json
   it.n = k + 1;
   it.id = nouvelId;
   if (nouvelId !== id) it.repris_de = id;
@@ -168,10 +239,14 @@ coupes.forEach((c, k) => {
       const dans = pts.filter((p) => p.t >= d0 - 2 && p.t <= d0 + dureeS + 2);
       it.cadrage.points = dans.length ? dans : [pts.reduce((m, p) => (Math.abs(p.t - d0) < Math.abs(m.t - d0) ? p : m))];
     }
-    const duPlan = motsOrigine.mots.filter((w) => w.plan === id).map((w) => ({...w, d: versRush(w.debut), f: versRush(w.fin)})).filter((w) => (w.d + w.f) / 2 >= de && (w.d + w.f) / 2 < de + dureeS);
+    // les mots du passage : dans la transcription du rush (un passage allongé dans ses poignées garde tous ses mots) ;
+    // à défaut, ceux du plan d'origine
+    const duRush = fixe ? null : motsDuRush(orig.source.id);
+    const duPlan = (duRush ? duRush.mots.map((w) => ({...w, d: w.debut, f: w.fin})) : motsOrigine.mots.filter((w) => w.plan === id).map((w) => ({...w, d: versRush(w.debut), f: versRush(w.fin)})))
+      .filter((w) => (w.d + w.f) / 2 >= de && (w.d + w.f) / 2 < de + dureeS);
     const recales = duPlan.map(({d, f: fin, plan, image_debut, image_fin, ...w}) => ({...w, debut: arrondi(Math.max(image / fps, versNouveau(d))), fin: arrondi(Math.min(image / fps + dureeS, versNouveau(fin)))}));
-    it.mots = recales.map(({t, debut, fin, locuteur, evenement}) => ({t, debut, fin, ...(locuteur ? {locuteur} : {}), ...(evenement ? {evenement: true} : {})}));
-    it.texte = phrase(recales.filter((w) => !w.evenement));
+    const dit = phrase(recales.filter((w) => !w.evenement));
+    it.texte = dit.length > 600 ? `${dit.slice(0, 600).replace(/\s+\S*$/, '')}… (la suite : ${duRush?.chemin ?? 'sous-titres/mots.json'})` : dit;
     for (const w of recales) mots.push({...w, plan: nouvelId, image_debut: Math.round(w.debut * fps), image_fin: Math.round(w.fin * fps)});
     // ces repères décrivaient l'ancien passage : ils ne sont plus justes
     delete it.coupes_camera;
@@ -190,25 +265,48 @@ coupes.forEach((c, k) => {
   montage.push(it);
 });
 
+// Les mots des plans par-dessus (la voix off, une musique chantée…) : recouper ne touche pas à ces plans, mais l'IA a pu
+// les déplacer dans montage.json (ce que ce même outil lui conseille). Leurs mots suivent donc la place qu'ils ont
+// aujourd'hui (début et durée en images, ceux que le kit joue), d'après la transcription de leur rush ; sans
+// transcription, ceux de mots.json (à défaut, ceux d'origine) restent tels quels. Avant, ils étaient effacés, et la voix
+// off n'avait plus un seul sous-titre.
+const dessus = A.superpositions ?? [];
+for (const sp of dessus) {
+  if (sp.son?.garder === false) continue; // son coupé : rien n'est dit
+  const duRush = sp.source?.type === 'image' ? null : motsDuRush(sp.source?.id);
+  const e0 = sp.source?.entree?.s;
+  const d0 = Number.isFinite(sp.debut?.image) ? sp.debut.image / fps : sp.debut?.s;
+  const duree = Number.isFinite(sp.duree?.images) ? sp.duree.images / fps : sp.fin?.s - d0;
+  if (duRush && [e0, d0, duree].every(Number.isFinite) && duree > 0) {
+    for (const {debut: dw, fin: fw, plan, image_debut, image_fin, ...w} of duRush.mots) {
+      if ((dw + fw) / 2 < e0 || (dw + fw) / 2 >= e0 + duree) continue;
+      const debut = arrondi(Math.max(d0, d0 + dw - e0));
+      const fin = arrondi(Math.min(d0 + duree, d0 + fw - e0));
+      mots.push({...w, debut, fin, plan: sp.id, image_debut: Math.round(debut * fps), image_fin: Math.round(fin * fps)});
+    }
+    continue;
+  }
+  const siens = motsActuels.filter((w) => w.plan === sp.id);
+  mots.push(...(siens.length ? siens : motsOrigine.mots.filter((w) => w.plan === sp.id)));
+}
 mots.sort((x, y) => x.debut - y.debut);
-const sansST = O.habillage?.sans_sous_titres ?? [];
+const motsGardes = uneVoixALaFois(mots, new Set(dessus.filter((sp) => sp.voix_off).map((sp) => sp.id)));
+const sansST = A.habillage?.sans_sous_titres ?? [];
 const M = {
-  ...O,
+  ...A,
   decoupe: 'ia',
   _recoupe: {outil: 'remotion/recouper.mjs', passages: montage.length, original: 'montage.origine.json', note: 'Les temps de montage.otio, des vignettes et du storyboard sont ceux du montage d’origine.'},
-  sortie: {...O.sortie, duree: temps(image, fps), images: image},
+  sortie: {...(A.sortie ?? O.sortie), duree: temps(image, fps), images: image},
   montage,
-  ...(O.habillage ? {habillage: {...O.habillage, sans_sous_titres: [...new Set([...sansST, ...montage.filter((it) => sansST.includes(it.repris_de)).map((it) => it.id)])]}} : {}),
+  ...(A.habillage ? {habillage: {...A.habillage, sans_sous_titres: [...new Set([...sansST, ...montage.filter((it) => sansST.includes(it.repris_de)).map((it) => it.id)])]}} : {}),
 };
 ecrire(fMontage, M);
 if (fs.existsSync(f('sous-titres'))) {
-  ecrire(fMots, {...motsOrigine, fps, mots});
-  const cues = sousTitres(mots);
-  fs.writeFileSync(f('sous-titres', 'montage.srt'), cues.map((q, n) => `${n + 1}\n${horo(q.debut, ',')} --> ${horo(q.fin, ',')}\n${q.lignes.join('\n')}\n`).join('\n'));
-  fs.writeFileSync(f('sous-titres', 'montage.vtt'), `WEBVTT\n\n${cues.map((q) => `${horo(q.debut, '.')} --> ${horo(q.fin, '.')}\n${q.lignes.join('\n')}\n`).join('\n')}`);
+  ecrire(fMots, {...motsOrigine, fps, mots: motsGardes});
+  ecrireSousTitres(motsGardes);
 }
-console.log(`Nouveau montage : ${montage.length} passage(s), ${arrondi(image / fps, 2)} s (${image} images à ${fps} i/s), ${mots.filter((w) => !w.evenement).length} mots.`);
+console.log(`Nouveau montage : ${montage.length} passage(s), ${arrondi(image / fps, 2)} s (${image} images à ${fps} i/s), ${motsGardes.filter((w) => !w.evenement).length} mots.`);
 console.log(lignes.join('\n'));
-const restes = [[O.habillage?.effets?.length, 'effet(s) posé(s) dans Dérush'], [O.superpositions?.length, 'plan(s) par-dessus'], [O.indications?.length, 'note(s) de l’humain']].filter(([n]) => n);
-if (restes.length) console.log(`Attention : ${restes.map(([n, t]) => `${n} ${t}`).join(', ')} gardent leurs temps d’origine. Vérifie-les dans montage.json, ou déplace-les.`);
-console.log('Ensuite : dans remotion/, « npm run image » pour contrôler une image, puis « npm run rendu ».');
+const restes = [[A.habillage?.effets?.length, 'effet(s)'], [dessus.length, 'plan(s) par-dessus'], [A.indications?.length, 'note(s) de l’humain']].filter(([n]) => n);
+if (restes.length) console.log(`Attention : ${restes.map(([n, t]) => `${n} ${t}`).join(', ')} gardent leurs temps. S’ils ne tombent plus au bon endroit, déplace-les dans montage.json, puis relance cette commande : elle les laissera où tu les as mis et recalera les sous-titres des plans par-dessus.`);
+console.log('Ensuite : « node remotion/images.mjs --de 0 --a 10 --pas 10 » pour contrôler des images, puis « node remotion/rendre.mjs Montage rendu/final.mp4 ».');

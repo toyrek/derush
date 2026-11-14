@@ -12,6 +12,10 @@ et sous quelle licence.
 | Compétences Instagram (13, `ig-…`) et YouTube (11, `yt-…`) | `competences/` | Jake Schincariol — instagram-agent-skill, youtube-agent-skill | MIT |
 | Compétences ElevenLabs (7) | `competences/` | ElevenLabs — elevenlabs/skills | MIT |
 | ffmpeg-skill et les compétences de montage (12) | `competences/` | kajisho5 | MIT |
+| Compétences de montage trouvées dans l'annuaire skills.sh (31, plus les deux de la ligne suivante : montage, son, musique, motion design, formats ; liste dans `competences/LICENCES.md`) | `competences/` | calesthio, iart.ai, Melvyn Malherbe, Charlie Hills, Ethan Woo, Louise de Sadeleer, Digital Samba, Leonxlnx, Sri Nath, Agam More, edotheDev, Frank Heijdenrijk | MIT |
+| `video-prompting` et `raccords-en-mouvement` | `competences/` | Square Zero Labs ; HeyGen, Inc. (HyperFrames) | Apache-2.0 |
+| Compétence `motion-design` (les principes du mouvement : intention, rythme, courbes, chorégraphie) | `competences/` | LottieFiles — motion-design-skill | MIT |
+| Compétence `derush-serie-animee` (une série animée en images générées, sans que le personnage change) | `competences/` | IABAI, d'après la méthode d'un article public de Movez (12 novembre 2026), réécrite | celle de Dérush |
 | Compétence `sons-openverse` (chercher des sons libres, noter leurs crédits) | `competences/` | IABAI | celle de Dérush |
 | Compétence `derush-viralite` (analyser une vidéo avant de la publier) | `competences/` | IABAI | celle de Dérush |
 | Compétences `derush-createur` (dresser le profil d'un créateur) et `derush-publier` | `competences/` | IABAI | celle de Dérush |
@@ -29,6 +33,9 @@ Les logos et leurs règles d'usage sont décrits dans [public/logos/LISEZMOI.md]
 | Quoi | Pour quoi | Licence |
 |---|---|---|
 | Remotion | Le moteur de rendu (animations, titres, sous-titres) | Licence Remotion : gratuit pour les particuliers et les structures de trois personnes au plus, licence payante au-delà — https://remotion.dev/license |
+| Les bibliothèques du kit de rendu : three, @react-three/fiber, @react-three/postprocessing, animejs, konva, react-konva, lottie-web, planck, regl, scenejs, zdog, React | Animer, la 3D, les effets de lumière de la 3D | MIT |
+| postprocessing (avec n8ao, maath, three-stdlib) | Les effets de lumière de la 3D | Zlib (n8ao : ISC ; maath, three-stdlib : MIT) |
+| Rapier (@dimforge/rapier3d-compat) | La physique en 3D | Apache-2.0 |
 | Compétences Remotion (remotion-dev/skills) | Les fiches que l'IA lit pour Remotion | Pas de licence de redistribution : téléchargées chez toi depuis leur dépôt officiel |
 | Real SFX (Clipwing/skills), à la version examinée | Poser de vrais sons à l'image près | Scripts sous licence MIT ; sons d'interface uisfx : code MIT, sons CC0 (d'après son README). Fait par Alexander Korbanov |
 | Earshot (Leonxlnx/earshot), facultatif | Écouter, choisir, fabriquer des sons, sur ton ordinateur | MIT (Leon Lin) ; ses modèles : CLAP (Apache-2.0), AST (BSD-3-Clause) |

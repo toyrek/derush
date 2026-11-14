@@ -19,6 +19,12 @@
 //   node derush.mjs installer --bilan                      dit ce qui est là et ce qui manque, sans rien installer
 //   node derush.mjs installer whisper|voix|detourage|rendu|outils|blender|remotion|real-sfx|earshot   installe une seule chose
 //   node derush.mjs mettre-a-jour                          récupère la dernière version de la bêta (GitHub)
+//   node derush.mjs competences                            les compétences ajoutées (provenance, licence, état)
+//   node derush.mjs competences chercher <mots>            cherche dans l'annuaire skills.sh
+//   node derush.mjs competences voir <lien>                lit un dépôt GitHub et dit ce qu'il contient, sans rien ajouter
+//   node derush.mjs competences ajouter <lien> [--toutes | --chemin <dossier>] [--oui]   ajoute une compétence
+//   node derush.mjs competences retirer|pause|reprendre <nom>   retire, met en pause, reprend une compétence ajoutée
+//   node derush.mjs competences verifier                   regarde si les compétences ajoutées ont une nouvelle version
 //   node derush.mjs construire-app [<dossier>] [--sur-place] fabrique Dérush.app (Mac) et l'alias sur le Bureau
 //   node derush.mjs construire-app --zip [<dossier>]       fabrique le zip de Dérush.app à partager
 //   node derush.mjs construire-app --dmg [<dossier>]       fabrique l'image disque (on glisse Dérush dans Applications)
@@ -35,7 +41,7 @@ for (const f of ['.env', '.env.local']) {
 }
 
 const {Projet} = await import('./lib/projet.mjs');
-const {FileDAttente, lancer, arreterEnfants, FFMPEG, FFPROBE, tailleLisible} = await import('./lib/outils.mjs');
+const {FileDAttente, lancer, arreterEnfants, FFMPEG, FFPROBE, tailleLisible, lireJson} = await import('./lib/outils.mjs');
 const {ajouterMedia, preparer, etapesManquantes, isolerVoix, creerAffiche} = await import('./lib/medias.mjs');
 const {lireFichierTranscription, enregistrer, transcrire} = await import('./lib/transcription.mjs');
 const {installer} = await import('./lib/moteurs.mjs');
@@ -43,10 +49,11 @@ const {exporterPack} = await import('./lib/pack.mjs');
 const {creerVideo, installerRendu, etatRendu} = await import('./lib/rendu.mjs');
 const {demander, etatDemande, etatIA, claudeTravaille, arreterToutesLesDemandes, MODELES} = await import('./lib/claude.mjs');
 const {arreterConseils, conseilEnCours} = await import('./lib/conseil.mjs');
+const {arreterDrive} = await import('./lib/drive-medias.mjs');
 const {fermerEnregistrements, enregistrementEnCours} = await import('./lib/enregistrement.mjs');
 const {chargerCle} = await import('./lib/elevenlabs.mjs');
 chargerCle();
-const {demarrerServeur} = await import('./lib/serveur.mjs');
+const {demarrerServeur, cleFenetre} = await import('./lib/serveur.mjs');
 const {noterRecent} = await import('./lib/bibliotheque.mjs');
 const {VERSION} = await import('./lib/commun.mjs');
 
@@ -80,7 +87,7 @@ async function verifierOutils() {
 // l'interface s'ouvre dans une fenêtre d'application (Chrome, Edge, Chromium ou Brave), sinon dans le navigateur
 const {ouvrirFenetre, MAC, fichierJournal} = await import('./lib/plateforme.mjs');
 
-const COMMANDES = ['ajouter', 'transcrire', 'transcription', 'voix', 'exporter', 'rendre', 'demander', 'installer', 'construire-app', 'mettre-a-jour'];
+const COMMANDES = ['ajouter', 'transcrire', 'transcription', 'voix', 'exporter', 'rendre', 'demander', 'installer', 'construire-app', 'mettre-a-jour', 'competences'];
 const commande = COMMANDES.includes(args[0]) ? args.shift() : 'ouvrir';
 const port = Number(option('--port')) || 4321;
 const sansNavigateur = drapeau('--sans-navigateur') || process.env.DERUSH_SANS_NAVIGATEUR === '1';
@@ -108,6 +115,51 @@ const barre = () => {
     if (pc !== dernier) { dernier = pc; process.stdout.write(`${pc} % `); }
   };
 };
+
+if (commande === 'competences') {
+  const A = await import('./lib/competences-ajoutees.mjs');
+  const toutes = drapeau('--toutes');
+  const oui = drapeau('--oui');
+  const chemin = option('--chemin');
+  const [action = 'lister', ...reste] = args;
+  const decrire = (c) => {
+    const l = [`  ${c.nom}${c.chemin ? `  (${c.chemin})` : ''} — ${c.description.slice(0, 140) || 'sans description'}`,
+      `    licence : ${c.licence?.nom ?? 'aucune trouvée'}${c.licence?.commercial === false ? ' (pas d’usage commercial)' : c.licence && c.licence.commercial == null ? ' (Dérush ne la reconnaît pas : lis-la avant un usage commercial)' : ''} ·${c.fichiers} fichiers · ${c.n_programmes} programme(s) · avis : ${{ok: 'rien à signaler', attention: 'à regarder', danger: 'à lire avant', refus: 'refusée'}[c.niveau]}`];
+    if (c.cles.length) l.push(`    clés demandées : ${c.cles.join(', ')}`);
+    for (const a of c.alertes.slice(0, 6)) l.push(`    ${a.gravite === 'danger' ? '⚠' : '·'} ${a.quoi}${a.fichier ? ` (${a.fichier}:${a.ligne})` : ''}`);
+    if (c.conflit) l.push(`    ${c.conflit}`);
+    return l.join('\n');
+  };
+  try {
+    if (action === 'lister') {
+      const l = A.listerAjoutees();
+      if (!l.length) console.log('Aucune compétence ajoutée. Ajoute-en une : node derush.mjs competences ajouter <lien GitHub>');
+      for (const x of l) console.log(`${x.actif === false ? '⏸' : x.masquee ? '!' : '✓'} ${x.nom} — ${x.depot} @ ${String(x.commit ?? '?').slice(0, 7)} · ${x.licence?.nom ?? 'sans licence'}${x.maj_disponible ? ' · nouvelle version' : ''}${x.modifiee ? ' · modifiée à la main' : ''}`);
+    } else if (action === 'chercher') {
+      const r = await A.chercherAnnuaire(reste.join(' '));
+      if (!r.length) console.log('Rien trouvé.');
+      for (const x of r) console.log(`${x.deja ? '✓' : ' '} ${x.depot}@${x.nom}${x.installs != null ? `  (${x.installs} installations)` : ''}`);
+    } else if (action === 'voir' || action === 'ajouter') {
+      const e = await A.explorer(reste[0] ?? '');
+      console.log(`${e.depot} @ ${String(e.commit ?? '?').slice(0, 7)} — ${e.competences.length} compétence(s), licence du dépôt : ${e.licence?.nom ?? 'aucune trouvée'}`);
+      for (const c of e.competences) console.log(decrire(c));
+      if (action === 'voir') { A.abandonner(e.id); process.exit(0); }
+      const voulues = chemin != null ? e.competences.filter((c) => c.chemin === chemin)
+        : toutes ? e.competences : e.competences.filter((c) => c.voulue).length ? e.competences.filter((c) => c.voulue) : e.competences.length === 1 ? e.competences : [];
+      if (!voulues.length) { console.error('\nPlusieurs compétences : choisis avec --chemin <dossier> (ou « propriétaire/dépôt@nom »), ou prends-les toutes avec --toutes.'); A.abandonner(e.id); process.exit(1); }
+      if (voulues.some((c) => c.niveau === 'danger') && !oui) { console.error('\nAu moins une compétence a une alerte à lire (⚠). Relis-la, puis relance avec --oui pour l’ajouter quand même.'); A.abandonner(e.id); process.exit(1); }
+      const r = await A.ajouter(e.id, voulues.map((c) => c.chemin));
+      A.abandonner(e.id);
+      for (const n of r.ajoutees) console.log(`✓ ajoutée : ${n}`);
+      for (const x of r.refusees) console.log(`✗ ${x.nom} : ${x.raison}`);
+      process.exit(r.ajoutees.length ? 0 : 1);
+    } else if (action === 'retirer') { A.retirer(reste[0] ?? ''); console.log('Retirée.'); }
+    else if (action === 'pause' || action === 'reprendre') { A.activer(reste[0] ?? '', action === 'reprendre'); console.log(action === 'pause' ? 'En pause : l’IA ne la voit plus.' : 'Reprise.'); }
+    else if (action === 'verifier') { const r = await A.verifierMisesAJour(); console.log(`${r.verifiees} vérifiée(s)${r.echecs ? `, ${r.echecs} sans réponse de GitHub` : ''}. ${r.maj.length ? `Nouvelle version : ${r.maj.join(', ')}.` : 'Rien de nouveau.'}`); }
+    else { console.error('Usage : node derush.mjs competences [chercher <mots> | voir <lien> | ajouter <lien> [--toutes | --chemin <dossier>] [--oui] | retirer|pause|reprendre <nom> | verifier]'); process.exit(1); }
+  } catch (e) { console.error(e.message); process.exit(1); }
+  process.exit(0);
+}
 
 if (commande === 'installer') {
   const I = await import('./lib/installation.mjs');
@@ -236,6 +288,9 @@ if (commande !== 'ouvrir') {
 }
 
 // ——— Interface ———
+// Dernier filet : une promesse oubliée quelque part (un travail de fond qui échoue) est notée au journal, au lieu
+// d'arrêter tout Dérush, la fenêtre et le travail en cours avec lui.
+process.on('unhandledRejection', (e) => console.error('Promesse rejetée sans suite :', e));
 // Sur Mac, une ancienne installation (fenêtre de Chrome) devient l'app native à son premier lancement.
 if (MAC && modeApp && !modeCoque) {
   try {
@@ -246,12 +301,15 @@ if (MAC && modeApp && !modeCoque) {
 const outilsVerifies = verifierOutils(); // en même temps que la suite : rien n'attend FFmpeg
 /** Un Dérush qui tourne déjà sur ce port : son jeton, et s'il travaille (rendu, IA). */
 async function dejaOuvert(base) {
-  const jeton = /name="derush-jeton" content="([^"]+)"/.exec(await (await fetch(base, {signal: AbortSignal.timeout(1500)})).text())?.[1];
+  const jeton = /name="derush-jeton" content="([^"]+)"/.exec(await (await fetch(`${base}?c=${cle}`, {signal: AbortSignal.timeout(1500)})).text())?.[1];
   const H = {'x-derush-jeton': jeton};
   const lire = async (p) => { try { return await (await fetch(`${base}${p}`, {headers: H, signal: AbortSignal.timeout(1500)})).json(); } catch { return {}; } };
   const [f, c] = await Promise.all([lire('api/file'), lire('api/claude')]);
   return {jeton, occupe: !!(f.file?.en_cours || f.file?.attente?.length || c.en_cours)};
 }
+// La clé de la fenêtre (durable, dans le dossier de Dérush) : la page d'accueil, qui porte le jeton, n'est servie qu'à
+// l'adresse qui la porte (« /?c=… »). Un Dérush plus ancien ignore « ?c= » : la même adresse marche avec lui.
+const cle = cleFenetre();
 // Une seule instance : si Dérush tourne déjà, on rouvre simplement sa fenêtre.
 try {
   const base = `http://127.0.0.1:${port}/`;
@@ -270,36 +328,63 @@ try {
       }
     }
     if (garder) {
-      if (modeCoque) { console.log('DERUSH_DEJA=1'); console.log(`DERUSH_URL=${base}`); }
-      else if (!sansNavigateur) ouvrirFenetre(base);
+      const adresse = `${base}?c=${cle}`;
+      if (modeCoque) { console.log('DERUSH_DEJA=1'); console.log(`DERUSH_URL=${adresse}`); }
+      else if (!sansNavigateur) ouvrirFenetre(adresse);
+      else {
+        // sans fenêtre à ouvrir (un essai, un serveur lancé à la main) : le dire, pour ne pas piloter l'autre sans le savoir
+        console.error(`Dérush tourne déjà sur le port ${port} : rien n'est lancé.`);
+        process.exit(1);
+      }
       process.exit(0);
     }
   }
 } catch { /* rien ne tourne : on démarre */ }
 
 await outilsVerifies;
+// Les projets déjà ouverts depuis le lancement, par dossier. Rouvrir un projet rend le MÊME objet : les tâches encore en
+// cours (préparation, voix claire, texte, détourage…) tiennent celui qu'elles ont reçu. Un second objet, relu sur le
+// disque, serait réécrit par l'ancien à leur fin (sans leur résultat), et chaque rush pas prêt repartirait en préparation.
+const vivants = new Map();
 const ctx = {
   P: null,
   file,
   app: modeApp || modeCoque,
   natif: modeCoque,
   ouvrir(dossier, titre) {
-    const P = new Projet(dossier);
+    const racine = path.resolve(dossier);
+    // sans derush.json (projet mis à la corbeille, dossier refait sous le même nom), on repart de ce qui est sur le disque
+    const surDisque = vivants.has(racine) ? lireJson(path.join(racine, 'derush.json')) : null;
+    const deja = surDisque ? vivants.get(racine) : null;
+    const P = deja ?? new Projet(racine);
+    vivants.set(P.racine, P);
+    // la bibliothèque change l'espace d'un projet fermé en écrivant derush.json à part : on le reprend
+    if (deja && typeof surDisque.espace === 'string' && surDisque.espace !== P.d.espace) P.appliquer({espace: surDisque.espace});
     if (titre && !fs.existsSync(path.join(P.racine, '.derush'))) { P.d.titre = titre; P.sauver(); }
     ctx.P = P;
     noterRecent(P.racine);
     creerAffiche(P);
-    // reprend les préparations interrompues et ajoute les nouveautés (recadrage…) aux anciens rushes
-    for (const m of P.d.medias) if (m.etat !== 'pret' && m.etat !== 'erreur' ? true : etapesManquantes(m)) preparer(P, m, file);
+    // reprend les préparations interrompues et ajoute les nouveautés (recadrage…) aux anciens rushes ; dans un projet
+    // déjà ouvert, un rush en attente ou en cours de préparation est encore dans la file : il n'y retourne pas
+    for (const m of P.d.medias) {
+      if (deja && (m.etat === 'attente' || m.etat === 'analyse')) continue;
+      if (m.etat !== 'pret' && m.etat !== 'erreur' ? true : etapesManquantes(m)) preparer(P, m, file);
+    }
     return P;
   },
+  /** Le projet déjà chargé de ce dossier (ouvert maintenant ou plus tôt), ou null : pour le changer sans en refaire un. */
+  projetVivant(dossier) { return vivants.get(path.resolve(dossier)) ?? null; },
   fermer() { ctx.P = null; },
 };
 if (args[0]) ctx.ouvrir(path.resolve(args[0]));
-const {url} = await demarrerServeur(ctx, {port, modeApp});
+const {url} = await demarrerServeur(ctx, {port, modeApp, cle});
+// l'adresse de la fenêtre porte la clé : elle ne va jamais au journal, seulement à la fenêtre (ou au terminal, quand
+// personne d'autre ne l'ouvre)
+const adresse = `${url}?c=${cle}`;
 console.log(`Dérush ${VERSION} — ${ctx.P ? `projet « ${ctx.P.d.titre} »` : 'bibliothèque'} sur ${url}  (Ctrl+C pour quitter)`);
-if (modeCoque) console.log(`DERUSH_URL=${url}`);
-else if (!sansNavigateur) ouvrirFenetre(url);
+if (modeCoque) console.log(`DERUSH_URL=${adresse}`);
+else if (!sansNavigateur) ouvrirFenetre(adresse);
+else if (!modeApp) console.log(`Adresse de la fenêtre : ${adresse}`);
 // l'app Mac « sur place » garde sa propre copie de la fenêtre native : après une mise à jour par GitHub, elle est
 // remplacée ici (la prochaine ouverture en profite), sans rien ralentir au démarrage
 if (modeCoque && MAC) {
@@ -315,7 +400,7 @@ if (modeCoque && MAC) {
 // lui : FFmpeg, l'IA et ses rendus. Sans cela, une IA lancée continuerait seule, sans personne pour la suivre.
 {
   const arreter = () => {
-    try { arreterToutesLesDemandes(); arreterConseils(); arreterEnfants(); } catch { /* rien à arrêter */ }
+    try { arreterToutesLesDemandes(); arreterConseils(); arreterDrive(); arreterEnfants(); } catch { /* rien à arrêter */ }
     process.exit(0);
   };
   for (const s of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(s, arreter);

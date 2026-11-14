@@ -1,0 +1,159 @@
+/* Dérush — plusieurs vidéos dans une timeline (public/sequences.js) : les onglets au-dessus de la timeline, leur petit
+   menu, « Créer toutes les vidéos » et « Mettre dans ma timeline » sous les vidéos de l'IA. */
+
+/* ——— la barre des vidéos, au-dessus des outils de la timeline (seulement quand il y en a plusieurs) ——— */
+.seq-barre { flex: none; display: flex; align-items: flex-end; gap: 6px; height: 36px; padding: 0 10px 0 8px; background: rgba(0, 0, 0, .24); border-bottom: 1px solid var(--ligne-forte); position: relative; z-index: 3; }
+.seq-barre:not(.cache) { animation: seq-barre .3s var(--doux) both; }
+@keyframes seq-barre { from { opacity: 0; transform: translateY(-6px); } }
+.seq-onglets { position: relative; display: flex; align-items: flex-end; gap: 2px; min-width: 0; height: 100%; padding-top: 5px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.seq-onglets::-webkit-scrollbar { display: none; }
+.seq-onglet { position: relative; flex: 0 1 auto; display: flex; align-items: center; gap: 7px; height: 30px; min-width: 104px; max-width: 280px; padding: 0 10px 0 11px; margin-bottom: -1px;
+  border: 1px solid transparent; border-bottom: 0; border-radius: 9px 9px 0 0; background: rgba(255, 255, 255, .035); color: var(--dim); font-size: 12px; white-space: nowrap; touch-action: none;
+  transition: background .15s, color .15s; }
+.seq-onglet:hover { background: rgba(255, 255, 255, .075); color: var(--texte); }
+/* l'onglet ouvert rejoint la barre des outils, en dessous : c'est la vidéo de la timeline */
+.seq-onglet.ouverte { z-index: 2; flex-shrink: 0; padding-right: 5px; color: var(--texte); background: var(--panneau); border-color: var(--ligne-forte); }
+.seq-onglet.ouverte::before { content: ''; position: absolute; top: -1px; left: 9px; right: 9px; height: 2px; border-radius: 0 0 2px 2px; background: var(--braise); }
+.seq-onglet.ouverte::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--panneau); }
+.seq-onglet.vide:not(.ouverte) .seq-nom { opacity: .8; }
+.seq-onglet.attend { color: var(--texte); }
+.seq-onglet.attend .seq-forme { animation: seq-pulse .9s ease-in-out infinite; }
+@keyframes seq-pulse { 50% { opacity: .35; } }
+.seq-onglet.neuve { animation: seq-arrive .34s var(--ressort) both; }
+@keyframes seq-arrive { from { opacity: 0; transform: translateY(9px) scale(.94); } }
+.seq-forme { display: block; flex: none; border: 1.5px solid currentColor; border-radius: 2.5px; opacity: .75; }
+.seq-onglet.ouverte .seq-forme { opacity: 1; color: var(--braise-1); }
+.seq-onglet .seq-ia { width: 12px; height: 12px; flex: none; margin-left: -3px; color: var(--braise-1); }
+.seq-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; letter-spacing: -.005em; }
+.seq-onglet small { flex: none; font-size: 10.5px; color: var(--dim-2); font-variant-numeric: tabular-nums; }
+.seq-onglet.ouverte small { color: var(--dim); }
+.seq-barre.serre .seq-ratio { display: none; }
+/* beaucoup de vidéos : les autres onglets gardent leur nom (et « vide ») ; la durée est dans leur bulle */
+.seq-barre.serre .seq-onglet:not(.ouverte):not(.vide) small { display: none; }
+.seq-points { flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin-left: -2px; border: 0; border-radius: 6px; background: none; color: var(--dim); transition: background .15s, color .15s; }
+.seq-points .ic { width: 14px; height: 14px; }
+.seq-points:hover { background: rgba(255, 255, 255, .1); color: var(--texte); }
+/* sur les autres onglets, le menu ne prend la place du nom qu'au survol (dix onglets restent lisibles) */
+.seq-onglet:not(.ouverte) .seq-points { position: absolute; right: 4px; top: 50%; margin: -11px 0 0; background: #2c2c31; box-shadow: -10px 0 8px #2c2c31; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.seq-onglet:not(.ouverte):hover .seq-points { opacity: 1; pointer-events: auto; }
+.seq-onglet:not(.ouverte) .seq-points:hover { background: #38383e; }
+.seq-barre.en-glisse .seq-points { opacity: 0 !important; }
+.seq-renommer { width: 160px; min-width: 0; height: 22px; padding: 0 6px; border: 1px solid var(--bleu); border-radius: 6px; background: rgba(0, 0, 0, .4); color: var(--texte); font-size: 12px; font-weight: 600; outline: none; box-shadow: 0 0 0 3px rgba(10, 132, 255, .25); }
+/* glisser un onglet : il suit la souris, les autres s'écartent */
+.seq-barre.en-glisse .seq-onglet { transition: transform .16s var(--doux), background .15s; }
+.seq-barre.en-glisse .seq-onglet.glisse { z-index: 5; transition: none; background: var(--panneau-2); color: var(--texte); border-color: var(--ligne-forte); border-radius: 9px; box-shadow: 0 10px 26px rgba(0, 0, 0, .5); }
+.seq-ajout { flex: none; display: grid; place-items: center; width: 28px; height: 26px; margin: 0 0 3px 4px; border: 0; border-radius: 8px; background: none; color: var(--dim); transition: background .15s, color .15s; }
+.seq-ajout:hover, .seq-ajout.actif { background: rgba(255, 255, 255, .09); color: var(--texte); }
+.seq-ajout .ic { width: 16px; height: 16px; }
+.seq-creer { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 26px; margin-bottom: 5px; padding: 0 11px; border-radius: 8px; border: 1px solid rgba(255, 170, 80, .3); background: rgba(255, 150, 60, .08); color: #ffd9a8; font-size: 11.5px; font-weight: 600; white-space: nowrap; transition: background .15s; }
+.seq-creer:hover { background: rgba(255, 150, 60, .17); }
+.seq-creer .ic { width: 14px; height: 14px; color: var(--braise-1); }
+/* une seule vidéo : juste le « + », discret, dans les outils de la timeline */
+.outil.seq-plus-seul .ic { width: 16px; height: 16px; }
+.outil.seq-plus-seul.actif { background: rgba(255, 255, 255, .09); color: #fff; }
+/* une autre vidéo arrive dans la timeline */
+#tl-interieur.seq-bascule { animation: seq-bascule .28s var(--doux) both; }
+@keyframes seq-bascule { from { opacity: .2; } }
+
+/* ——— le petit menu d'un onglet, ou du « + » ——— */
+.seq-menu { position: fixed; z-index: 65; min-width: 210px; max-width: 320px; padding: 5px; display: flex; flex-direction: column; border-radius: 13px; background: rgba(42, 42, 47, .985); border: 1px solid var(--ligne-forte); box-shadow: var(--ombre); transform-origin: top left; animation: pop .2s var(--ressort) both; }
+.seq-menu button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; border-radius: 8px; padding: 7px 9px; font-size: 12.5px; text-align: left; color: var(--texte); }
+.seq-menu button:hover { background: rgba(255, 255, 255, .08); }
+.seq-menu button:disabled { opacity: .4; pointer-events: none; }
+.seq-menu button .ic { width: 15px; height: 15px; flex: none; color: var(--dim); }
+.seq-menu button span { display: flex; flex-direction: column; min-width: 0; }
+.seq-menu button span b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seq-menu button span small { font-size: 11px; color: var(--dim); }
+.seq-menu button.danger { color: #ff8f88; }
+.seq-menu button.danger .ic { color: var(--accent); }
+.seq-menu button.danger:hover { background: rgba(255, 69, 58, .14); }
+.seq-sep { display: block; height: 1px; margin: 4px 6px; background: var(--ligne); }
+
+/* ——— supprimer : la confirmation dans la page ——— */
+.seq-confirmer-tete { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.seq-confirmer-tete .seq-forme { color: var(--accent); opacity: 1; border-width: 2px; border-radius: 4px; }
+.seq-confirmer-tete h3 { margin: 0; }
+.seq-confirmer-tete small { color: var(--dim); font-size: 12px; }
+.seq-confirmer .sous-titre { margin-bottom: 8px; }
+.seq-fige { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
+.seq-fige .ic { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--dim-2); }
+
+/* ——— Créer la vidéo : celle-ci, ou toutes ——— */
+.seq-choix { display: flex; width: 100%; margin: 0 0 14px; }
+.seq-choix button { flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 6px 10px; }
+.seq-choix button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seq-choix button .ic { width: 15px; height: 15px; }
+.seq-choix button.actif .seq-forme { color: var(--braise-1); opacity: 1; }
+.seq-resume { font-size: 12px; margin: 0; }
+.seq-compte { display: flex; align-items: center; gap: 9px; font-size: 12.5px; margin: 4px 0; }
+.seq-plan { display: flex; flex-direction: column; gap: 2px; max-height: 248px; overflow: auto; padding: 4px; border-radius: 11px; background: rgba(0, 0, 0, .22); border: 1px solid var(--ligne); }
+.seq-plan-ligne { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; font-size: 12.5px; animation: entre-bas .3s var(--doux) both; }
+.seq-plan-ligne:nth-child(2) { animation-delay: .03s; } .seq-plan-ligne:nth-child(3) { animation-delay: .06s; } .seq-plan-ligne:nth-child(n+4) { animation-delay: .09s; }
+.seq-plan-ligne .seq-forme { justify-self: center; color: var(--braise-1); opacity: .9; }
+.seq-plan-ligne b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seq-plan-ligne small { color: var(--dim); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.seq-plan-ligne > span { color: var(--dim-2); font-size: 11.5px; text-align: right; min-width: 74px; font-variant-numeric: tabular-nums; }
+.seq-plan-ligne.vide { opacity: .5; }
+.seq-plan-ligne.vide .seq-forme { color: var(--dim); }
+.seq-total { margin: 12px 2px 4px; font-size: 13px; }
+.seq-vides { margin: 0 2px 8px; font-size: 12px; }
+.seq-creer-feuille .verif { margin-top: 10px; }
+.seq-creer-feuille .verif.seq-refus { background: rgba(255, 69, 58, .1); box-shadow: inset 0 0 0 1px rgba(255, 69, 58, .3); }
+.seq-creer-feuille .verif.seq-refus .ic { color: var(--accent); }
+
+/* ——— le suivi de « Créer toutes les vidéos », puis chaque vidéo créée ——— */
+.seq-rendus { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 14px; max-height: 330px; overflow: auto; }
+.seq-rendu { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 11px; background: rgba(255, 255, 255, .04); border: 1px solid transparent; transition: background .2s, border-color .2s; }
+.seq-rendu.e-cours { background: rgba(10, 132, 255, .07); border-color: rgba(10, 132, 255, .25); }
+.seq-rendu.e-fini { animation: pop .34s var(--ressort) both; }
+.seq-rendu.e-erreur { background: rgba(255, 69, 58, .07); border-color: rgba(255, 69, 58, .25); }
+.seq-rendu-icone { flex: none; display: grid; place-items: center; width: 20px; height: 20px; color: var(--dim-2); }
+.seq-rendu-icone .ic { width: 18px; height: 18px; }
+.seq-rendu.e-fini .seq-rendu-icone { color: var(--vert); }
+.seq-rendu.e-fini.soucis .seq-rendu-icone { color: var(--orange); }
+.seq-rendu.e-erreur .seq-rendu-icone { color: var(--accent); }
+.seq-rendu-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.seq-rendu-txt b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seq-rendu-txt small { color: var(--dim); font-size: 11.5px; line-height: 1.4; }
+.seq-rendu.e-erreur .seq-rendu-txt small { color: #ffb4ae; }
+.seq-rendu-barre { display: block; height: 4px; margin-top: 3px; border-radius: 2px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.seq-rendu-barre i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--bleu), #5ac8fa); transition: width .4s; }
+.seq-rendu .btn .ic { width: 12px; height: 12px; }
+.seq-rendus-feuille h3 { display: flex; align-items: center; gap: 8px; }
+.seq-rendus-feuille.fini h3 .ic { width: 20px; height: 20px; color: var(--vert); }
+.seq-tourne { display: inline-block; flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .16); border-top-color: var(--braise-1); animation: tourne .8s linear infinite; }
+
+/* ——— l'écran de l'IA : « Mettre dans ma timeline » sous ses vidéos ——— */
+.cl-seq { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 6px; }
+.cl-seq .seq-livree { gap: 6px; max-width: 100%; min-width: 0; }
+.cl-seq .seq-livree span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cl-seq .seq-livree .ic { width: 14px; height: 14px; color: var(--braise-1); }
+.cl-seq small { font-size: 10.5px; color: var(--dim); }
+.cl-seq.ici { font-size: 11.5px; color: #9be8b5; }
+.cl-seq.ici .ic { width: 14px; height: 14px; color: var(--vert); }
+.cl-videos .cl-seq { flex-direction: column; align-items: stretch; gap: 3px; }
+.cl-videos .cl-seq .seq-livree { width: 100%; justify-content: center; padding: 0 7px; font-size: 11.5px; }
+.cl-videos .cl-seq small { text-align: center; }
+.cl-videos .cl-seq.ici { flex-direction: row; justify-content: center; flex-wrap: wrap; }
+.seq-lot { display: flex; align-items: center; gap: 10px; width: 100%; margin: 6px 0 2px; padding: 9px 11px; text-align: left; border-radius: 12px; border: 1px solid rgba(255, 170, 80, .3); background: rgba(255, 150, 60, .07); color: var(--texte); transition: background .15s, transform .16s var(--ressort); }
+button.seq-lot:hover { background: rgba(255, 150, 60, .15); transform: translateY(-1px); }
+button.seq-lot:disabled { opacity: .55; pointer-events: none; }
+.seq-lot > .ic { width: 18px; height: 18px; flex: none; color: var(--braise-1); }
+.seq-lot b { display: block; font-size: 12.5px; }
+.seq-lot small { display: block; font-size: 11px; color: var(--dim); }
+.seq-lot.ici { border-color: rgba(48, 209, 88, .25); background: rgba(48, 209, 88, .06); }
+.seq-lot.ici > .ic { color: var(--vert); }
+/* l'IA a préparé son dossier pour une autre vidéo que celle qui est ouverte : le choix passe sous la phrase */
+.ia-change.seq { flex-wrap: wrap; row-gap: 6px; }
+.ia-change.seq > span { flex: 1 1 calc(100% - 30px); }
+.ia-change.seq .segmente { margin-left: 22px; }
+/* au-dessus de la zone d'écriture : pour quelle vidéo vaut la demande */
+.cl-video-ouverte { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; padding: 0 2px; font-size: 11.5px; color: var(--dim); }
+.cl-video-ouverte .seq-forme { color: var(--braise-1); opacity: 1; }
+.cl-video-ouverte span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-video-ouverte b { color: var(--texte); font-weight: 600; }
+.cl-video-ouverte small { flex: none; font-size: 10.5px; color: var(--dim-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .seq-barre:not(.cache), .seq-onglet.neuve, #tl-interieur.seq-bascule, .seq-menu, .seq-plan-ligne, .seq-rendu.e-fini { animation: none; }
+}

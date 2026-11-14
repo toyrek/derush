@@ -22,7 +22,7 @@ export function creerPublication(o) {
   const hote = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
   let el = null; // l'écran, quand il est ouvert
-  const S = {video: null, videos: [], onglet: 'analyse', analyse: null, plan: null, treg: null, reseau: 'tiktok', minuterie: 0, cle: '', enregistrement: 0, choix: null, visibilite: 'unlisted', consigne: ''};
+  const S = {video: null, videos: [], onglet: 'analyse', analyse: null, plan: null, treg: null, reseau: 'tiktok', minuterie: 0, cle: '', enregistrement: 0, choix: null, visibilite: 'unlisted', consigne: '', envoi: false};
   const lire = (k, d) => o.prefs?.lire(k, d) ?? d;
   const ecrire = (k, v) => o.prefs?.ecrire(k, v);
 
@@ -247,7 +247,7 @@ export function creerPublication(o) {
         <div class="pp-actions">
           <button class="btn" data-pa="planifier" title="Refaire tous les textes">Refaire</button>
           ${pretTreg && !youtubeSansCle ? '' : `<button class="btn${youtubeSansCle ? ' bleu' : ''}" data-pa="relier">${ic('relais')}${pretTreg ? 'Ajouter ma clé Treg' : 'Relier mes réseaux'}</button>`}
-          ${rienAPublier ? '' : `<button class="btn claude" data-pa="publier"${!aPublier.length || !o.iaPrete?.() || occupe ? ' disabled' : ''} title="${pretTreg ? 'Rien ne part sans ce clic' : 'Treg n’est pas relié : ton IA te redonnera les textes prêts à coller'}">${ic('publier')}<span>${occupe ? `${esc(o.nomIA())} travaille…` : `Publier avec ${esc(o.nomIA())}`}</span></button>`}
+          ${rienAPublier ? '' : `<button class="btn claude" data-pa="publier"${!aPublier.length || !o.iaPrete?.() || occupe || S.envoi ? ' disabled' : ''} title="${pretTreg ? 'Rien ne part sans ce clic' : 'Treg n’est pas relié : ton IA te redonnera les textes prêts à coller'}">${ic('publier')}<span>${occupe ? `${esc(o.nomIA())} travaille…` : `Publier avec ${esc(o.nomIA())}`}</span></button>`}
         </div>
       </footer>
       <p class="pp-note">${pretTreg ? `${ic('coche')}Treg est relié${v?.ok && v.compte ? ` (compte ${esc(v.compte)})` : ''}. TikTok part en brouillon dans ta boîte TikTok ; YouTube, Instagram et LinkedIn publient pour de vrai.` : `${ic('attention')}Tes réseaux ne sont pas encore reliés : tu peux copier chaque texte et publier toi-même, ou relier Treg en trois gestes.`}</p>`;
@@ -336,7 +336,10 @@ export function creerPublication(o) {
     if (a === 'voir-couverture') { const l = $('#pa-lecteur', el); l.pause(); l.currentTime = Number(b.dataset.t) || 0; return; }
     if (a === 'publier') {
       const reseaux = Object.keys(S.plan?.plan?.reseaux ?? {}).filter((k) => S.choix.has(k));
-      if (!reseaux.length) return;
+      if (!reseaux.length || S.envoi) return;
+      // un double clic ne publie pas deux fois : le bouton reste éteint jusqu'au départ (ou jusqu'à l'erreur)
+      S.envoi = true;
+      b.disabled = true;
       // les dernières retouches partent d'abord
       clearTimeout(S.enregistrement);
       try {
@@ -345,7 +348,10 @@ export function creerPublication(o) {
         const visibilite = S.visibilite;
         fermer(true);
         await o.publier({video, reseaux, visibilite});
-      } catch (err) { note(err.message, true); }
+      } catch (err) { note(err.message, true); } finally {
+        S.envoi = false;
+        if (el) rendre(true); // l'envoi a échoué avant le départ : le bouton se rallume
+      }
     }
   }
 

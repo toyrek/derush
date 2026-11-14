@@ -15,7 +15,7 @@ export type Plan = {
   source: {id: string; nom: string; type: 'video' | 'audio' | 'image'; fps: number};
   fichier: {
     chemin: string; debut_utile_s: number; fin_utile_s: number; largeur?: number; hauteur?: number; fps?: number; voix?: string; fond?: string; clair?: string; son?: boolean;
-    /** Personne détourée image par image (pour un titre « derrière la personne ») : masques/…/m_00000.png, un par image du fichier. */
+    /** Personne détourée image par image (pour un titre « derrière la personne ») : decoupes/<plan>/d_00000.webp (WebP avec transparence), un par image du fichier. */
     masques?: {dossier: string; premiere: number; derniere: number};
   };
   son: {garder: boolean; gain_db: number; version: 'original' | 'voix' | 'fond' | 'clair'; avant_s: number; apres_s: number};

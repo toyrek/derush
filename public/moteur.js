@@ -103,10 +103,21 @@ export const CATALOGUE = {
 };
 /** Durée d'un effet posé (s). */
 export const dureeEffet = (modele) => { const d = CATALOGUE[modele]; return d ? d.duree ?? d.avant + d.apres : 1; };
-/** Réglages complets d'un effet (valeurs par défaut + ce que la personne a changé). */
+/**
+ * Réglages complets d'un effet (valeurs par défaut + ce que la personne a changé). Une valeur venue d'ailleurs (un
+ * fichier écrit à la main, une IA) est remise dans ses bornes : un nombre entre son min et son max, un choix parmi ses
+ * options, un texte en texte. Sinon, la valeur par défaut.
+ */
 export function reglagesDe(modele, donnes = {}) {
   const r = {};
-  for (const [k, p] of Object.entries(CATALOGUE[modele]?.reglages ?? {})) r[k] = donnes?.[k] ?? p.defaut;
+  for (const [k, p] of Object.entries(CATALOGUE[modele]?.reglages ?? {})) {
+    const v = donnes?.[k];
+    if (v == null) r[k] = p.defaut;
+    else if (p.type === 'nombre') { const x = Number(v); r[k] = borner(Number.isFinite(x) ? x : p.defaut, p.min, p.max); }
+    else if (p.type === 'choix') r[k] = typeof v === 'string' && Object.hasOwn(p.options, v) ? v : p.defaut;
+    else if (p.type === 'texte') r[k] = typeof v === 'string' ? v : String(v);
+    else r[k] = v;
+  }
   return r;
 }
 /** Ce que l'effet affiche dans la timeline ou dans une liste. */
@@ -138,6 +149,10 @@ export function styleComplet(style = {}, sortie = null) {
   if (!PLATEFORMES[s.plateforme]) s.plateforme = sortie ? plateformeParDefaut(sortie) : 'libre';
   if (!POLICES[s.police_titres]) s.police_titres = 'Anton';
   if (!POLICES[s.police_textes]) s.police_textes = 'Montserrat';
+  // la couleur entre telle quelle dans le dessin (styles, SVG) : seulement « #rrggbb »
+  if (!/^#[0-9a-f]{6}$/i.test(String(s.accent))) s.accent = STYLE_DEFAUT.accent;
+  s.grain = borner(Number(s.grain) || 0, 0, 1);
+  s.vignette = borner(Number(s.vignette) || 0, 0, 1);
   return s;
 }
 
@@ -338,6 +353,18 @@ function largeur100(txt, famille, poids, espacementEm = 0) {
   toile.font = `${poids} 100px "${famille}"`;
   return toile.measureText(txt).width + espacementEm * 100 * Math.max(0, [...txt].length - 1);
 }
+/**
+ * Le style d'une petite ligne de texte (sous-titre d'un titre, étiquette, lieu…) qui tient dans `dispo` pixels :
+ * la taille voulue si elle tient, plus petite sinon (jusqu'à `mini`), et sur deux lignes équilibrées en dernier
+ * recours. `espacementEm` = l'espacement des lettres ; `extraEm` = ce qui s'ajoute à la largeur (marges intérieures,
+ * icône), en em de la ligne.
+ */
+function styleLigne(txt, famille, poids, {voulue, dispo, espacementEm = 0, extraEm = 0, mini = voulue * 0.6}) {
+  const parEm = largeur100(String(txt ?? ''), famille, poids, espacementEm) / 100 + extraEm;
+  const taille = Math.max(mini, Math.min(voulue, dispo / Math.max(0.01, parEm)));
+  const tient = taille * parEm <= dispo + 0.5;
+  return tient ? {fontSize: px(taille), whiteSpace: 'nowrap'} : {fontSize: px(taille), whiteSpace: 'normal', maxWidth: px(dispo), textWrap: 'balance', lineHeight: 1.25};
+}
 const el = (style = {}, html = null, tag = 'div') => {
   const x = document.createElement(tag);
   Object.assign(x.style, style);
@@ -418,7 +445,8 @@ const FABRIQUES = {
     racine.append(bloc);
     let petit = null;
     if (r.sous_titre?.trim()) {
-      petit = el({marginTop: px(taille * 0.16), fontFamily: `"${style.police_textes}"`, fontWeight: 800, fontSize: px(Math.max(L * 0.026, taille * 0.14)), letterSpacing: '0.3em', color: '#fff', textShadow: '0 3px 14px rgba(0,0,0,.65)', textAlign: 'center', whiteSpace: 'nowrap'}, echapper(r.sous_titre.trim()));
+      const st = styleLigne(r.sous_titre.trim(), style.police_textes, 800, {voulue: Math.max(L * 0.026, taille * 0.14), dispo, espacementEm: 0.3});
+      petit = el({marginTop: px(taille * 0.16), fontFamily: `"${style.police_textes}"`, fontWeight: 800, letterSpacing: '0.3em', color: '#fff', textShadow: '0 3px 14px rgba(0,0,0,.65)', textAlign: 'center', ...st}, echapper(r.sous_titre.trim()));
       racine.append(petit);
     }
     const hauteurBloc = taille * 1.02 * lignes.length + (bandeau ? taille * 0.2 : 0) + (petit ? taille * 0.4 : 0);
@@ -460,11 +488,13 @@ const FABRIQUES = {
     let etiquette = null;
     let petit = null;
     if (r.etiquette?.trim()) {
-      etiquette = el({position: 'absolute', left: px(z.x0 + L * 0.02), top: px(hautTitre - corps * 2.3), background: style.accent, color: contraste(style.accent), fontFamily: `"${style.police_textes}", ${JAPONAIS}`, fontWeight: 800, fontSize: px(corps * 1.5), padding: `${px(corps * 0.14)} ${px(corps * 0.46)} ${px(corps * 0.2)}`, borderRadius: px(corps * 0.2), whiteSpace: 'nowrap'}, echapper(r.etiquette.trim()));
+      const st = styleLigne(r.etiquette.trim(), style.police_textes, 800, {voulue: corps * 1.5, dispo: dispo - L * 0.02, extraEm: 0.62});
+      etiquette = el({position: 'absolute', left: px(z.x0 + L * 0.02), top: px(hautTitre - corps * 2.3), background: style.accent, color: contraste(style.accent), fontFamily: `"${style.police_textes}", ${JAPONAIS}`, fontWeight: 800, padding: `${px(corps * 0.14)} ${px(corps * 0.46)} ${px(corps * 0.2)}`, borderRadius: px(corps * 0.2), ...st}, echapper(r.etiquette.trim()));
       racine.append(etiquette);
     }
     if (r.sous_titre?.trim()) {
-      petit = el({position: 'absolute', right: px(L - z.x1 + L * 0.01), top: px(hautTitre - corps * 1.75), color: '#fff', fontFamily: `"${style.police_textes}"`, fontWeight: 800, fontSize: px(corps), letterSpacing: '0.32em', textShadow: '0 3px 14px rgba(0,0,0,.6)', whiteSpace: 'nowrap'}, echapper(r.sous_titre.trim()));
+      const st = styleLigne(r.sous_titre.trim(), style.police_textes, 800, {voulue: corps, dispo: dispo - L * 0.01, espacementEm: 0.32});
+      petit = el({position: 'absolute', right: px(L - z.x1 + L * 0.01), top: px(hautTitre - corps * 1.75), color: '#fff', fontFamily: `"${style.police_textes}"`, fontWeight: 800, letterSpacing: '0.32em', textShadow: '0 3px 14px rgba(0,0,0,.6)', textAlign: 'right', ...st}, echapper(r.sous_titre.trim()));
       racine.append(petit);
     }
     const ombre = `0 ${px(taille * 0.045)} ${px(taille * 0.16)} rgba(0,0,0,.45), 0 0 ${px(taille * 0.1)} rgba(255,255,255,.22)`;
@@ -493,12 +523,13 @@ const FABRIQUES = {
   lieu(e, env) {
     const {L, H, style, fps} = env;
     const z = zoneSure(env);
-    const corps = L * 0.028;
+    const st = styleLigne(String(e.r.texte ?? ''), style.police_textes, 800, {voulue: L * 0.028, dispo: z.x1 - z.x0 - L * 0.01, espacementEm: 0.08, extraEm: 2.6});
+    const corps = parseFloat(st.fontSize);
     // en bas, la pastille se place au-dessus des sous-titres quand il y en a
     const bas = style.sous_titres.style !== 'aucun' && style.sous_titres.position !== 'centre' ? z.y1 - H * 0.165 : z.y1 - H * 0.09;
     const racine = el({position: 'absolute', left: px(z.x0 + L * 0.01), top: px(e.r.position === 'haut-gauche' ? z.y0 + H * 0.025 : bas), display: 'flex', alignItems: 'center', gap: px(corps * 0.45),
-      padding: `${px(corps * 0.4)} ${px(corps * 0.75)} ${px(corps * 0.4)} ${px(corps * 0.55)}`, borderRadius: '999px', background: 'rgba(0,0,0,.5)', color: '#fff', fontFamily: `"${style.police_textes}"`, fontWeight: 800, fontSize: px(corps), letterSpacing: '0.08em', whiteSpace: 'nowrap'},
-    `<svg width="${corps * 0.86}" height="${corps * 1.13}" viewBox="0 0 26 34"><path d="M13 1C6.4 1 1 6.3 1 12.9 1 22 13 33 13 33s12-11 12-20.1C25 6.3 19.6 1 13 1z" fill="${style.accent}"/><circle cx="13" cy="12.6" r="4.6" fill="${contraste(style.accent)}"/></svg><span>${echapper(e.r.texte)}</span>`);
+      padding: `${px(corps * 0.4)} ${px(corps * 0.75)} ${px(corps * 0.4)} ${px(corps * 0.55)}`, borderRadius: '999px', background: 'rgba(0,0,0,.5)', color: '#fff', fontFamily: `"${style.police_textes}"`, fontWeight: 800, fontSize: px(corps), letterSpacing: '0.08em', whiteSpace: st.whiteSpace, maxWidth: px(z.x1 - z.x0 - L * 0.01), boxSizing: 'border-box'},
+    `<svg width="${corps * 0.86}" height="${corps * 1.13}" viewBox="0 0 26 34"><path d="M13 1C6.4 1 1 6.3 1 12.9 1 22 13 33 13 33s12-11 12-20.1C25 6.3 19.6 1 13 1z" fill="${echapper(style.accent)}"/><circle cx="13" cy="12.6" r="4.6" fill="${contraste(style.accent)}"/></svg><span>${echapper(e.r.texte)}</span>`);
     return {couche: 'milieu', el: racine, maj(tl, duree) {
       const f = tl * fps;
       racine.style.opacity = Math.min(entre(f, [0, 3], [0, 1]), entre((duree - tl) * fps, [0, 4], [0, 1]));
@@ -520,13 +551,14 @@ const FABRIQUES = {
     const centre = el({position: 'absolute', left: 0, top: px(-H * 0.03), width: px(L), height: px(H), display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'});
     let etiquette = null;
     if (r.etiquette?.trim()) {
-      etiquette = el({background: style.accent, color: contraste(style.accent), fontFamily: `"${style.police_textes}", ${JAPONAIS}`, fontWeight: 800, fontSize: px(corps * 1.35), padding: `${px(corps * 0.12)} ${px(corps * 0.45)} ${px(corps * 0.18)}`, borderRadius: px(corps * 0.18), marginBottom: px(corps * 0.5), whiteSpace: 'nowrap'}, echapper(r.etiquette.trim()));
+      const st = styleLigne(r.etiquette.trim(), style.police_textes, 800, {voulue: corps * 1.35, dispo: L * 0.84, extraEm: 0.67});
+      etiquette = el({background: style.accent, color: contraste(style.accent), fontFamily: `"${style.police_textes}", ${JAPONAIS}`, fontWeight: 800, padding: `${px(corps * 0.12)} ${px(corps * 0.45)} ${px(corps * 0.18)}`, borderRadius: px(corps * 0.18), marginBottom: px(corps * 0.5), textAlign: 'center', ...st}, echapper(r.etiquette.trim()));
       centre.append(etiquette);
     }
     const {bloc, lettres} = blocLettres(lignes, {fontFamily: `"${famille}"`, fontWeight: poids, fontSize: px(taille), lineHeight: 1.02, letterSpacing: '0.02em', color: '#fff', textShadow: `0 ${px(taille * 0.05)} ${px(taille * 0.2)} rgba(0,0,0,.5)`});
     centre.append(bloc);
-    const petit = r.sous_titre?.trim() ? el({marginTop: px(corps * 0.75), fontFamily: `"${style.police_textes}"`, fontWeight: 800, fontSize: px(corps), letterSpacing: '0.42em', color: '#fff', whiteSpace: 'nowrap'}, echapper(r.sous_titre.trim())) : null;
-    const ligne = r.ligne?.trim() ? el({marginTop: px(corps * 0.5), fontFamily: `"${style.police_textes}"`, fontWeight: 600, fontSize: px(corps * 0.74), letterSpacing: '0.24em', color: 'rgba(255,255,255,.75)', whiteSpace: 'nowrap'}, echapper(r.ligne.trim())) : null;
+    const petit = r.sous_titre?.trim() ? el({marginTop: px(corps * 0.75), fontFamily: `"${style.police_textes}"`, fontWeight: 800, letterSpacing: '0.42em', color: '#fff', textAlign: 'center', ...styleLigne(r.sous_titre.trim(), style.police_textes, 800, {voulue: corps, dispo: L * 0.84, espacementEm: 0.42})}, echapper(r.sous_titre.trim())) : null;
+    const ligne = r.ligne?.trim() ? el({marginTop: px(corps * 0.5), fontFamily: `"${style.police_textes}"`, fontWeight: 600, letterSpacing: '0.24em', color: 'rgba(255,255,255,.75)', textAlign: 'center', ...styleLigne(r.ligne.trim(), style.police_textes, 600, {voulue: corps * 0.74, dispo: L * 0.84, espacementEm: 0.24})}, echapper(r.ligne.trim())) : null;
     if (petit) centre.append(petit);
     if (ligne) centre.append(ligne);
     const noir = el({position: 'absolute', inset: 0, background: '#000', opacity: 0});
@@ -616,11 +648,13 @@ export function creerHabillage({derriere, milieu, devant, urlBase = ''}) {
       // pas d'espace autour d'une apostrophe ni avant une virgule ou un point (« j’ai », « tous, »)
       const sep = (i) => (i === 0 || /^['’,.…)\]%]/.test(l.mots[i].t) || /^-\p{L}/u.test(l.mots[i].t) || /['’(\[]$/.test(l.mots[i - 1].t) ? '' : ' ');
       const txt = l.mots.map((w, i) => sep(i) + maj(w.t)).join('');
-      const ajuste = Math.min(corps, (st.style === 'phrase' ? Infinity : largeurMax / (largeur100(txt, famille, poids) / 100)));
+      // un contour de 0,085 em mange l'espace entre deux mots (la moitié de chaque côté) : l'espace grandit d'autant
+      const espaces = st.style === 'phrase' ? 0 : (txt.match(/ /g) ?? []).length;
+      const ajuste = Math.min(corps, (st.style === 'phrase' ? Infinity : largeurMax / (largeur100(txt, famille, poids) / 100 + espaces * 0.085 + 0.09)));
       const trait = Math.max(2, ajuste * 0.085);
       const style0 = st.style === 'phrase'
         ? {fontFamily: `"${famille}"`, fontWeight: poids, fontSize: px(ajuste), lineHeight: 1.25, color: '#fff', background: 'rgba(0,0,0,.62)', padding: `${px(ajuste * 0.28)} ${px(ajuste * 0.6)}`, borderRadius: px(ajuste * 0.3), maxWidth: px(largeurMax), textAlign: 'center', textWrap: 'balance'}
-        : {fontFamily: `"${famille}"`, fontWeight: poids, fontSize: px(ajuste), lineHeight: 1.08, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap', WebkitTextStroke: `${px(trait)} #000`, paintOrder: 'stroke fill', textShadow: `0 ${px(ajuste * 0.07)} ${px(ajuste * 0.28)} rgba(0,0,0,.55)`, letterSpacing: st.style === 'mot' ? '0.01em' : '0'};
+        : {fontFamily: `"${famille}"`, fontWeight: poids, fontSize: px(ajuste), lineHeight: 1.08, color: '#fff', textAlign: 'center', whiteSpace: 'nowrap', WebkitTextStroke: `${px(trait)} #000`, paintOrder: 'stroke fill', textShadow: `0 ${px(ajuste * 0.07)} ${px(ajuste * 0.28)} rgba(0,0,0,.55)`, letterSpacing: st.style === 'mot' ? '0.01em' : '0', wordSpacing: px(trait)};
       const ligne = el(style0, l.mots.map((w, i) => `${sep(i)}<span>${echapper(maj(w.t))}</span>`).join(''));
       box.innerHTML = '';
       box.append(ligne);

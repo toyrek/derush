@@ -138,7 +138,82 @@ for (const [nom, fichier, mime] of [['webm (Chrome)', src.camWebm, 'video/webm;c
   essai('plus rien en cours après l’arrêt', !E.enregistrementEnCours());
 }
 
-// 8. la voix off dans le projet : la marque tient à l'enregistrement du projet, et le mode existe
+// 8. le disque pendant la prise : il n'écrit qu'une partie de chaque morceau, il se remplit, le fichier devient trop gros
+{
+  /** Rend l'écriture du fichier brut de cette prise difficile (et seulement de lui) : « partiel », « plein », « gros ». */
+  const genant = (id) => {
+    const nom = fs.readdirSync(dossier).find((f) => f.includes(id.slice(0, 6)));
+    const ino = fs.statSync(path.join(dossier, nom)).ino;
+    const ecrire = fs.writeSync;
+    const g = {mode: 'partiel', rendre: () => { fs.writeSync = ecrire; }};
+    fs.writeSync = (fd, d, ...r) => {
+      let cible = false;
+      try { cible = typeof fd === 'number' && fs.fstatSync(fd).ino === ino; } catch { /* pas un fichier */ }
+      if (!cible || g.mode === 'normal') return ecrire(fd, d, ...r);
+      if (g.mode === 'plein') throw Object.assign(new Error('ENOSPC: no space left on device, write'), {code: 'ENOSPC'});
+      if (g.mode === 'gros') throw Object.assign(new Error('EFBIG: file too large, write'), {code: 'EFBIG'});
+      const o = r[0] ?? 0;
+      return ecrire(fd, d, o, Math.min(r[1] ?? d.length - o, 1000)); // jamais plus de 1000 octets à la fois
+    };
+    return g;
+  };
+  const tout = fs.readFileSync(src.voixWebm);
+  const coupe = Math.floor(tout.length * 0.6);
+
+  await new Promise((ok) => setTimeout(ok, 1100));
+  let {id} = E.commencerEnregistrement(P, {genre: 'voix', mime: 'audio/webm;codecs=opus'});
+  let g = genant(id);
+  let r = null;
+  try { await envoyer(P, id, src.voixWebm); } finally { g.rendre(); }
+  try { r = await E.terminerEnregistrement(P, id, file); } catch (e) { r = {erreur: e.message}; }
+  essai('un disque qui n’écrit qu’une partie de chaque morceau : rien ne se perd', Math.abs((P.media(r.media)?.duree ?? 0) - 3) < 0.3, JSON.stringify(r));
+
+  await new Promise((ok) => setTimeout(ok, 1100));
+  ({id} = E.commencerEnregistrement(P, {genre: 'voix', mime: 'audio/webm;codecs=opus'}));
+  g = genant(id);
+  g.mode = 'normal';
+  let m1;
+  let m2;
+  try {
+    await E.ajouterMorceau(P, id, 0, Readable.from([tout.subarray(0, coupe)]));
+    g.mode = 'plein';
+    m1 = await refuse(() => E.ajouterMorceau(P, id, 1, Readable.from([tout.subarray(coupe)])));
+    m2 = await refuse(() => E.ajouterMorceau(P, id, 2, Readable.from([Buffer.alloc(100)])));
+  } finally { g.rendre(); }
+  essai('disque plein en pleine prise : dit en français, sans faire croire que tout est perdu', /^Le disque est plein/.test(m1 ?? '') && /gardé/.test(m1) && !/ENOSPC/.test(m1), m1 ?? 'aucune erreur');
+  essai('… et les morceaux suivants sont refusés de la même façon (rien n’est posé après le trou)', m2 === m1, m2 ?? 'accepté');
+  const avant = fs.readdirSync(dossier);
+  essai('« Arrêter » après l’erreur (la fenêtre abandonne la prise) : rien n’est effacé', E.annulerEnregistrement(P, id) === true);
+  const garde = fs.readdirSync(dossier).filter((f) => !avant.includes(f) && /^voix-off-.*\.brut\.webm$/.test(f));
+  essai('… la prise reste, visible, avec tout ce qui était écrit', garde.length === 1 && fs.statSync(path.join(dossier, garde[0])).size === coupe, `${garde.join(', ')} ${garde[0] ? fs.statSync(path.join(dossier, garde[0])).size : ''}`);
+  for (const f of garde) fs.rmSync(path.join(dossier, f));
+
+  // la même prise, terminée au lieu d'être abandonnée : ce qui est sur le disque est mis au propre et rangé
+  await new Promise((ok) => setTimeout(ok, 1100));
+  ({id} = E.commencerEnregistrement(P, {genre: 'voix', mime: 'audio/webm;codecs=opus'}));
+  g = genant(id);
+  g.mode = 'normal';
+  try {
+    await E.ajouterMorceau(P, id, 0, Readable.from([tout.subarray(0, coupe)]));
+    g.mode = 'plein';
+    await refuse(() => E.ajouterMorceau(P, id, 1, Readable.from([tout.subarray(coupe)])));
+  } finally { g.rendre(); }
+  try { r = await E.terminerEnregistrement(P, id, file); } catch (e) { r = {erreur: e.message}; }
+  const d = P.media(r.media)?.duree ?? 0;
+  essai('« Terminer » après l’erreur : le début de la prise devient un média', d > 1 && d < 2.6, JSON.stringify(r));
+
+  await new Promise((ok) => setTimeout(ok, 1100));
+  ({id} = E.commencerEnregistrement(P, {genre: 'voix', mime: 'audio/webm'}));
+  g = genant(id);
+  g.mode = 'gros';
+  let m3;
+  try { m3 = await refuse(() => E.ajouterMorceau(P, id, 0, Readable.from([Buffer.alloc(100)]))); } finally { g.rendre(); }
+  essai('un fichier trop gros pour le disque (FAT32) n’est pas pris pour un disque plein', /trop grosse/.test(m3 ?? '') && /FAT32/.test(m3) && !/plein/.test(m3), m3 ?? 'aucune erreur');
+  E.annulerEnregistrement(P, id);
+  essai('plus rien en cours après ces prises', !E.enregistrementEnCours());
+}
+
+// 9. la voix off dans le projet : la marque tient à l'enregistrement du projet, et le mode existe
 {
   const audio = P.d.medias.find((m) => m.type === 'audio');
   const sp = P.nettoyerSuperposition({id: 'S1', media: audio.id, entree: 0, sortie: 2.5, debut: 4, titre: 'Voix off', cadre: 'plein', son: {actif: true}, voix_off: true});

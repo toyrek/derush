@@ -1,6 +1,8 @@
 // Dérush — les essais de l'envoi vers YouTube (pour qui modifie Dérush), contre un faux Treg et un faux YouTube :
 // aucun appel réel, aucune clé, rien de publié.
-//   node outils/essai-youtube.mjs [dossier d'essai]
+//   node outils/essai-youtube.mjs [dossier où créer le dossier d'essai]
+// L'essai crée son propre dossier (« derush-essai-youtube-… ») dans le dossier donné, ou dans le dossier temporaire du
+// système, et n'efface que celui-là à la fin (il le garde si un essai échoue). Le dossier donné n'est jamais vidé.
 // Le faux serveur joue la porte directe de Treg (/call/youtube.youtube.video.upload, /call/youtube.youtube.video.detail,
 // /call/<adresse entière>) et l'adresse d'envoi de YouTube (/depot). Il marque ses propres refus de X-Treg-Error, comme
 // le vrai Treg ; sans cet en-tête, c'est « YouTube » qui répond. Les essais passent par la vraie commande
@@ -14,10 +16,14 @@ import path from 'node:path';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const D = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const essais = path.resolve(process.argv[2] ?? path.join(os.tmpdir(), 'derush-essai-youtube'));
+// un dossier neuf à lui, créé dans le dossier donné : jamais le dossier donné lui-même (il peut contenir autre chose),
+// et jamais un nom fixe (deux essais lancés en même temps ne s'effacent pas l'un l'autre)
+if (/^-/.test(process.argv[2] ?? '')) { console.log(`Usage : node ${path.relative(process.cwd(), process.argv[1])} [dossier temporaire]`); process.exit(0); }
+const parent = path.resolve(process.argv[2] ?? os.tmpdir());
+fs.mkdirSync(parent, {recursive: true});
+const essais = fs.mkdtempSync(path.join(parent, 'derush-essai-youtube-'));
 // un faux projet Dérush (derush.json + .derush/ + vidéos/), pour le journal des envois ; et des vidéos hors projet.
 // La « vidéo » est un fichier de 3 Mo d'octets au hasard : l'envoi ne regarde que son nom et sa taille.
-fs.rmSync(essais, {recursive: true, force: true});
 const projet = path.join(essais, 'projet');
 fs.mkdirSync(path.join(projet, '.derush'), {recursive: true});
 fs.mkdirSync(path.join(projet, 'vidéos'), {recursive: true});
@@ -71,6 +77,7 @@ const serveur = http.createServer((req, res) => {
     journal.push({detail: Object.fromEntries(question)});
     if (req.headers['x-treg-token'] !== CLE) return refusTreg(res, 401, 'invalid token');
     if (scenario === 'detail-muet') return refusTreg(res, 404, 'unknown endpoint');
+    if (scenario === 'detail-lent') return; // Treg ou YouTube qui tarde : la commande attend (jusqu'à 45 s)
     const demandee = journal.find((x) => x.ouverture)?.ouverture.corps.status.privacyStatus;
     return json(res, 200, {items: [{id: question.get('id'), status: {privacyStatus: scenario === 'prive' ? 'private' : demandee, uploadStatus: scenario === 'rejet' ? 'rejected' : 'uploaded', ...(scenario === 'rejet' ? {rejectionReason: 'duplicate'} : {})}}]});
   }
@@ -160,6 +167,23 @@ await essai('second envoi du même fichier : rien ne part', 'normal', cle, [], (
 await essai('second envoi sans clé : le lien est rendu quand même', 'normal', {}, [], (r) => r.code === 0 && r.j.deja === true && journal.length === 0, {fichier: videoProjet});
 await essai('--encore : l’humain veut la renvoyer', 'normal', cle, ['--encore'], (r) => r.code === 0 && r.j.ok && !r.j.deja && entier(), {fichier: videoProjet});
 await essai('un envoi raté ne laisse pas de trace', 'quota', cle, ['--encore'], (r) => r.code === 1 && r.j.raison === 'quota' && Object.keys(JSON.parse(fs.readFileSync(journalProjet, 'utf8'))).length === 1, {fichier: videoProjet});
+{
+  // la commande arrêtée pendant qu'elle redemande à YouTube où en est la vidéo (délai de l'outil de l'IA, « Arrêter ») :
+  // la vidéo est déjà sur la chaîne, le journal doit le dire avant cette attente
+  fs.rmSync(journalProjet, {force: true});
+  scenario = 'detail-lent'; recus = Buffer.alloc(0); journal = []; coupe = false;
+  const p = spawn(process.execPath, [`${D}/outils/publier-youtube.mjs`, videoProjet, '--titre', TITRE], {env: {PATH: process.env.PATH, HOME: process.env.HOME, DERUSH_TREG_BASE: base, ...cle}});
+  const lu = () => { try { return Object.values(JSON.parse(fs.readFileSync(journalProjet, 'utf8')))[0]?.id ?? null; } catch { return null; } };
+  for (let i = 0; i < 100 && !(lu() && journal.some((x) => x.detail)); i++) await new Promise((ok) => setTimeout(ok, 100));
+  const attend = p.exitCode === null && journal.some((x) => x.detail);
+  const note = lu();
+  p.kill('SIGKILL');
+  await new Promise((ok) => (p.exitCode !== null || p.signalCode ? ok() : p.on('close', ok)));
+  const bon = attend && note === 'ESSAI_abc123' && entier();
+  console.log(`${bon ? '✓' : '✗'} arrêtée pendant la relecture chez YouTube : l’envoi est déjà noté${bon ? '' : ` (attend : ${attend}, noté : ${note}, reçu entier : ${entier()})`}`);
+  resultats.push(bon);
+}
+await essai('relancée ensuite : la vidéo ne repart pas', 'normal', cle, [], (r) => r.code === 0 && r.j.ok && r.j.deja === true && r.j.lien === 'https://youtu.be/ESSAI_abc123' && journal.length === 0, {fichier: videoProjet});
 
 console.log('— Le relais de Codex (la clé reste hors du bac à sable) —');
 process.env.DERUSH_TREG_BASE = base;
@@ -205,5 +229,8 @@ await relais.fermer?.();
 
 console.log(`\n${resultats.filter(Boolean).length} essais réussis sur ${resultats.length}`);
 serveur.close();
-fs.rmSync(essais, {recursive: true, force: true});
-process.exit(resultats.every(Boolean) ? 0 : 1);
+// seul le dossier que cet essai a créé est effacé, et gardé si un essai a échoué (pour regarder)
+const tousBons = resultats.every(Boolean);
+if (tousBons) fs.rmSync(essais, {recursive: true, force: true});
+else console.log(`Dossier d’essai gardé : ${essais}`);
+process.exit(tousBons ? 0 : 1);

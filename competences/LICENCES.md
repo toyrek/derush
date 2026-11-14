@@ -1,6 +1,7 @@
 # Les compétences livrées avec Dérush
 
-Ces compétences (« skills ») sont lues directement par l’IA qui monte, Claude comme Codex : Dérush les relie dans chaque dossier de travail (`.claude/skills/` et `.agents/skills/`).
+Ces compétences (« skills ») sont lues directement par l’IA qui monte, Claude, Codex ou Gemini : Dérush les relie dans chaque dossier de travail (`.claude/skills/` et `.agents/skills/`).
+Celles que la personne ajoute elle-même (Connexions › Compétences, ou `node derush.mjs competences ajouter`) ne sont pas livrées : elles sont téléchargées chez elle, avec leur provenance et leur licence dans leur `SOURCE.md`.
 Les compétences Remotion (remotion-dev/skills) n’ont pas de licence de redistribution : Dérush les télécharge chez toi à l’installation, depuis leur dépôt officiel.
 Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pas livrés non plus : Dérush les télécharge chez toi, à la version qu’il a examinée (voir `lib/sons.mjs`).
 
@@ -9,6 +10,8 @@ Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pa
 | `sons-openverse` | Montage | écrite pour Dérush (API Openverse, sans clé) | celle de Dérush | IABAI |
 | `derush-createur` | Réseaux sociaux | écrite pour Dérush (lecture des comptes du créateur avec Treg, en lecture seule) | celle de Dérush | IABAI |
 | `derush-viralite` | Réseaux sociaux | écrite pour Dérush (grille d'analyse et repères datés, sources citées dans `reperes.md`) | celle de Dérush | IABAI |
+| `derush-publier` | Réseaux sociaux | écrite pour Dérush (publication avec Treg, seulement sur demande) | celle de Dérush | IABAI |
+| `derush-serie-animee` | Montage | écrite pour Dérush (une série animée en images générées, sans que le personnage change ; d'après la méthode d'un article public de Movez, 12 novembre 2026, réécrite) | celle de Dérush | IABAI |
 | `audio-production` | Montage | https://github.com/kajisho5/audio-production-skill | MIT | kajisho5 |
 | `blender-skill` | Montage | https://github.com/kajisho5/blender-skill | MIT | kajisho5 |
 | `color-grading` | Montage | https://github.com/kajisho5/color-grading-skill | MIT | kajisho5 |
@@ -110,5 +113,49 @@ Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pa
 | `yt-seo` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
 | `yt-shorts` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
 | `yt-viral` | Réseaux sociaux (YouTube) | https://github.com/Jakeschincariol/youtube-agent-skill | MIT | Jake Schincariol |
+
+## Ajoutées le 14 novembre 2026 (trouvées dans l’annuaire skills.sh, relues deux fois)
+
+| Compétence | Domaine | Source | Licence | Auteur |
+|---|---|---|---|---|
+| `analyze-video-editing` | Montage | https://github.com/gitethanwoo/video-editing | MIT | Ethan Woo |
+| `audio-mixing-mastering` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `captions-media-accessibility` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `cinematic-trailer-production` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `clipify` | Montage | https://github.com/louisedesadeleer/clipify | MIT | Louise de Sadeleer |
+| `clips` | Montage | https://github.com/Melvynx/video-agent-skills | MIT | Melvyn Malherbe |
+| `color-grading-finishing` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `cutting-rhythm` | Montage | https://github.com/agamm/video-agent | MIT | Agam More |
+| `diagram-animation` | Montage | https://github.com/iart-ai/explainer-video-skills | MIT | iart.ai |
+| `documentary-montage-production` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `editing-montage` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `explainer-video` | Montage | https://github.com/iart-ai/explainer-video-skills | MIT | iart.ai |
+| `film-taste` | Montage | https://github.com/edothedev/claude-video-kit | MIT | edotheDev |
+| `find-broll` | Montage | https://github.com/gitethanwoo/video-editing | MIT | Ethan Woo |
+| `motion-effects` | Montage | https://github.com/charlie947/motion-graphics-skills | MIT | Charlie Hills |
+| `motion-graphics-direction` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `motion-quality` | Montage | https://github.com/shadcn-labs/snapcn | MIT | Sri Nath (shadcn-labs) |
+| `music-supervision-scoring` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `music-video-production` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `nano-banana` | Montage | https://github.com/social-media-skills/skills | MIT | Frank Heijdenrijk |
+| `photo-slideshow` | Montage | https://github.com/iart-ai/ecommerce-video-skills | MIT | iart.ai |
+| `prise-propre` | Montage | https://github.com/charlie947/reel-editing-skills | MIT | Charlie Hills |
+| `raccords-en-mouvement` | Montage | https://github.com/heygen-com/hyperframes | Apache-2.0 | HeyGen, Inc. |
+| `sound-design-foley` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `steal` | Montage | https://github.com/Melvynx/video-agent-skills | MIT | Melvyn Malherbe |
+| `talking-head-b-roll` | Montage | https://github.com/iart-ai/b-roll-skills | MIT | iart.ai |
+| `talking-head-podcast-recut` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `text-message-animation` | Montage | https://github.com/iart-ai/text-message-video-skills | MIT | iart.ai |
+| `title-kinetic-typography` | Montage | https://github.com/calesthio/generative-media-skills | MIT | calesthio (generative-media-skills contributors) |
+| `video-design` | Montage | https://github.com/digitalsamba/claude-code-video-toolkit | MIT | Digital Samba (avec des parties de taste-skill, Leonxlnx, MIT) |
+| `video-prompting` | Montage | https://github.com/Square-Zero-Labs/video-prompting-skill | Apache-2.0 | Square Zero Labs |
+| `whiteboard-animation` | Montage | https://github.com/iart-ai/explainer-video-skills | MIT | iart.ai |
+| `wrapped-video` | Montage | https://github.com/iart-ai/explainer-video-skills | MIT | iart.ai |
+
+## Ajoutée le 14 novembre 2026, avec les outils de motion
+
+| Compétence | Domaine | Source | Licence | Auteur |
+|---|---|---|---|---|
+| `motion-design` | Montage | https://github.com/LottieFiles/motion-design-skill | MIT | LottieFiles |
 
 Les textes complets des licences sont dans `licences/`. Chaque dossier garde aussi sa licence (quand le dépôt en a une) et un `SOURCE.md` qui dit d’où il vient et ce qui a été retiré.

@@ -237,9 +237,11 @@ node derush.mjs mettre-a-jour
 
 ## Les compétences
 
-Dérush livre **105 compétences** que l'IA lit avant de travailler, et en télécharge 15 de plus (Remotion, Real SFX, le guide d'Earshot) à l'installation ou depuis Connexions :
+Dérush livre **139 compétences** que l'IA lit avant de travailler, et en télécharge 15 de plus (Remotion, Real SFX, le guide d'Earshot) à l'installation ou depuis Connexions :
 
 - **Montage** : FFmpeg (42 outils), étalonnage, mixage du son, sous-titres et traduction, contrôle qualité, motion design, miniatures, images, 3D avec Blender, passage vers Premiere Pro ou DaVinci Resolve ;
+- **Le savoir-faire d'un monteur** : 34 compétences trouvées sur skills.sh et GitHub, relues avec leur licence — l'ordre et le rythme des coupes, une prise propre, les extraits courts, les plans de coupe, monter « comme cette vidéo », les titres animés, les principes du mouvement (LottieFiles), les bruitages, la musique, le documentaire, la bande-annonce, l'explication animée ;
+- **Une série animée** : `derush-serie-animee` garde le même personnage d'un plan à l'autre et d'un épisode à l'autre, avec les images et les plans vidéo d'ElevenLabs ;
 - **Son et voix** : les sept compétences ElevenLabs (voix off, bruitages, musique, doublage, transcription…) ;
 - **Vrais sons** : `sons-openverse` (chercher des sons libres et noter leurs crédits), Real SFX (les poser à l'image près), Earshot (écouter et fabriquer un son) ;
 - **Réseaux** : accroches, scripts TikTok / Reels / Shorts, légendes, hashtags, tendances, carrousels, stratégie, croissance ;
@@ -247,6 +249,8 @@ Dérush livre **105 compétences** que l'IA lit avant de travailler, et en tél�
 - **Publication et créateur** : `derush-viralite` (analyser une vidéo avant de la publier, avec des repères datés et sourcés), `derush-publier` (TikTok, YouTube, Instagram, LinkedIn avec Treg) et `derush-createur` (dresser ton profil de créateur à partir de tes comptes, en lecture seule).
 
 Elles sont dans [competences/](competences/), avec leurs sources et leurs licences ([competences/LICENCES.md](competences/LICENCES.md)).
+
+Tu peux en ajouter d'autres : *Connexions › Compétences › Ajouter une compétence*, avec un lien GitHub ou skills.sh. Dérush la télécharge chez toi, te montre sa licence et ce qu'elle contient de risqué, et ton IA la lit avec prudence.
 
 ---
 

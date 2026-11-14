@@ -1,6 +1,7 @@
 // Dérush — essais des médias de la version 11 : ce que l'IA reçoit (le rush tel quel ou sa version de montage), les
 // clones sans copie, le dossier de l'IA (plans = rushes entiers, temps utiles), les mesures à l'import (Log, sombre,
-// bruit de fond) et l'étalonnage automatique.
+// bruit de fond), l'étalonnage automatique, la planche que l'IA regarde, « Arrêter » l'analyse par l'IA, et un projet
+// rouvert pendant ses préparations.
 //   node outils/essai-medias.mjs
 // Aucun réseau, aucune IA. Un projet d'essai est fabriqué dans un dossier temporaire.
 import fs from 'node:fs';
@@ -8,13 +9,39 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
+import {register} from 'node:module';
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'derush-essai-medias-'));
 process.env.DERUSH_SUPPORT = path.join(tmp, 'support');
+
+// Aucune IA n'est lancée ici : pour tout ce que ces essais chargent, lib/conseil.mjs est remplacé par une copie dont
+// lancerConseil ne fait que compter ses appels, puis répond tout de suite une erreur d'essai.
+const conseilVrai = new URL('../lib/conseil.mjs', import.meta.url).href;
+const conseilFaux = `data:text/javascript,${encodeURIComponent(`export * from ${JSON.stringify(`${conseilVrai}?vrai`)};
+export const FAUX_CONSEIL = true;
+export function lancerConseil(o) {
+  globalThis.conseilsLances = (globalThis.conseilsLances ?? 0) + 1;
+  setTimeout(() => o.surFin?.(new Error('Réponse d’essai.'), null, {}), 20);
+  return {etat: 'en_cours'};
+}`)}`;
+register(`data:text/javascript,${encodeURIComponent(`export async function resolve(s, c, suite) {
+  const r = await suite(s, c);
+  return r.url === ${JSON.stringify(conseilVrai)} ? {url: ${JSON.stringify(conseilFaux)}, shortCircuit: true} : r;
+}`)}`);
+
+// la police des temps de la planche, rangée comme sous Windows (« C:/Windows/Fonts/… ») dans un dossier à apostrophe :
+// le « : » et l'apostrophe coupaient le filtre de FFmpeg, et la planche partait sans ses temps
+const policeSysteme = ['/System/Library/Fonts/Supplemental/Arial Bold.ttf', '/Library/Fonts/Arial Bold.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf'].find((f) => fs.existsSync(f));
+if (policeSysteme) {
+  const police = path.join(tmp, 'polices d’essai', "l'usine", 'C:', 'Windows', 'Fonts', 'arialbd.ttf');
+  fs.mkdirSync(path.dirname(police), {recursive: true});
+  fs.copyFileSync(policeSysteme, police);
+  process.env.DERUSH_POLICE_GRAS = police;
+}
 const M = await import('../lib/medias.mjs');
 const {Projet} = await import('../lib/projet.mjs');
 const {exporterPack} = await import('../lib/pack.mjs');
-const {mesurerMedia} = await import('../lib/analyse.mjs');
+const {mesurerMedia, couperProprement, planche, lancerAnalyseIA, arreterAnalyseIA, etatAnalyseIA} = await import('../lib/analyse.mjs');
 const {couleurAuto, couleurPropre} = await import('../lib/commun.mjs');
 const {FFMPEG, FFPROBE} = await import('../lib/outils.mjs');
 const {cloner} = await import('../lib/plateforme.mjs');
@@ -123,6 +150,111 @@ const autoChaud = couleurAuto({exposition: 0.45, contraste: 0.7, saturation: 0.4
 essai('une dominante orangée : la température baisse', autoChaud?.temperature < 0, JSON.stringify(autoChaud));
 essai('une image déjà juste : rien à corriger', couleurAuto({exposition: 0.45, contraste: 0.75, saturation: 0.45, dominante: {bleu: 0, rouge: 0}}) === null);
 essai('les réglages restent entre −100 et 100', couleurPropre({exposition: 500}).exposition === 100);
+
+console.log('Les textes de l’analyse par l’IA');
+const long = 'Chronique manga complète prête à publier en vertical. L’accroche et le résumé sont à garder. Après correction des couleurs et du son, elle sera parfaite pour les réseaux.';
+const c1 = couperProprement(long, 120);
+essai('un texte trop long s’arrête à la fin d’une phrase entière', c1.length <= 120 && /\.$/.test(c1) && !/correction des$/.test(c1), c1);
+const c2 = couperProprement('un seul très long morceau de texte sans aucune ponctuation qui continue encore et encore jusqu’au bout', 50);
+essai('sans phrase entière : coupé à un mot entier, avec « … »', c2.length <= 50 && c2.endsWith('…') && !/\s…$/.test(c2), c2);
+essai('un texte court reste tel quel', couperProprement('  Accroche   forte. ', 200) === 'Accroche forte.');
+
+console.log('La planche que l’IA regarde');
+if (!policeSysteme) console.log('  (pas de police Arial ou DejaVu sur cet ordinateur : essai passé)');
+else {
+  const uni = path.join(tmp, 'uni.mp4');
+  ff(['-f', 'lavfi', '-i', 'color=c=0x203040:s=640x360:r=25:d=4', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', uni]);
+  const pl = await planche(P, {...(await M.sonder(uni)), id: 'U1', nom: 'uni.mp4', chemin: uni, etapes: {}});
+  // en bas à gauche de la première image, le temps est écrit en blanc sur un fond sombre (l'image est bleu nuit)
+  const coin = execFileSync(FFMPEG, ['-v', 'error', '-i', pl, '-vf', 'crop=90:40:0:140,format=gray', '-f', 'rawvideo', 'pipe:1']);
+  const clair = coin.reduce((a, v) => Math.max(a, v), 0);
+  essai('la planche porte le temps de chaque image, même avec une police dans « C:/… » et un dossier à apostrophe', clair > 180, `point le plus clair : ${clair}`);
+}
+
+console.log('Arrêter l’analyse par l’IA');
+const conseil = await import('../lib/conseil.mjs');
+if (!conseil.FAUX_CONSEIL) essai('l’IA d’essai remplace la vraie (sinon, rien n’est essayé : une vraie IA partirait)', false);
+else {
+  globalThis.conseilsLances = 0;
+  // « Arrêter » pendant que Dérush prépare les planches, puis relancer aussitôt
+  await lancerAnalyseIA(P, ['M1', 'M2', 'M3']);
+  arreterAnalyseIA(P);
+  essai('arrêtée : plus rien à l’écran', etatAnalyseIA(P) === null);
+  await lancerAnalyseIA(P, ['M1']);
+  const t = Date.now();
+  while (etatAnalyseIA(P)?.etat === 'en_cours' && Date.now() - t < 60000) await new Promise((r) => setTimeout(r, 100));
+  const e = etatAnalyseIA(P);
+  essai('l’analyse arrêtée pendant les planches ne lance jamais l’IA (seule la nouvelle la lance)', globalThis.conseilsLances === 1, `${globalThis.conseilsLances} lancement(s)`);
+  essai('la nouvelle analyse va jusqu’au bout (elle ne reste pas « en cours »)', e?.etat === 'erreur' && e.erreur === 'Réponse d’essai.', JSON.stringify(e));
+}
+
+console.log('Rouvrir un projet pendant ses préparations');
+{
+  const photo = path.join(tmp, 'photo.png');
+  ff(['-f', 'lavfi', '-i', 'color=c=red:s=64x48:d=0.04', '-frames:v', '1', photo]);
+  const dossierR = path.join(tmp, 'Rouvert');
+  fs.mkdirSync(dossierR);
+  const P1 = new Projet(dossierR);
+  P1.d.medias.push({...(await M.sonder(photo)), id: 'M1', nom: 'photo.png', chemin: photo, etapes: {}, etat: 'attente'});
+  P1.sauver();
+  const taches = [];
+  const fileEssai = {ajouter: (nom, fn, meta) => { taches.push({nom, fn, meta}); return {}; }};
+  M.preparer(P1, P1.d.medias[0], fileEssai);
+  M.preparer(P1, P1.d.medias[0], fileEssai);
+  essai('une préparation redemandée n’est pas mise deux fois dans la file', taches.filter((x) => x.meta.type === 'preparation').length === 1, String(taches.length));
+  // la bibliothèque, puis le projet rouvert : d'autres objets, relus sur le disque
+  const P2 = new Projet(dossierR);
+  M.preparer(P2, P2.d.medias[0], fileEssai);
+  M.preparer(P2, P2.d.medias[0], fileEssai);
+  essai('rouvert : une seule nouvelle préparation, pour le projet ouvert', taches.length === 2, String(taches.length));
+  const avant = fs.readFileSync(path.join(dossierR, 'derush.json'), 'utf8');
+  const t = Date.now();
+  const r = await taches[0].fn(() => {});
+  essai('l’ancienne tâche s’arrête aussitôt, sans rien refaire', r?.etat === 'remplacee' && Date.now() - t < 1000 && P1.d.medias[0].etapes.proxy === undefined, JSON.stringify(r));
+  essai('… et sans réécrire l’ancien état du projet', fs.readFileSync(path.join(dossierR, 'derush.json'), 'utf8') === avant);
+}
+
+console.log('Moteurs simulés : un rush sans parole, la cadence du détourage');
+{
+  // Whisper et le détourage ne sont pas lancés : une copie de lib/moteurs.mjs, donnée seulement aux modules chargés
+  // avec « ?simule », note les appels et écrit ce que Whisper aurait écrit.
+  const moteursVrai = new URL('../lib/moteurs.mjs', import.meta.url).href;
+  const moteursFaux = `data:text/javascript,${encodeURIComponent(`import fs from 'node:fs';
+export * from ${JSON.stringify(`${moteursVrai}?vrai`)};
+export async function etatMoteurs() { return {whisper: {ok: true}, detourage: {ok: true}}; }
+export async function lancerPython(script, args) {
+  globalThis.appelsPython.push([script, args]);
+  if (script !== 'transcrire.py') return;
+  if (globalThis.sortieWhisper === undefined) fs.rmSync(args[1], {force: true});
+  else fs.writeFileSync(args[1], JSON.stringify(globalThis.sortieWhisper));
+}`)}`;
+  register(`data:text/javascript,${encodeURIComponent(`export async function resolve(s, c, suite) {
+  const r = await suite(s, c);
+  return r.url === ${JSON.stringify(moteursVrai)} && /[?]simule$/.test(c.parentURL ?? '') ? {url: ${JSON.stringify(moteursFaux)}, shortCircuit: true} : r;
+}`)}`);
+  globalThis.appelsPython = [];
+  const T = await import('../lib/transcription.mjs?simule');
+  const Dt = await import('../lib/detourage.mjs?simule');
+  const cache = path.join(tmp, 'simule');
+  const Ps = {cache, d: {langue: 'fr'}, dossierMedia: (id) => { const d = path.join(cache, 'medias', id); fs.mkdirSync(d, {recursive: true}); return d; }, sauver: () => {}};
+  const musique = {id: 'M1', nom: 'musique.m4a', chemin: path.join(tmp, 'musique.m4a'), type: 'audio', audio: true, duree: 30};
+  globalThis.sortieWhisper = {language: 'fr', segments: []};
+  let r = await T.transcrire(Ps, musique, 'whisper', () => {}).catch((e) => e);
+  essai('Whisper ne trouve aucun mot (une musique) : une transcription vide, pas une erreur', r?.mots === 0 && musique.transcription?.mots === 0 && T.lireMots(Ps, musique)?.length === 0, r?.message ?? JSON.stringify(r));
+  const plante = {...musique, id: 'M2', transcription: null};
+  globalThis.sortieWhisper = undefined;
+  r = await T.transcrire(Ps, plante, 'whisper', () => {}).catch((e) => e);
+  essai('… mais Whisper qui n’écrit rien reste une erreur', r instanceof Error && /Aucun mot/.test(r.message) && !plante.transcription, r?.message ?? JSON.stringify(r));
+  let importe = null;
+  try { T.lireFichierTranscription('vide.json', JSON.stringify({segments: []})); } catch (e) { importe = e; }
+  essai('… et un fichier importé sans aucun mot aussi', /Aucun mot/.test(importe?.message ?? ''), importe?.message);
+
+  await Dt.decoupesFichier(path.join(tmp, 'plan.mp4'), path.join(cache, 'decoupes-a'), 10, 20, () => {}, 25);
+  await Dt.decoupesFichier(path.join(tmp, 'plan.mp4'), path.join(cache, 'decoupes-b'), 10, 20);
+  const [avec, sans] = globalThis.appelsPython.filter(([s]) => s === 'detourer.py').map(([, a]) => a);
+  essai('détourage pour le rendu : detourer.py reçoit la cadence qui a compté les images', avec?.length === 7 && avec.slice(-2).join(' ') === '1920 25', JSON.stringify(avec));
+  essai('… et, sans cadence connue, la relit dans le fichier', sans?.length === 5, JSON.stringify(sans));
+}
 
 fs.rmSync(tmp, {recursive: true, force: true});
 console.log(`\n${ok} essais réussis sur ${ok + ko}.`);
