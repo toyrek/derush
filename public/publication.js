@@ -22,7 +22,8 @@ export function creerPublication(o) {
   const hote = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
   let el = null; // l'écran, quand il est ouvert
-  const S = {video: null, videos: [], onglet: 'analyse', analyse: null, plan: null, treg: null, reseau: 'tiktok', minuterie: 0, cle: '', enregistrement: 0, choix: null, visibilite: 'unlisted', consigne: '', envoi: false};
+  const S = {video: null, videos: [], onglet: 'analyse', analyse: null, plan: null, treg: null, reseau: 'tiktok', minuterie: 0, cle: '', enregistrement: 0, choix: null, visibilite: 'unlisted', consigne: '', envoi: false,
+    couv: null, couvOuvert: false, avis: {}, motOuvert: null};
   const lire = (k, d) => o.prefs?.lire(k, d) ?? d;
   const ecrire = (k, v) => o.prefs?.ecrire(k, v);
 
@@ -57,7 +58,10 @@ export function creerPublication(o) {
     el.addEventListener('click', clic);
     el.addEventListener('input', saisie);
     el.addEventListener('change', saisie);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.pp-ajout')) { e.preventDefault(); ajouterHashtag(e.target); } });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('.pp-ajout')) { e.preventDefault(); ajouterHashtag(e.target); }
+      if (e.key === 'Enter' && e.target.matches('[data-pa-mot]')) { e.preventDefault(); e.target.closest('.pa-avis')?.querySelector('[data-pa="avis-mot-ok"]')?.click(); }
+    });
     document.addEventListener('keydown', echap, true);
     await changerVideo(S.video);
   }
@@ -80,6 +84,12 @@ export function creerPublication(o) {
     S.video = nom;
     S.analyse = S.plan = null;
     S.cle = '';
+    S.couv = null;
+    S.couvOuvert = false;
+    S.avis = {};
+    S.motOuvert = null;
+    api('GET', `/api/publication/avis?video=${encodeURIComponent(nom)}`).then((r) => { if (S.video === nom) { S.avis = r.avis ?? {}; S.cle = ''; rendre(true); } }).catch(() => {});
+    api('GET', `/api/publication/couvertures?video=${encodeURIComponent(nom)}`).then((r) => { if (S.video === nom) { S.couv = r; if (S.onglet === 'partage') rendre(true); } }).catch(() => {});
     const v = S.videos.find((x) => x.nom === nom) ?? {};
     $('#pa-video', el).textContent = `${v.titre ?? 'Ta vidéo'}${v.duree ? ` · ${temps(v.duree)}` : ''}${v.largeur ? ` · ${v.largeur} × ${v.hauteur}` : ''}`;
     const lecteur = $('#pa-lecteur', el);
@@ -171,7 +181,7 @@ export function creerPublication(o) {
           <div class="pa-reseaux">${['tiktok', 'instagram', 'youtube'].map((k) => `<span class="pa-reseau" title="${esc(r.reseaux[k]?.pourquoi ?? '')}">${logo(k, 22)}<b class="${couleurNote(r.reseaux[k]?.note)}">${r.reseaux[k]?.note != null ? virgule(r.reseaux[k].note) : '–'}</b><small>${NOMS_COURTS[k]}</small></span>`).join('')}</div></div>
       </section>
       ${r.priorites.length ? `<section class="pa-bloc"><div class="pa-bloc-tete"><h3>À faire en premier</h3>${demandes.length > 1 ? `<button class="btn petit" data-pa="tout-demander" title="Met les ${demandes.length} demandes dans le message à ton IA">${ic('etincelle', 'plein')}Tout demander à ${esc(o.nomIA())}</button>` : ''}</div>
-        <ol class="pa-priorites">${r.priorites.map((p, i) => `<li><span class="num">${i + 1}</span><div><b>${esc(p.titre)}</b><small class="gain ${p.gain === 'fort' ? 'fort' : ''}">${GAINS[p.gain] ?? ''}</small></div>${p.demande ? `<button class="btn petit claude-doux" data-pa="demander" data-priorite="${i}">${ic('etincelle', 'plein')}Demander</button>` : ''}</li>`).join('')}</ol></section>` : ''}
+        <ol class="pa-priorites">${r.priorites.map((p, i) => `<li><span class="num">${i + 1}</span><div><b>${esc(p.titre)}</b><small class="gain ${p.gain === 'fort' ? 'fort' : ''}">${GAINS[p.gain] ?? ''}</small>${avisHtml(`priorite-${i}`)}</div>${p.demande ? `<button class="btn petit claude-doux" data-pa="demander" data-priorite="${i}">${ic('etincelle', 'plein')}Demander</button>` : ''}</li>`).join('')}</ol></section>` : ''}
       <section class="pa-bloc"><div class="pa-bloc-tete"><h3>Les huit points regardés</h3></div>
         <div class="pa-axes">${axes.map((x) => `<article class="pa-axe ${couleurNote(x.note)}">
           <header><div><b>${esc(x.nom)}</b><small>${esc(x.sous)}</small></div><span class="pa-note">${x.note != null ? virgule(x.note) : '–'}<small>/10</small></span></header>
@@ -179,11 +189,43 @@ export function creerPublication(o) {
           ${x.constat ? `<p class="constat">${esc(x.constat)}</p>` : ''}
           ${x.conseil ? `<p class="conseil">${ic('baguette')}<span>${esc(x.conseil)}</span></p>` : x.note != null && x.note >= 7.5 ? `<p class="conseil bon">${ic('coche')}<span>Rien à changer ici.</span></p>` : ''}
           ${x.demande ? `<button class="btn petit claude-doux" data-pa="demander" data-axe="${x.id}">${ic('etincelle', 'plein')}Demander à ${esc(o.nomIA())}</button>` : ''}
+          ${x.conseil || x.constat ? avisHtml(`axe-${x.id}`) : ''}
         </article>`).join('')}</div></section>
       ${r.tendances.length ? `<section class="pa-bloc"><div class="pa-bloc-tete"><h3>Ce qui marche en ce moment</h3></div><ul class="pa-tendances">${r.tendances.map((t) => `<li><b>${esc(t.titre)}</b>${t.detail ? `<p>${esc(t.detail)}</p>` : ''}<button class="pa-source" data-lien="${esc(t.source)}">${ic('lien')}${esc(hote(t.source))}${t.date ? ` · ${esc(t.date)}` : ''}</button></li>`).join('')}</ul></section>` : ''}
       ${r.limites ? `<p class="pa-limites">${ic('aide')}<span><b>Ce que cette analyse ne sait pas.</b> ${esc(r.limites)}</span></p>` : ''}
       <footer class="pa-pied"><small>Analyse de ${esc({codex: 'Codex', gemini: 'Gemini'}[r.moteur] ?? 'Claude')}, ${new Date(r.cree_le).toLocaleString('fr-FR', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'})}. Une estimation pour améliorer ta vidéo, pas une promesse de vues.</small><span class="espace"></span>
+        <button class="btn" data-pa="copier-rapport" title="Tout le rapport en texte : à garder, à envoyer, à coller où tu veux">${ic('copier')}Copier le rapport</button><button class="btn" data-pa="copier-agent" title="Un plan de travail prêt à coller à une autre IA : où est la vidéo, quoi changer, dans quel ordre">${ic('copier')}Pour une autre IA</button>
         <button class="btn" data-pa="analyser" title="Après une retouche, ou pour un autre avis">Refaire l’analyse</button><button class="btn principal" data-onglet="partage">Passer au partage${ic('img-plus')}</button></footer>`;
+  }
+  /** L'avis sur un conseil : 👍 (utile), 👎 (pas d'accord), un mot. Gardé dans le carnet : l'IA s'en souvient. */
+  function avisHtml(quoi) {
+    const x = S.avis?.[quoi];
+    const ouvert = S.motOuvert === quoi;
+    return `<div class="pa-avis" data-quoi="${esc(quoi)}">
+      <button class="cl-pouce oui${x?.note > 0 ? ' actif' : ''}" data-pa="avis" data-n="1" title="${x?.note > 0 ? 'Retirer mon avis' : 'Conseil utile : ton IA s’en souviendra'}">${ic('pouce')}</button><button class="cl-pouce non${x?.note < 0 ? ' actif' : ''}" data-pa="avis" data-n="-1" title="${x?.note < 0 ? 'Retirer mon avis' : 'Pas d’accord : ton IA ne le reproposera pas tel quel'}">${ic('pouce', 'bas')}</button>
+      ${ouvert ? `<span class="pa-mot"><input class="entree" data-pa-mot maxlength="400" value="${esc(x?.mot ?? '')}" placeholder="Ce que tu en penses (ton IA le retiendra)"><button class="btn petit bleu" data-pa="avis-mot-ok">OK</button></span>`
+        : `<button class="pa-mot-btn" data-pa="avis-mot" title="Écrire ce que tu en penses">${x?.mot ? `« ${esc(x.mot)} »` : `${ic('bulle')}Un mot`}</button>`}
+    </div>`;
+  }
+  /** La couverture : l'image choisie (ou conseillée), et le choix parmi plusieurs images, l'instant du lecteur ou une image à soi. */
+  function couvHtml(x) {
+    const c = S.couv?.choisie;
+    const quand = c?.choisie_le ? Date.parse(c.choisie_le) : 0;
+    const mini = c ? `<span class="pp-couv-mini"><img src="/couverture?video=${encodeURIComponent(S.video)}&choisie=1&j=${JETON}&v=${quand}" alt=""></span>` : ic('image');
+    const titre = c ? (c.source === 'image' ? 'Ton image' : `À ${temps(c.instant_s)}`) : x.couverture.instant_s != null ? `Conseillée à ${temps(x.couverture.instant_s)}` : 'Au choix';
+    return `<div class="pp-carte pp-couv">${mini}<div><small>L’image de couverture</small><b>${titre}${x.couverture.texte ? ` · « ${esc(x.couverture.texte)} »` : ''}</b>
+      <p class="pp-couv-actions"><button class="btn petit${c ? '' : ' bleu'}" data-pa="couv-choisir">${ic('image')}${c ? 'Changer' : 'Choisir'}</button>${c ? `<button class="btn petit" data-pa="couv-montrer" title="Le fichier, rangé à côté de ta vidéo">${ic('dossier')}Le fichier</button>` : x.couverture.instant_s != null ? `<button class="btn petit" data-pa="voir-couverture" data-t="${x.couverture.instant_s}">${ic('oeil')}La voir</button>` : ''}</p>
+      ${c ? '<p class="dim">Elle part avec ta publication ; sinon, pose-la toi-même dans l’app.</p>' : ''}</div></div>`;
+  }
+  function couvChoixHtml() {
+    if (!S.couvOuvert) return '';
+    const c = S.couv?.choisie;
+    const images = S.couv?.images;
+    return `<div class="pp-couv-choix"><div class="pp-couv-tete"><b>Choisis ta couverture</b><small>Une image de la vidéo, celle du lecteur, ou la tienne</small><span class="espace"></span><button class="icone-btn" data-pa="couv-fermer" title="Fermer">${ic('fermer')}</button></div>
+      ${images ? `<div class="pp-couv-images">${images.map((im) => `<button class="pp-couv-img${c?.source === 'video' && Math.abs(c.instant_s - im.t) < 0.05 ? ' actif' : ''}" data-pa="couv-prendre" data-t="${im.t}" title="${im.conseil ? 'Conseillée par ton IA · ' : ''}À ${temps(im.t)}"><img src="/couverture?video=${encodeURIComponent(S.video)}&t=${im.t.toFixed(1)}&j=${JETON}" alt="" loading="lazy" draggable="false">${im.conseil ? `<i title="Conseillée par ton IA">${ic('etincelle', 'plein')}</i>` : ''}<small>${temps(im.t)}</small></button>`).join('')}</div>`
+        : `<p class="dim pp-couv-attente">${ic('horloge')}Dérush tire les images de ta vidéo…</p>`}
+      <div class="pp-couv-bas"><button class="btn petit" data-pa="couv-lecteur" title="Arrête la vidéo à gauche sur l’image que tu veux, puis clique ici">${ic('lire')}Prendre l’image du lecteur</button><button class="btn petit" data-pa="couv-fichier" title="Une image de ton ordinateur (PNG, JPEG…)">${ic('img-plus')}Mon image…</button></div>
+    </div>`;
   }
 
   function htmlPartage() {
@@ -232,8 +274,9 @@ export function creerPublication(o) {
           <div class="pp-hashtags">${x.hashtags.map((h, i) => `<span class="pp-tag">${esc(h)}<button data-pa="retirer-tag" data-i="${i}" title="Retirer">${ic('fermer')}</button></span>`).join('')}<input class="pp-ajout" placeholder="+ ajouter" spellcheck="false" maxlength="40"></div></div>
         <div class="pp-deux">
           <div class="pp-carte">${ic('drapeau')}<div><small>Le bon moment</small><b>${esc([x.moment.jour, x.moment.heure].filter(Boolean).join(' · ') || 'À ton rythme')}</b>${x.moment.pourquoi ? `<p>${esc(x.moment.pourquoi)}</p>` : ''}<p class="dim">Un point de départ : vérifie dans les statistiques de ton compte.</p></div></div>
-          <div class="pp-carte">${ic('image')}<div><small>L’image de couverture</small><b>${x.couverture.instant_s != null ? `À ${temps(x.couverture.instant_s)}` : 'Au choix'}${x.couverture.texte ? ` · « ${esc(x.couverture.texte)} »` : ''}</b>${x.couverture.instant_s != null ? `<p><button class="btn petit" data-pa="voir-couverture" data-t="${x.couverture.instant_s}">${ic('oeil')}Voir cette image</button></p>` : ''}</div></div>
+          ${couvHtml(x)}
         </div>
+        ${couvChoixHtml()}
         ${x.sons?.length ? `<div class="champ"><span>Sons tendance, à ajouter dans l’app au moment de publier</span><div class="pp-sons">${x.sons.map((s) => `<div class="pp-son">${ic('note')}<div><b>${esc(s.titre)}</b>${s.artiste ? `<small>${esc(s.artiste)}</small>` : ''}<p>${esc(s.pourquoi)}</p><small class="dim">${esc([hoteDe(s.source), s.vu_le ? `vu le ${s.vu_le}` : ''].filter(Boolean).join(' · '))}</small></div>
           <div class="pp-son-actions"><button class="btn petit" data-pa="copier-son" data-son="${esc(`${s.titre}${s.artiste ? ` ${s.artiste}` : ''}`)}">${ic('copier')}Copier le nom</button>${S.reseau === 'tiktok' ? `<button class="btn petit" data-lien="${esc(`https://www.tiktok.com/search?q=${encodeURIComponent(`${s.titre} ${s.artiste ?? ''}`.trim())}`)}">${ic('loupe')}Chercher dans TikTok</button>` : ''}</div></div>`).join('')}</div>
           <p class="pp-note">${ic('attention')}<span>Dérush ne met jamais une musique du commerce dans ton fichier : elle ferait couper le son de ta vidéo. Choisis le son dans l’app${S.reseau === 'tiktok' ? ' TikTok, sur ton brouillon' : ''}, et baisse-le si ta voix doit rester devant.</span></p></div>` : ''}
@@ -245,6 +288,7 @@ export function creerPublication(o) {
         <div class="pp-a-publier"><small>Publier sur</small>${cles.map((k) => `<button class="pp-puce${S.choix.has(k) ? ' actif' : ''}${relie(k) ? '' : ' a-relier'}" data-choix="${k}" title="${relie(k) ? 'Relié à Treg' : k === 'youtube' && !cleTreg ? 'YouTube a besoin de ta clé Treg' : 'Pas encore relié dans Treg'}">${logo(k, 18)}${NOMS_COURTS[k]}${relie(k) ? '' : ic('attention')}</button>`).join('')}</div>
         ${aPublier.includes('youtube') ? `<div class="segmente pp-visi">${[['unlisted', 'Non répertoriée'], ['public', 'Publique'], ['private', 'Privée']].map(([k, n]) => `<button data-visi="${k}"${k === S.visibilite ? ' class="actif"' : ''}>${n}</button>`).join('')}</div>` : ''}
         <div class="pp-actions">
+          <button class="btn" data-pa="copier-rapport" title="Le plan de chaque réseau (et l’analyse) en texte, pour publier toi-même ou le garder">${ic('copier')}Tout copier</button>
           <button class="btn" data-pa="planifier" title="Refaire tous les textes">Refaire</button>
           ${pretTreg && !youtubeSansCle ? '' : `<button class="btn${youtubeSansCle ? ' bleu' : ''}" data-pa="relier">${ic('relais')}${pretTreg ? 'Ajouter ma clé Treg' : 'Relier mes réseaux'}</button>`}
           ${rienAPublier ? '' : `<button class="btn claude" data-pa="publier"${!aPublier.length || !o.iaPrete?.() || occupe || S.envoi ? ' disabled' : ''} title="${pretTreg ? 'Rien ne part sans ce clic' : 'Treg n’est pas relié : ton IA te redonnera les textes prêts à coller'}">${ic('publier')}<span>${occupe ? `${esc(o.nomIA())} travaille…` : `Publier avec ${esc(o.nomIA())}`}</span></button>`}
@@ -334,6 +378,61 @@ export function creerPublication(o) {
     if (a === 'copier-legende' && x) { await o.copierTexte(`${x.titre ? `${x.titre}\n\n` : ''}${x.legende}${x.hashtags.length ? `\n\n${x.hashtags.join(' ')}` : ''}`); return note('Copié : colle-le dans l’app du réseau.'); }
     if (a === 'copier-commentaire' && x) { await o.copierTexte(x.premier_commentaire); return note('Commentaire copié.'); }
     if (a === 'voir-couverture') { const l = $('#pa-lecteur', el); l.pause(); l.currentTime = Number(b.dataset.t) || 0; return; }
+    if (a === 'copier-rapport' || a === 'copier-agent') {
+      try {
+        const t = await api('GET', `/api/publication/rapport?video=${encodeURIComponent(S.video)}&pour=${a === 'copier-agent' ? 'agent' : 'humain'}`);
+        await o.copierTexte(t.texte);
+        return note(a === 'copier-agent' ? 'Plan de travail copié : colle-le à l’autre IA. Il dit où est la vidéo et quoi changer.' : 'Rapport copié.');
+      } catch (err) { return note(err.message, true); }
+    }
+    if (a === 'avis' || a === 'avis-mot' || a === 'avis-mot-ok') {
+      const quoi = b.closest('[data-quoi]')?.dataset.quoi;
+      if (!quoi) return;
+      if (a === 'avis-mot') { S.motOuvert = quoi; S.cle = ''; rendre(true); return $(`[data-quoi="${CSS.escape(quoi)}"] [data-pa-mot]`, el)?.focus(); }
+      const avant = S.avis?.[quoi] ?? {};
+      const n = a === 'avis' ? (Number(b.dataset.n) === (avant.note ?? 0) ? 0 : Number(b.dataset.n)) : avant.note ?? 0;
+      const mot = a === 'avis-mot-ok' ? ($(`[data-quoi="${CSS.escape(quoi)}"] [data-pa-mot]`, el)?.value ?? '') : avant.mot ?? '';
+      try {
+        const x = await api('POST', '/api/publication/avis', {video: S.video, quoi, note: n, mot});
+        S.avis = x.avis ?? {};
+        S.motOuvert = null;
+        S.cle = '';
+        rendre(true);
+        return note(n > 0 ? 'Noté : ton IA retient que ce conseil t’est utile.' : n < 0 ? 'Noté : ton IA ne te le reproposera pas tel quel.' : mot ? 'Ton mot est gardé dans le carnet de ton IA.' : 'Avis retiré.');
+      } catch (err) { return note(err.message, true); }
+    }
+    if (a === 'couv-choisir') {
+      S.couvOuvert = true;
+      rendre(true);
+      if (!S.couv?.images) {
+        try { S.couv = await api('GET', `/api/publication/couvertures?video=${encodeURIComponent(S.video)}`); } catch (err) { note(err.message, true); }
+        rendre(true);
+      }
+      return $('.pp-couv-choix', el)?.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    }
+    if (a === 'couv-fermer') { S.couvOuvert = false; return rendre(true); }
+    if (a === 'couv-montrer') { try { await api('POST', '/api/publication/couverture', {video: S.video, montrer: true}); } catch (err) { note(err.message, true); } return; }
+    if (a === 'couv-prendre' || a === 'couv-lecteur' || a === 'couv-fichier') {
+      let choix;
+      if (a === 'couv-prendre') choix = {instant_s: Number(b.dataset.t) || 0};
+      else if (a === 'couv-lecteur') { const l = $('#pa-lecteur', el); l.pause(); choix = {instant_s: l.currentTime || 0}; }
+      else {
+        let r;
+        try { r = o.choisirSurOrdinateur ? await o.choisirSurOrdinateur('couverture') : await api('POST', '/api/choisir', {usage: 'couverture'}); } catch (err) { return note(err.message, true); }
+        const chemin = (r?.chemins ?? []).find((c) => /\.(png|jpe?g|webp|heic|tiff?|bmp)$/i.test(c));
+        if (!chemin) return r?.chemins?.length ? note('Choisis une image (PNG, JPEG, WebP, HEIC…).', true) : undefined;
+        choix = {chemin};
+      }
+      b.disabled = true;
+      try {
+        const r = await api('POST', '/api/publication/couverture', {video: S.video, ...choix});
+        S.couv = {...(S.couv ?? {}), choisie: r.couverture};
+        if (r.couverture.instant_s != null) for (const y of Object.values(S.plan?.plan?.reseaux ?? {})) if (y?.couverture) y.couverture.instant_s = r.couverture.instant_s;
+        S.couvOuvert = false;
+        rendre(true);
+        return note('Couverture choisie : elle partira avec ta publication. Le fichier est rangé à côté de ta vidéo.');
+      } catch (err) { b.disabled = false; return note(err.message, true); }
+    }
     if (a === 'publier') {
       const reseaux = Object.keys(S.plan?.plan?.reseaux ?? {}).filter((k) => S.choix.has(k));
       if (!reseaux.length || S.envoi) return;
@@ -374,8 +473,8 @@ export function creerPublication(o) {
         <ol class="tg-etapes">
           <li class="${t.jeton ? 'fait' : ''}"><span class="num">${t.jeton ? ic('coche') : '1'}</span><div><b>Crée ton compte Treg</b><small>Sur treg.to, avec ton adresse e-mail. La page s’ouvre dans ton navigateur.</small></div><button class="btn ${t.jeton ? '' : 'bleu'}" data-tg="ouvrir">Ouvrir Treg</button></li>
           <li class="${fait && Object.values(v.reseaux ?? {}).some(Boolean) ? 'fait' : ''}"><span class="num">${fait && Object.values(v.reseaux ?? {}).some(Boolean) ? ic('coche') : '2'}</span><div><b>Dans Treg, relie tes réseaux</b><small>Un clic par réseau : tu te connectes à ton compte TikTok, Instagram, YouTube ou LinkedIn, comme d’habitude.</small></div></li>
-          <li class="${t.jeton ? 'fait' : ''}"><span class="num">${t.jeton ? ic('coche') : '3'}</span><div><b>Copie ta clé dans Treg, puis reviens ici</b><small>${t.jeton ? 'Ta clé est rangée sur cet ordinateur. Elle n’est jamais affichée ni envoyée ailleurs que chez Treg.' : 'Dans ton compte Treg, copie la clé (elle commence par « trg_ »). Un clic ici, et c’est fini.'}</small>
-            ${t.jeton ? '' : `<div class="tg-cle"><input type="password" id="tg-cle" placeholder="ou colle ta clé ici (trg_…)" autocomplete="off" spellcheck="false" value="${esc(cle)}"><button class="btn petit" data-tg="enregistrer">Enregistrer</button></div>`}</div>
+          <li class="${t.jeton ? 'fait' : ''}"><span class="num">${t.jeton ? ic('coche') : '3'}</span><div><b>Crée ta clé API dans Treg, copie-la, puis reviens ici</b><small>${t.jeton ? 'Ta clé est rangée sur cet ordinateur. Elle n’est jamais affichée ni envoyée ailleurs que chez Treg.' : 'Dans ton tableau de bord Treg, ouvre les clés API (« API keys »), crée une clé et copie-la. Un clic ici, et c’est fini. (Une ancienne clé « trg_… » marche toujours.)'}</small>
+            ${t.jeton ? '' : `<div class="tg-cle"><input type="password" id="tg-cle" placeholder="ou colle ta clé API ici" autocomplete="off" spellcheck="false" value="${esc(cle)}"><button class="btn petit" data-tg="enregistrer">Enregistrer</button></div>`}</div>
             ${t.jeton ? '<button class="btn petit" data-tg="retirer" title="Retirer la clé de cet ordinateur">Retirer</button>' : `<button class="btn claude" data-tg="coller">${ic('copier')}<span>Coller ma clé</span></button>`}</li>
         </ol>
         ${t.jeton ? `<div class="tg-bilan ${v.ok ? 'ok' : 'attention'}"><div class="tg-bilan-tete">${ic(v.ok ? 'coche' : 'attention')}<b>${v.ok ? (Object.values(v.reseaux ?? {}).some(Boolean) ? `C’est relié${v.compte ? ` (compte ${esc(v.compte)})` : ''}` : 'Ta clé marche') : 'Treg ne répond pas comme prévu'}</b><button class="btn petit" data-tg="verifier">Vérifier</button></div>${v.pourquoi ? `<p>${esc(v.pourquoi)}</p>` : ''}${v.ok ? pastilles : ''}${v.ok && Object.values(v.reseaux ?? {}).some((x) => !x) ? '<p class="dim">Un réseau manque ? Relie-le dans Treg, puis clique sur « Vérifier ».</p>' : ''}</div>` : pastilles}
@@ -387,7 +486,7 @@ export function creerPublication(o) {
     const enregistrerCle = async (valeur) => {
       const v = String(valeur ?? '').trim();
       if (!v) { message = 'Le presse-papiers est vide : copie d’abord ta clé dans Treg.'; return rendreGuide(); }
-      if (!/^trg_/.test(v)) { message = 'Ce qui est copié n’est pas une clé Treg (elle commence par « trg_ »). Copie-la depuis ton compte Treg, puis réessaie.'; return rendreGuide(); }
+      if (/\s/.test(v) || v.length < 16) { message = 'Ce qui est copié n’est pas une clé API Treg. Dans ton tableau de bord Treg, crée une clé API, copie-la entière, puis réessaie.'; return rendreGuide(); }
       try {
         await api('POST', '/api/connexions/treg/jeton', {cle: v});
         cle = '';

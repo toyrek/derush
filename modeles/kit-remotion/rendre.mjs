@@ -3,6 +3,7 @@
 // sur la table de montage et dans le lecteur.
 //
 //   node remotion/rendre.mjs [Composition] [sortie.mp4] [--props '{"cle": "valeur"}'] [--titre "Clip 1"] [--crf 16]
+//        [--echelle 2] [--jpeg 98]   (« Exporter » de Dérush : la même vidéo en 2K ou en 4K, les images plus fines)
 //
 // Par défaut : la composition « Montage », rendue dans ../rendu/montage.mp4. La vidéo à livrer se rend dans
 // ../rendu/final.mp4 : node remotion/rendre.mjs Montage rendu/final.mp4.
@@ -120,6 +121,9 @@ const option = (nom, defaut = null) => {
 const props = {afficherConsignes: false, ...JSON.parse(option('--props', '{}'))};
 const titreDonne = option('--titre');
 const crf = Number(option('--crf', '16'));
+// l'échelle (« Exporter » en 2K ou en 4K) : la composition est rendue plus grande, rien d'autre ne change
+const echelle = Math.min(4, Math.max(0.25, Number(option('--echelle', '1')) || 1));
+const qualiteJpeg = Math.min(100, Math.max(50, Number(option('--jpeg', echelle > 1 ? '98' : '92')) || 92));
 const composition = args[0] ?? 'Montage';
 const sortie = path.resolve(args[1] ?? path.join(ICI, '..', 'rendu', 'montage.mp4'));
 fs.mkdirSync(path.dirname(sortie), {recursive: true});
@@ -215,8 +219,8 @@ async function rendre(avecApercu) {
   noter(true);
   let derniere = -1;
   await renderMedia({
-    composition: comp, serveUrl, codec: 'h264', outputLocation: sortie, inputProps: props, crf, colorSpace: 'bt709',
-    imageFormat: 'jpeg', jpegQuality: 92, chromiumOptions: {gl: 'angle'}, overwrite: true, ffmpegOverride: ajouterApercu(avecApercu),
+    composition: comp, serveUrl, codec: 'h264', outputLocation: sortie, inputProps: props, crf, colorSpace: 'bt709', scale: echelle,
+    imageFormat: 'jpeg', jpegQuality: qualiteJpeg, chromiumOptions: {gl: 'angle'}, overwrite: true, ffmpegOverride: ajouterApercu(avecApercu),
     // les images passent par un tuyau ordinaire vers ffmpeg : on peut alors en tirer une deuxième sortie (l'aperçu)
     disableSharedMemoryCapture: avecApercu,
     onProgress: ({renderedFrames, encodedFrames, stitchStage}) => {
@@ -243,6 +247,11 @@ const sansApercu = (raison) => {
 const fini = () => {
   Object.assign(etat, {etape: 'fini', rendues: etat.total, fin: new Date().toISOString()});
   noter(true);
+  // le journal des rendus (rendu/rendus.jsonl) : quelle composition a donné quel fichier, avec quels réglages. Dérush
+  // s'en sert pour exporter plus tard la même vidéo en 2K ou en 4K, sans rien remonter.
+  try {
+    fs.appendFileSync(path.join(ICI, '..', 'rendu', 'rendus.jsonl'), `${JSON.stringify({composition, sortie: etat.sortie, props, echelle, largeur: Math.round(etat.largeur * echelle), hauteur: Math.round(etat.hauteur * echelle), images: etat.total, fps: etat.fps, fin: etat.fin})}\n`);
+  } catch { /* sans journal : l'export en 4K devinera la composition */ }
   console.log(`Vidéo rendue : ${sortie} (${etat.largeur}×${etat.hauteur}, ${etat.total} images, en ${Math.round((Date.now() - debut) / 1000)} s)`);
   nettoyer();
   process.exit(0);

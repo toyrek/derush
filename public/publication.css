@@ -262,3 +262,31 @@
   .pa-jauge { width: 140px; height: 140px; }
   .pa-jauge b { font-size: 52px; }
 }
+
+/* ——— 11.1 : l'avis sur chaque conseil, la couverture choisie ——— */
+.pa-avis { display: flex; align-items: center; gap: 2px; margin-top: 6px; flex-wrap: wrap; }
+.pa-avis .cl-pouce { width: 26px; height: 26px; }
+.pa-avis .cl-pouce.actif.oui { color: #30d158; background: rgba(48, 209, 88, .12); }
+.pa-avis .cl-pouce.actif.non { color: #ff6961; background: rgba(255, 69, 58, .12); }
+.pa-mot-btn { border: 0; background: none; color: var(--dim); font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 6px; max-width: 100%; text-align: left; }
+.pa-mot-btn:hover { background: rgba(255, 255, 255, .07); color: var(--texte); }
+.pa-mot-btn .ic { width: 13px; height: 13px; }
+.pa-mot { display: inline-flex; gap: 4px; flex: 1; min-width: 200px; }
+.pa-mot .entree { flex: 1; min-width: 0; font-size: 12px; padding: 4px 8px; }
+.pa-priorites .pa-avis { margin-top: 3px; }
+.pp-couv .pp-couv-mini { flex: none; width: 46px; height: 64px; border-radius: 7px; overflow: hidden; background: #000; display: grid; place-items: center; }
+.pp-couv .pp-couv-mini img { width: 100%; height: 100%; object-fit: cover; }
+.pp-couv-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.pp-couv-choix { margin: 12px 0 4px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); animation: entre-bas .3s var(--doux) both; }
+.pp-couv-tete { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.pp-couv-tete small { color: var(--dim); font-size: 11.5px; }
+.pp-couv-images { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.pp-couv-img { position: relative; flex: none; width: 92px; padding: 0; border: 2px solid transparent; border-radius: 10px; overflow: hidden; background: #000; scroll-snap-align: start; transition: border-color .15s, transform .15s; }
+.pp-couv-img:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, .35); }
+.pp-couv-img.actif { border-color: var(--braise-1, #ff9f0a); }
+.pp-couv-img img { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; }
+.pp-couv-img small { position: absolute; left: 4px; bottom: 4px; font-size: 10px; padding: 1px 5px; border-radius: 5px; background: rgba(0, 0, 0, .65); color: #fff; }
+.pp-couv-img i { position: absolute; right: 4px; top: 4px; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; background: rgba(255, 159, 10, .9); color: #1c1c1e; }
+.pp-couv-img i .ic { width: 12px; height: 12px; }
+.pp-couv-bas { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.pp-couv-attente { display: flex; align-items: center; gap: 6px; }

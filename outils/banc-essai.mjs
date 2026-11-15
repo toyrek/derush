@@ -80,7 +80,11 @@ export function dossierInterdit(support, vrai) {
   return s === v || s.startsWith(v.endsWith(path.sep) ? v : v + path.sep);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+// lancé lui-même (et non importé par un essai) : on compare les vrais chemins, car un chemin qui passe par un lien
+// (/var → /private/var sur Mac, le dossier temporaire) ne ressemblait pas à celui du module, et le banc s'arrêtait
+// sans rien faire ni rien dire
+const vraiChemin = (p) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+if (process.argv[1] && vraiChemin(fileURLToPath(import.meta.url)) === vraiChemin(path.resolve(process.argv[1]))) {
   const args = process.argv.slice(2);
   aide(args, AIDE, {siVide: true});
   const {opt} = options(args);

@@ -1603,3 +1603,71 @@ body.tire-col iframe, body.tire-lig iframe, body.tire-col video, body.tire-lig v
 .carnet-coupe { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 10px; padding: 9px 11px; border-radius: 10px; background: var(--jaune-fond); color: #ffe48a; font-size: 12px; line-height: 1.45; }
 .carnet-coupe .ic { width: 15px; height: 15px; flex: none; margin-top: 1px; }
 @media (prefers-reduced-motion: reduce) { .biblio-filtres, .np-series, .np-repris, .cl-avis, .cl-suivi, .cl-pour, .lier-reseaux .logo, .carnet-vide, .pastille-espace.change, .cl-pouce.actif { animation: none; } }
+
+/* ——— 11.1 : la conversation (copier un message, « Après ce travail »), les médias joints ——— */
+.carte-media .pa.conv { background: rgba(10, 132, 255, .88); color: #fff; }
+.cl-copier { margin-left: auto; border: 0; background: none; color: var(--dim-2); width: 22px; height: 22px; border-radius: 6px; display: inline-grid; place-items: center; opacity: 0; transition: opacity .15s, background .15s; flex: none; }
+.cl-copier .ic { width: 13px; height: 13px; }
+.cl-b:hover .cl-copier, .cl-copier:focus-visible { opacity: 1; }
+.cl-copier:hover { background: rgba(255, 255, 255, .09); color: var(--texte); }
+.cl-b.humain { position: relative; }
+.cl-b.humain > .cl-copier { position: absolute; left: -27px; top: 3px; }
+.cl-quand { margin-right: 6px; font-size: 10.5px; }
+.cl-quand button { padding: 3px 8px; font-size: 10.5px; }
+
+/* ——— 11.1 : « Exporter », comme dans CapCut ——— */
+.btn.exporter { margin-right: 6px; background: rgba(255, 255, 255, .1); color: var(--texte); }
+.btn.exporter:hover { background: rgba(255, 255, 255, .16); }
+.btn.exporter .ic { width: 15px; height: 15px; }
+.ex-sources { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin: 4px 0 14px; }
+.ex-source { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .04); color: var(--texte); text-align: left; transition: border-color .15s, background .15s; }
+.ex-source:hover { background: rgba(255, 255, 255, .07); }
+.ex-source.actif { border-color: var(--bleu, #0a84ff); background: rgba(10, 132, 255, .12); }
+.ex-source > .ic { width: 18px; height: 18px; flex: none; }
+.ex-source span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ex-source b { font-size: 12.5px; }
+.ex-source b i { font-style: normal; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: rgba(255, 159, 10, .2); color: #ffb340; margin-left: 4px; }
+.ex-source small { color: var(--dim); font-size: 11px; }
+.ex-qualites { display: flex; width: 100%; }
+.ex-qualites button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 8px; }
+.ex-qualites button b { font-size: 13px; }
+.ex-qualites button small { font-size: 10px; color: var(--dim); }
+.ex-qualites button:disabled { opacity: .38; }
+.ex-pourquoi { display: block; margin-top: 6px; color: var(--dim); font-size: 11.5px; line-height: 1.4; }
+.ex-reseaux { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* ——— 11.1 : la timeline garde la taille qu'on lui donne, même avec la table de montage de l'IA (avant, elle était figée
+   à 360 px + la table : sur un écran de 900 px, le chat et l'aperçu n'avaient plus que 300 px). Le haut garde toujours
+   au moins 240 px. ——— */
+.editeur.avec-claude { grid-template-rows: 50px minmax(0, 1fr) min(calc(var(--h-tl, 290px) + 70px), calc(100vh - 290px)); }
+.editeur.avec-claude.avec-blocs { grid-template-rows: 50px minmax(0, 1fr) min(calc(var(--h-tl, 200px) + 70px + var(--h-blocs, 92px)), calc(100vh - 290px)); }
+.cl-provisoire { margin-top: 10px; padding: 9px 11px; border-radius: 12px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .08); animation: entre-bas .3s var(--doux) both; }
+.cl-provisoire small { display: flex; align-items: center; gap: 5px; color: var(--dim); font-size: 11px; margin-bottom: 5px; }
+.cl-provisoire small .ic { width: 12px; height: 12px; color: #30d158; }
+.cl-provisoire .cl-texte-b { max-height: 16em; overflow: auto; }
+/* la bande « médias introuvables » (11.1) */
+.medias-manquants { display: flex; align-items: center; gap: 9px; margin: 0 10px 8px; padding: 9px 11px; border-radius: 12px; background: rgba(255, 159, 10, .12); border: 1px solid rgba(255, 159, 10, .3); animation: entre-bas .3s var(--doux) both; }
+.medias-manquants > .ic { width: 17px; height: 17px; flex: none; color: #ffb340; }
+.medias-manquants span { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.medias-manquants b { font-size: 12px; }
+.medias-manquants small { color: var(--dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* « Apprendre de tes vidéos publiées ? » (11.1) */
+.ia-apprendre { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin: 10px 0 4px; padding: 10px 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(255, 150, 60, .13), rgba(10, 132, 255, .08)); border: 1px solid rgba(255, 170, 80, .25); animation: entre-bas .35s var(--doux) both; }
+.ia-apprendre > .ic { width: 17px; height: 17px; color: var(--braise-1, #ff9f0a); flex: none; }
+.ia-apprendre > span { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 180px; }
+.ia-apprendre b { font-size: 12.5px; }
+.ia-apprendre small { color: var(--dim); font-size: 11.5px; line-height: 1.4; }
+.ia-apprendre-act { display: flex; gap: 6px; margin-left: auto; }
+/* « Trouvés ou faits par ton IA », sous les médias (11.1) */
+.medias-ia { margin: 8px 10px 10px; border-radius: 12px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .07); }
+.medias-ia summary { display: flex; align-items: center; gap: 7px; padding: 8px 11px; font-size: 12px; list-style: none; }
+.medias-ia summary::-webkit-details-marker { display: none; }
+.medias-ia summary .ic { width: 14px; height: 14px; color: var(--braise-1, #ff9f0a); }
+.medias-ia-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 7px; padding: 0 9px 10px; max-height: 260px; overflow: auto; }
+.medias-ia-el { position: relative; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.medias-ia-el .mi-img { display: grid; place-items: center; height: 58px; border-radius: 8px; overflow: hidden; background: #000; color: var(--dim-2); }
+.medias-ia-el .mi-img img { width: 100%; height: 100%; object-fit: cover; }
+.medias-ia-el .mi-img .ic { width: 18px; height: 18px; }
+.medias-ia-el small { font-size: 10px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.medias-ia-el .icone-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(0, 0, 0, .6) !important; opacity: 0; transition: opacity .15s; }
+.medias-ia-el:hover .icone-btn { opacity: 1; }

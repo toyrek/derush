@@ -297,9 +297,13 @@ export function creerEspaces(o) {
     const client = e.type === 'client';
     let lecons = [];
     let series = [];
+    let kit = null;
+    let animations = [];
     await Promise.all([
       api('GET', `/api/espaces/${enc(id)}/carnet`).then((r) => { lecons = r.lecons ?? []; }).catch(() => {}),
       api('GET', `/api/espaces/${enc(id)}/series`).then((r) => { series = r.series ?? []; }).catch(() => {}),
+      api('GET', `/api/espaces/${enc(id)}/kit`).then((r) => { kit = r.kit ?? null; }).catch(() => {}),
+      api('GET', `/api/espaces/${enc(id)}/animations`).then((r) => { animations = r.animations ?? []; }).catch(() => {}),
     ]);
     // ce qu'on règle ici, avant de l'enregistrer
     const F = {
@@ -327,6 +331,7 @@ export function creerEspaces(o) {
       <div class="segmente esp-onglets">
         <button data-esp="onglet" data-onglet="essentiel">${ic(client ? 'mallette' : 'profil')}<span>L’essentiel</span></button>
         <button data-esp="onglet" data-onglet="marque">${ic('palette')}<span>Kit de marque</span></button>
+        <button data-esp="onglet" data-onglet="kit">${ic('image')}<span>Kit média<span data-esp-nb="kit">${nb(kit?.nb ?? 0)}</span></span></button>
         <button data-esp="onglet" data-onglet="carnet">${ic('texte')}<span>Carnet<span data-esp-nb="carnet">${nb(lecons.length)}</span></span></button>
         <button data-esp="onglet" data-onglet="series">${ic('dupliquer')}<span>Séries<span data-esp-nb="series">${nb(series.length)}</span></span></button>
       </div>
@@ -360,6 +365,7 @@ export function creerEspaces(o) {
         ${champ('notes', 'Autres consignes', k.notes, {long: true, max: 1200, exemple: 'Tout ce que ton IA doit savoir de plus'})}
       </section>
 
+      <section class="esp-panneau cache" data-esp-panneau="kit"><div data-esp-kit></div></section>
       <section class="esp-panneau cache" data-esp-panneau="carnet"><div data-esp-carnet></div></section>
       <section class="esp-panneau cache" data-esp-panneau="series"><div data-esp-series></div></section>
 
@@ -525,6 +531,29 @@ export function creerEspaces(o) {
       poserImages($('[data-esp-series]'));
     }
 
+    // — le kit média (lib/kit.mjs) et la bibliothèque d'animations (lib/animations.mjs) —
+    const IC_GENRE = {image: 'image', police: 'texte', video: 'film', son: 'onde', document: 'texte', autre: 'trombone'};
+    const tailleTexte = (o) => (o >= 1e9 ? `${(o / 1e9).toFixed(1).replace('.', ',')} Go` : o >= 1e6 ? `${Math.round(o / 1e6)} Mo` : `${Math.max(1, Math.round(o / 1e3))} Ko`);
+    let kitARetirer = null;
+    function dessinerKit() {
+      const el = $('[data-esp-kit]');
+      const tete = `<div class="esp-kit-tete"><span class="espace"><b>${kit?.nb ? `${pluriel(kit.nb, 'fichier', 'fichiers')} · ${tailleTexte(kit.taille)}` : 'Le kit est vide'}</b><small>${client ? `Les logos, la charte, les polices et les fonds de ${esc(e.nom)} : ton IA les reçoit à chaque montage pour ce client, avec ce qu’est chaque fichier.` : 'Tes logos, ta charte, tes polices et tes fonds : ton IA les reçoit à chaque montage, avec ce qu’est chaque fichier et quand s’en servir.'}</small></span>
+        <button type="button" class="btn petit" data-esp="kit-ouvrir">${ic('dossier')}Ouvrir le dossier</button><button type="button" class="btn petit bleu" data-esp="kit-ajouter">${ic('plus')}Ajouter</button></div>`;
+      const regles = kit?.regles?.length ? `<details class="esp-kit-regles"><summary>${ic('aide')}Les règles du kit (${kit.regles.length})</summary><ul>${kit.regles.map((r) => `<li>${esc(r)}</li>`).join('')}</ul></details>` : '';
+      const groupes = (kit?.groupes ?? []).map((g, gi) => `<div class="esp-kit-groupe" style="--i:${Math.min(gi, 10)}"><h4>${esc(g.titre)} <i class="esp-nb">${g.elements.length}</i></h4>${g.texte ? `<p class="esp-aide">${esc(g.texte)}</p>` : ''}
+          <div class="esp-kit-grille">${g.elements.map((x) => `<div class="esp-kit-el" title="${esc([x.titre, x.fichier, ...(x.variantes ?? [])].join('\n'))}">
+            <span class="esp-kit-img g-${esc(x.genre)}"${['image', 'video'].includes(x.genre) ? ` data-esp-apercu="/api/espaces/${enc(id)}/kit/apercu?f=${encodeURIComponent(x.fichier)}"` : ''}>${ic(IC_GENRE[x.genre] ?? 'trombone')}${x.variantes?.length ? `<em title="Aussi en ${esc(x.variantes.map((v) => v.split('.').pop().toUpperCase()).join(', '))}">+${x.variantes.length}</em>` : ''}</span>
+            <b>${esc(x.titre)}</b>${x.texte || x.usage ? `<small>${esc([x.texte, x.usage ? `Pour : ${x.usage}` : ''].filter(Boolean).join(' '))}</small>` : ''}
+            ${kitARetirer === x.fichier ? `<span class="esp-kit-confirme"><button type="button" class="btn petit" data-esp="kit-non">Garder</button><button type="button" class="btn petit principal" data-esp="kit-oui" data-f="${esc(x.fichier)}">Retirer</button></span>` : `<button type="button" class="icone-btn esp-kit-retirer" data-esp="kit-retirer" data-f="${esc(x.fichier)}" title="Retirer du kit (rangé à part : rien n’est effacé)">${ic('poubelle')}</button>`}
+          </div>`).join('')}</div></div>`).join('');
+      const anim = `<div class="esp-kit-groupe"><h4>Bibliothèque d’animations ${animations.length ? `<i class="esp-nb">${animations.length}</i>` : ''}</h4>
+        ${animations.length ? `<p class="esp-aide">Des pièces que ton IA a faites pour tes montages (cartons de fin, transitions, titres…) et qu’elle réutilise au lieu de les réécrire : plus rapide, moins cher.</p><div class="esp-anims">${animations.map((a) => `<div class="esp-anim"><span class="espace"><b>${esc(a.nom.replace(/\.tsx?$/, ''))}</b><small>${esc([a.description, a.projet ? `faite pour « ${a.projet} »` : '', a.maj_le ? date(a.maj_le) : ''].filter(Boolean).join(' · '))}</small></span><button type="button" class="icone-btn" data-esp="anim-retirer" data-nom="${esc(a.nom)}" title="Retirer de la bibliothèque (rangée à part)">${ic('poubelle')}</button></div>`).join('')}</div>`
+          : `<p class="esp-aide">Vide pour l’instant. Quand ton IA fait une pièce qui resservira (un carton de fin à tes couleurs, une transition, un titre animé), elle la range ici ; aux montages suivants, elle la reprend au lieu de la refaire.</p>`}</div>`;
+      el.innerHTML = (kit?.nb ? tete + regles + groupes : tete + vide(ill('rushes'), 'Pas encore de kit', client ? `Ajoute les logos, la charte, les polices et les fonds de ${e.nom} : ton IA saura quoi poser, et quand.` : 'Ajoute tes logos, ta charte, tes polices et tes fonds : ton IA saura quoi poser, et quand.')) + anim;
+      $('[data-esp-nb="kit"]').innerHTML = nb(kit?.nb ?? 0);
+      poserImages(el);
+    }
+
     // — retirer ce client —
     function retirerHtml(confirmer) {
       return confirmer
@@ -618,6 +647,33 @@ export function creerEspaces(o) {
           note('Le carnet est effacé.');
           return signalerApres();
         }
+        if (a === 'kit-ouvrir') { await api('POST', `/api/espaces/${enc(id)}/kit/ouvrir`); return; }
+        if (a === 'kit-ajouter') {
+          const r = o.choisirSurOrdinateur ? await o.choisirSurOrdinateur('kit') : await api('POST', '/api/choisir', {usage: 'kit'});
+          if (r?.indisponible) return note('La fenêtre « Ouvrir » n’a pas pu s’ouvrir : mets tes fichiers dans le dossier du kit (« Ouvrir le dossier »).', true);
+          if (!r?.chemins?.length) return;
+          b.disabled = true;
+          const x = await api('POST', `/api/espaces/${enc(id)}/kit/ajouter`, {chemins: r.chemins});
+          kit = x.kit;
+          dessinerKit();
+          note(`${pluriel(x.ajoutes.length, 'fichier ajouté', 'fichiers ajoutés')} au kit. Ils sont dans « Ajoutés depuis Dérush » : ton IA les voit déjà.`);
+          return signalerApres();
+        }
+        if (a === 'kit-retirer') { kitARetirer = b.dataset.f; return dessinerKit(); }
+        if (a === 'kit-non') { kitARetirer = null; return dessinerKit(); }
+        if (a === 'kit-oui') {
+          const x = await api('POST', `/api/espaces/${enc(id)}/kit/retirer`, {fichier: b.dataset.f});
+          kit = x.kit;
+          kitARetirer = null;
+          dessinerKit();
+          return note('Retiré du kit. Il est rangé à part, dans le dossier du kit : rien n’est effacé.');
+        }
+        if (a === 'anim-retirer') {
+          await api('DELETE', `/api/espaces/${enc(id)}/animations/${encodeURIComponent(b.dataset.nom)}`);
+          animations = animations.filter((y) => y.nom !== b.dataset.nom);
+          dessinerKit();
+          return note('Animation retirée de la bibliothèque (rangée à part).');
+        }
         if (a === 'serie-retirer') { serieAConfirmer = b.dataset.id; return dessinerSeries(); }
         if (a === 'serie-non') { serieAConfirmer = null; return dessinerSeries(); }
         if (a === 'serie-oui') {
@@ -691,6 +747,7 @@ export function creerEspaces(o) {
     dessinerPolices();
     dessinerCarnet();
     dessinerSeries();
+    dessinerKit();
     texteApprendre();
     pied();
     choisirOnglet(['essentiel', 'marque', 'carnet', 'series'].includes(onglet) ? onglet : 'essentiel');

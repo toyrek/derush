@@ -919,9 +919,87 @@ const illisible = (m) => m.etat === 'erreur' && (m.etapes?.proxy === 'erreur' ||
 const motErreurMedia = (m) => (illisible(m)
   ? `<span title="Ce fichier ne se lit pas. Menu « … » pour réessayer.">${ic('attention')}illisible</span>`
   : `<span title="${esc(`Préparation incomplète (${etapesRatees(m).join(', ') || 'une étape'}). Tu peux quand même le regarder et le monter ; menu « … » pour réessayer.`)}">${ic('attention')}incomplet</span>`);
+// ——— Les médias déplacés ou renommés depuis l'import : une bande « Retrouver », comme « Localiser » ailleurs ———
+ui.introuvables = new Set();
+async function verifierIntrouvables(force = false) {
+  if (!P) return;
+  const cle = P.medias.map((m) => m.id).join(',');
+  if (!force && ui.introuvablesCle === cle) return;
+  ui.introuvablesCle = cle;
+  let r;
+  try { r = await api('GET', '/api/medias/introuvables'); } catch { return; }
+  ui.introuvables = new Set((r.medias ?? []).map((m) => m.id));
+  dessinerManquants(r.medias ?? []);
+  const L = $('#grille-medias');
+  if (L) L.dataset.cle = '';
+  rendreRushes();
+}
+function dessinerManquants(liste) {
+  let bande = $('#medias-manquants');
+  if (!liste.length) { bande?.remove(); return; }
+  if (!bande) {
+    bande = document.createElement('div');
+    bande.id = 'medias-manquants';
+    bande.className = 'medias-manquants';
+    $('#p-medias').insertBefore(bande, $('#grille-medias'));
+    bande.addEventListener('click', async (e) => {
+      if (!e.target.closest('[data-retrouver]')) return;
+      let r;
+      try { r = await choisirSurOrdinateur('retrouver'); } catch (err) { return note(err.message, true); }
+      const chemin = r?.chemins?.[0];
+      if (!chemin) return;
+      try {
+        const x = await api('POST', '/api/medias/retrouver', {chemin});
+        note(x.retrouves ? `${x.retrouves} média${x.retrouves > 1 ? 's' : ''} retrouvé${x.retrouves > 1 ? 's' : ''}.${x.restants.length ? ` Il en manque encore ${x.restants.length} : montre un autre dossier.` : ''}` : 'Aucun des fichiers manquants dans ce dossier : montre le dossier où tu les as mis.', !x.retrouves);
+        suivreFile();
+      } catch (err) { note(err.message, true); }
+      verifierIntrouvables(true);
+    });
+  }
+  bande.innerHTML = `${ic('attention')}<span><b>${liste.length} média${liste.length > 1 ? 's' : ''} introuvable${liste.length > 1 ? 's' : ''}</b><small title="${esc(liste.slice(0, 12).map((m) => m.nom).join('\n'))}">Déplacé${liste.length > 1 ? 's' : ''} ou renommé${liste.length > 1 ? 's' : ''} depuis l’import : ${esc(liste.slice(0, 3).map((m) => m.nom).join(', '))}${liste.length > 3 ? '…' : ''}</small></span><button class="btn petit bleu" data-retrouver title="Montre un des fichiers déplacés : Dérush retrouve les autres dans le même dossier">Retrouver…</button>`;
+}
+
+// ——— Ce que ton IA a téléchargé ou fabriqué (images, sons, vidéos) : montré sous tes médias, repris d'un clic ———
+async function chargerDeLIA(force = false) {
+  if (!P) return;
+  const cle = `${P.titre}:${ui.claude?.versions?.at(-1)?.n ?? 0}:${ui.claude?.en_cours ? 1 : 0}`;
+  if (!force && ui.deLIACle === cle) return;
+  ui.deLIACle = cle;
+  let r;
+  try { r = await api('GET', '/api/medias/ia'); } catch { return; }
+  dessinerDeLIA(r.fichiers ?? []);
+}
+function dessinerDeLIA(liste) {
+  let z = $('#medias-ia');
+  if (!liste.length) { z?.remove(); return; }
+  if (!z) {
+    z = document.createElement('details');
+    z.id = 'medias-ia';
+    z.className = 'medias-ia';
+    // en haut des médias, replié : visible même avec une centaine de rushes
+    $('#p-medias').insertBefore(z, $('#grille-medias'));
+    z.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-ia-ajouter]');
+      if (!b) return;
+      b.disabled = true;
+      try {
+        await api('POST', '/api/medias/ia/ajouter', {fichier: b.dataset.iaAjouter});
+        note('Ajouté à tes médias : une copie, rangée dans le dossier « De l’IA » du projet.');
+        suivreFile();
+      } catch (err) { b.disabled = false; note(err.message, true); }
+    });
+  }
+  const ouvert = z.open;
+  z.innerHTML = `<summary>${ic('etincelle', 'plein')}<b>Trouvés ou faits par ton IA</b><i class="esp-nb">${liste.length}</i></summary>
+    <div class="medias-ia-grille">${liste.map((f) => `<div class="medias-ia-el" title="${esc(`${f.fichier} · ${f.taille_lisible}`)}"><span class="mi-img">${f.type === 'image' ? `<img src="/ia-fichier?f=${encodeURIComponent(f.fichier)}&j=${JETON}" alt="" loading="lazy" draggable="false">` : ic(f.type === 'son' ? 'onde' : 'film')}</span><small>${esc(f.nom)}</small><button class="icone-btn" data-ia-ajouter="${esc(f.fichier)}" title="Ajouter à mes médias">${ic('plus')}</button></div>`).join('')}</div>`;
+  z.open = ouvert;
+}
+
 function rendreRushes() {
   const L = $('#grille-medias');
   if (ui.glisseMedia) return; // pas de réaffichage pendant qu'on glisse une vignette
+  if (P) setTimeout(() => chargerDeLIA(), 0);
+  if (P && ui.introuvablesCle !== P.medias.map((m) => m.id).join(',')) setTimeout(() => verifierIntrouvables(), 0);
   const enCours = SRV.file?.en_cours;
   const usage = (id) => [...P.montage, ...P.superpositions].filter((it) => it.media === id).length;
   const reponses = reponsesVoixOff();
@@ -1240,6 +1318,10 @@ function pastillesMedia(m, reponses = reponsesVoixOff()) {
   const p = [];
   const rep = reponses.get(m.id);
   if (rep) p.push(`<span class="pa vo" title="${esc(`Ta réponse à la question ${rep.n} de la voix off : « ${rep.texte} »`)}">${ic('dialogue')}Réponse ${rep.n}</span>`);
+  // joint dans la conversation (une voix enregistrée, une musique, un logo, un rush) : son rôle, comme pour l'IA
+  if (ui.introuvables?.has(m.id)) p.push('<span class="pa alerte" title="Le fichier n’est plus à sa place : « Retrouver… » en haut des médias">introuvable</span>');
+  const conv = m.de_la_conversation;
+  if (conv) p.push(`<span class="pa conv" title="Joint dans ta conversation avec l’IA, qui l’a reçu aussi">${ic(conv.role === 'voix' ? 'micro' : conv.role === 'musique' ? 'onde' : conv.role === 'logo' ? 'etincelle' : 'trombone')}${esc({voix: 'voix', musique: 'musique', logo: 'logo', rush: 'rush'}[conv.role] ?? 'joint')}</span>`);
   if (m.couleur?.profil && m.couleur.profil !== 'normal') p.push(`<span class="pa log" title="Couleurs de la caméra converties">${ic('palette')}${esc(m.couleur.camera === 'dlogm' ? 'D-Log M' : m.couleur.profil === 'lut' ? 'LUT' : m.couleur.profil === 'auto' ? 'Log' : 'Log')}</span>`);
   else if (m.mesures?.defauts?.some((d) => d.id === 'log')) p.push('<span class="pa alerte" title="Image grise et plate : sans doute filmé en Log. Ouvre le menu « … » pour la convertir.">Log ?</span>');
   if (m.clair) p.push(`<span class="pa vert" title="Voix claire faite">${ic('filtre')}clair</span>`);
@@ -4305,6 +4387,7 @@ $('#b-biblio').addEventListener('click', async () => {
 $('#b-format').addEventListener('click', feuilleBrief);
 $('#b-espace').addEventListener('click', () => changerEspaceProjet());
 $('#b-tableau').addEventListener('click', () => TB.ouvrir({espace: ui.espace?.id ?? P?.espace ?? null}));
+$('#b-exporter').addEventListener('click', () => feuilleExporter());
 $('#b-claude').addEventListener('click', () => montrerClaude(true));
 $('#b-zones').addEventListener('click', () => { ui.zones = !ui.zones; majZones(); });
 $('#b-reglages').addEventListener('click', feuilleReglages);
@@ -4998,6 +5081,62 @@ function feuilleCreer(choix = null) {
     lancerRenduOuvert($('#cr-reseau', f).value);
   });
 }
+// ——— Exporter, comme dans CapCut : la vidéo (ta timeline ou celle de l'IA), la qualité, une copie par réseau ———
+const NOMS_COPIES = {tiktok: 'TikTok', instagram: 'Instagram', youtube: 'YouTube'};
+async function feuilleExporter() {
+  if (!P) return;
+  let o;
+  try { await sauver(true); o = await api('GET', '/api/exporter/options'); } catch (err) { return note(err.message, true); }
+  const derniere = o.ia.find((x) => x.derniere) ?? o.ia[0] ?? null;
+  const C = {
+    // la vidéo de l'IA, sauf si tu as retouché ta timeline depuis (ou si tu la regardes) : comme « Exporter » de CapCut, ce que tu viens de voir
+    source: derniere && (!seq.segs.length || ui.vue === 'claude' || !ui.claude?.montage_change) ? 'ia' : seq.segs.length ? 'timeline' : derniere ? 'ia' : null,
+    video: derniere?.nom ?? null,
+    qualite: String(prefs.lire('export.qualite', '2160')),
+    reseaux: new Set([].concat(prefs.lire('export.reseaux', [])).filter((k) => NOMS_COPIES[k])),
+  };
+  if (!C.source) return note('Rien à exporter pour l’instant : monte ta vidéo dans la timeline, ou demande-la à ton IA.', true);
+  const choisie = () => (C.source === 'ia' ? o.ia.find((x) => x.nom === C.video) : {...o.timeline, plus_grand: true});
+  const f = feuille(`<h3>Exporter</h3><p class="sous-titre">Ta vidéo en un seul fichier, prête à publier, rangée dans le dossier « vidéos » du projet. Jamais moins bien que ce que tu vois.</p>
+    <div class="ex-sources" id="ex-sources"></div>
+    <div class="champ"><span>Qualité</span><div class="segmente ex-qualites" id="ex-qualites"></div><small class="ex-pourquoi" id="ex-pourquoi"></small></div>
+    <div class="champ"><span>Une copie par réseau <small>en plus, dans « vidéos / par réseau » ; Instagram en 1080p (il n’en garde pas plus)</small></span><div class="ex-reseaux" id="ex-reseaux"></div></div>
+    <div class="pied"><button class="btn" data-fermer>Annuler</button><button class="btn principal" data-go>${ic('rendu')}Exporter</button></div>`);
+  const dessiner = () => {
+    const v = choisie();
+    $('#ex-sources', f).innerHTML = `${o.timeline.plans ? `<button class="ex-source${C.source === 'timeline' ? ' actif' : ''}" data-ex-source="timeline">${ic('ciseaux')}<span><b>Ma timeline</b><small>${o.timeline.largeur} × ${o.timeline.hauteur} · ${o.timeline.plans} plan${o.timeline.plans > 1 ? 's' : ''}, avec tes effets</small></span></button>` : ''}
+      ${o.ia.slice(0, 6).map((x) => `<button class="ex-source${C.source === 'ia' && C.video === x.nom ? ' actif' : ''}" data-ex-source="ia" data-ex-video="${esc(x.nom)}">${logo(x.moteur, 18)}<span><b>${esc(x.titre)}${x.derniere ? ' <i>dernière</i>' : ''}</b><small>${x.largeur ?? '?'} × ${x.hauteur ?? '?'}${x.duree ? ` · ${esc(dureeLisible(x.duree))}` : ''} · version ${x.version}</small></span></button>`).join('')}`;
+    const qs = v?.qualites ?? [];
+    if (!qs.some((q) => q.id === C.qualite && q.possible && (q.echelle <= 1.01 || v.plus_grand))) C.qualite = [...qs].reverse().find((q) => q.possible && (q.echelle <= 1.01 || v.plus_grand))?.id ?? '1080';
+    $('#ex-qualites', f).innerHTML = qs.map((q) => { const ok = q.possible && (q.echelle <= 1.01 || v.plus_grand); return `<button data-ex-qualite="${q.id}"${q.id === C.qualite ? ' class="actif"' : ''}${ok ? '' : ' disabled'} title="${esc(ok ? `${q.largeur} × ${q.hauteur}. ${q.pourquoi}` : (q.possible ? v.pourquoi : q.pourquoi) ?? '')}"><b>${q.nom}</b><small>${q.largeur} × ${q.hauteur}</small></button>`; }).join('');
+    const q = qs.find((x) => x.id === C.qualite);
+    const bloque = qs.filter((x) => !(x.possible && (x.echelle <= 1.01 || v.plus_grand)));
+    $('#ex-pourquoi', f).textContent = [q?.pourquoi, bloque.length ? (bloque.some((x) => x.possible) ? v.pourquoi : bloque[0].pourquoi) : null].filter(Boolean).join(' ');
+    $('#ex-reseaux', f).innerHTML = Object.entries(NOMS_COPIES).map(([k, n]) => `<button class="pp-puce${C.reseaux.has(k) ? ' actif' : ''}" data-ex-reseau="${k}">${logo(k, 16)}${n}</button>`).join('');
+  };
+  dessiner();
+  f.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-fermer]')) return fermerFeuille();
+    const s = e.target.closest('[data-ex-source]');
+    // une autre vidéo : la qualité que tu préfères, si elle est possible pour elle (sinon la meilleure possible)
+    if (s) { C.source = s.dataset.exSource; if (s.dataset.exVideo) C.video = s.dataset.exVideo; C.qualite = String(prefs.lire('export.qualite', '2160')); return dessiner(); }
+    const q = e.target.closest('[data-ex-qualite]');
+    if (q && !q.disabled) { C.qualite = q.dataset.exQualite; prefs.ecrire('export.qualite', C.qualite); return dessiner(); }
+    const r = e.target.closest('[data-ex-reseau]');
+    if (r) { if (C.reseaux.has(r.dataset.exReseau)) C.reseaux.delete(r.dataset.exReseau); else C.reseaux.add(r.dataset.exReseau); prefs.ecrire('export.reseaux', [...C.reseaux]); return dessiner(); }
+    if (!e.target.closest('[data-go]')) return;
+    arreterLecture();
+    try {
+      const {tache} = await api('POST', '/api/exporter/video', {source: C.source, video: C.video, qualite: Number(C.qualite), reseaux: [...C.reseaux], plateforme: styleDuProjet().plateforme});
+      ui.renduTache = tache;
+      const nomQ = choisie()?.qualites?.find((x) => x.id === C.qualite)?.nom ?? '';
+      feuille(`<h3>Export en ${esc(nomQ)}…</h3><p class="sous-titre">${C.source === 'ia' ? 'La vidéo de ton IA est rendue de nouveau, image par image, à cette taille : le même montage, des images plus fines.' : 'Ta timeline est rendue image par image, puis le son est réglé et la vidéo contrôlée.'} Tu peux masquer cette fenêtre et continuer : elle revient quand c’est prêt.</p>
+        <div class="jauge"><i id="jauge-rendu" style="width:2%"></i></div><p class="dim" id="etat-rendu" style="margin-top:10px">En attente…</p>
+        <div class="pied"><button class="btn" data-fermer>Masquer</button></div>`).querySelector('[data-fermer]').onclick = fermerFeuille;
+      suivreFile();
+    } catch (err) { note(err.message, true); }
+  });
+}
 /** Crée la vidéo ouverte, figée au clic, puis montre le suivi (la feuille revient quand elle est prête). */
 async function lancerRenduOuvert(plateforme) {
   arreterLecture();
@@ -5021,10 +5160,11 @@ function afficherRendu(t, {retour = null} = {}) {
     return;
   }
   const r = t.resultat;
-  const f = feuille(`<h3>${ic('ok')} ${r.sequence?.nom ? `« ${esc(r.sequence.nom)} » est prête` : 'Ta vidéo est prête'}</h3><p class="sous-titre">${esc(r.reseau_nom)} · ${r.largeur} × ${r.hauteur} · ${dureeLisible(r.duree)} · ${esc(r.taille_lisible)}</p>
+  const f = feuille(`<h3>${ic('ok')} ${r.sequence?.nom ? `« ${esc(r.sequence.nom)} » est prête` : r.qualite ? `Ta vidéo en ${esc(r.qualite)} est prête` : 'Ta vidéo est prête'}</h3><p class="sous-titre">${esc(r.reseau_nom)} · ${r.largeur} × ${r.hauteur} · ${dureeLisible(r.duree)} · ${esc(r.taille_lisible)}</p>
     <div class="resultat-video${r.largeur > r.hauteur ? ' large' : ''}"><video src="/video?nom=${encodeURIComponent(r.nom)}&j=${JETON}" controls playsinline></video>
       <div class="verifs" style="margin:0">${r.controles.map((c) => `<div class="verif petit ${c.ok ? (c.info ? 'info' : 'ok') : 'attention'}">${ic(c.ok ? 'ok' : 'attention')}<div class="espace">${esc(c.t)}${c.d ? `<small>${esc(c.d)}</small>` : ''}</div></div>`).join('')}
-      ${(r.avertissements ?? []).map((a) => `<div class="verif petit attention">${ic('attention')}<div class="espace">${esc(a)}</div></div>`).join('')}</div></div>
+      ${(r.avertissements ?? []).map((a) => `<div class="verif petit attention">${ic('attention')}<div class="espace">${esc(a)}</div></div>`).join('')}
+      ${r.copies?.length ? `<div class="verif petit info">${ic('dupliquer')}<div class="espace">Une copie par réseau : ${esc(r.copies.map((c) => NOMS_COPIES[c.reseau] ?? c.reseau).join(', '))}<small>Dans « vidéos / par réseau ».</small></div></div>` : ''}</div></div>
     <div class="apres-rendu"><div><b>Et maintenant ?</b><small>Avant de la publier, fais-la analyser : ton IA te dit ce qui retient les gens et ce qui les fait partir. Puis partage-la avec les bonnes légendes et les bons hashtags.</small></div>
       <button class="btn" data-analyser>${ic('eclair')}Analyser</button><button class="btn claude" data-partager>${ic('publier')}<span>Partager</span></button></div>
     <div class="pied">${retour ? `<button class="btn" data-retour>${ic('retour')}Toutes les vidéos</button>` : ''}<button class="btn" data-finder>${ic('finder')}Afficher dans le dossier</button><span class="espace"></span><button class="btn" data-ia>${ic('etincelle', 'plein')}Aller plus loin avec l’IA</button><button class="btn principal" data-fermer>OK</button></div>`, true);
@@ -5568,10 +5708,12 @@ function bulleHumain(x, c) {
     const e = c.en_cours;
     const m = e?.messages?.find((y) => y.quand === x.quand);
     const qui = nomIA(e?.moteur);
-    etat = `<small class="cl-pendant">${ic(m?.lu || !e ? 'coche' : 'horloge')}${!e ? 'Écrit pendant le travail' : m?.lu ? `Lu par ${qui}` : e.ecoute && m?.envoye ? `${qui} le lira au prochain geste` : e.ecoute && e.etape === 'preparation' ? `Partira avec la demande` : `Partira dès que ${qui} aura fini`}</small>`;
+    etat = `<small class="cl-pendant">${ic(m?.lu || !e ? 'coche' : 'horloge')}${!e ? (x.apres ? 'Écrit pour après le travail' : 'Écrit pendant le travail') : m?.lu ? `Lu par ${qui}` : x.apres || m?.apres ? `Partira quand ${qui} aura fini ce travail` : m?.prepare ? `${qui} le recevra dès que tes pièces seront prêtes` : e.ecoute && m?.envoye ? `${qui} le lira au prochain geste` : e.ecoute && e.etape === 'preparation' ? `Partira avec la demande` : `Partira dès que ${qui} aura fini`}</small>`;
   }
-  return `<div class="cl-b humain${x.pendant ? ' pendant' : ''}">${pj.length ? `<div class="cl-b-pj">${pj.map((p) => vignettePiece(p, true)).join('')}</div>` : ''}${x.texte ? `<div>${esc(x.texte)}</div>` : ''}${etat}</div>`;
+  return `<div class="cl-b humain${x.pendant ? ' pendant' : ''}">${pj.length ? `<div class="cl-b-pj">${pj.map((p) => vignettePiece(p, true)).join('')}</div>` : ''}${x.texte ? `<div class="selectionnable">${esc(x.texte)}</div>` : ''}${etat}${x.texte ? boutonCopier(x) : ''}</div>`;
 }
+/** « Copier » : le texte d'un message, tel quel, dans le presse-papiers (pour le donner à une autre IA, le garder…). */
+const boutonCopier = (x) => `<button class="cl-copier" data-cl="copier" data-quand="${esc(x.quand ?? '')}" title="Copier ce message">${ic('copier')}</button>`;
 function bulleClaude(x, c) {
   if (x.role === 'humain') return bulleHumain(x, c);
   const v = x.version ? c.versions.find((y) => y.n === x.version) : null;
@@ -5582,7 +5724,7 @@ function bulleClaude(x, c) {
   const questions = x === c.echanges.at(-1) && !c.en_cours && !x.erreur ? questionsALaFin(x.texte) : [];
   const repondre = questions.length ? `<div class="cl-repondre"><button class="btn petit" data-cl="repondre" data-n="${questions.length}" title="Prépare tes réponses, numérotées, dans la zone d’écriture">${ic('bulle')}Répondre</button>${VO.questionsOuvertes()
     ? `<button class="btn petit" data-cl="vo-ouvrir" title="Réponds question par question, par écrit ou au micro : tes réponses servent à ta voix off">${ic('micro')}Au micro</button>` : ''}</div>` : '';
-  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
+  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}${x.texte ? boutonCopier(x) : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
 }
 /** La bulle de l'IA au travail : la bobine tourne, une ligne dit ce qu'elle fait, son rendu passe en petit ; le détail se déplie. */
 // Ce qu'une demande dure d'ordinaire à chaque niveau (avant que cet ordinateur en ait mesuré une lui-même)
@@ -5594,6 +5736,7 @@ function bulleTravail(c) {
     <ol class="cl-etapes" id="cl-etapes">${ETAPES_TRAVAIL.map(([k, n]) => `<li data-etape="${k}"><i></i><span>${n}</span></li>`).join('')}</ol>
     <div class="cl-barre"><i id="cl-jauge"></i></div>
     <p class="cl-attente" id="cl-attente"></p>
+    <div class="cl-provisoire cache" id="cl-provisoire"></div>
     <button class="cl-mini cache" id="cl-mini" data-cl="voir-direct" title="Voir en grand dans le lecteur"><img alt=""><span></span></button>
     <details class="ia-detail"${ui.clDetail ? ' open' : ''}><summary>Voir le détail</summary><ul class="cl-activite" id="cl-activite"></ul></details>
     <button class="cl-lien" data-cl="pourquoi-long">${ic('aide')}Pourquoi c’est long, et que faire en attendant ?</button></div>`;
@@ -5648,7 +5791,7 @@ function majTravail(c) {
   const qui = nomIA(e.moteur);
   $('#cl-etape').textContent = e.arret ? 'Arrêt en cours…'
     : e.etape === 'preparation' ? (P.montage.length ? 'Dérush prépare tes plans' : 'Dérush prépare tes rushes')
-      : e.etape === 'livraison' ? 'Dérush récupère tes vidéos'
+      : e.etape === 'livraison' ? (e.reponse ? `${qui} a fini : Dérush vérifie la vidéo` : 'Dérush récupère tes vidéos')
         : enRendu ? (r.etape === 'assemblage' ? `${qui} prépare le rendu de « ${r.titre} »` : r.etape === 'son' ? `${qui} mixe le son de « ${r.titre} »` : `${qui} rend « ${r.titre} » · ${pct} %`)
           : etapeClaude(e.activite.at(-1), qui);
   // l'étape où l'on en est (et celles déjà passées)
@@ -5659,6 +5802,12 @@ function majTravail(c) {
   if (attente) {
     const habituel = e.habituel_s ? `d’habitude ${dureeLisible(e.habituel_s)} à ce niveau sur ton ordinateur` : DUREES_NIVEAU[e.qualite] ?? '';
     attente.innerHTML = `${habituel ? `${esc(habituel.charAt(0).toUpperCase() + habituel.slice(1))}. ` : ''}${e.ecoute ? `Tu peux lui écrire : il le lira au prochain geste.` : `Tu peux écrire la suite : elle partira à la fin.`}`;
+  }
+  // sa réponse, à lire tout de suite, pendant que Dérush contrôle encore la vidéo (textes, voix, rythme)
+  const prov = $('#cl-provisoire');
+  if (prov) {
+    prov.classList.toggle('cache', !e.reponse);
+    if (e.reponse && prov.dataset.texte !== e.reponse) { prov.dataset.texte = e.reponse; prov.innerHTML = `<small>${ic('coche')}Sa réponse, pendant que Dérush vérifie la vidéo (textes à l’écran, voix, rythme) :</small><div class="cl-texte-b">${mdLeger(e.reponse)}</div>`; }
   }
   const jauge = $('#cl-jauge');
   const mesure = e.etape === 'preparation' || (enRendu && r.etape === 'rendu');
@@ -5693,7 +5842,7 @@ setInterval(() => { const el = $('#cl-temps'); if (el && ui.claude?.en_cours && 
 
 const hauteurTexte = (ta) => { ta.style.height = 'auto'; ta.style.height = `${Math.min(220, Math.max(64, ta.scrollHeight))}px`; };
 // pendant le travail, seul un texte peut partir (les pièces jointes et les réglages attendent la fin)
-const majEnvoi = () => { const b = $('#cl-envoyer'); if (b) b.disabled = ui.claude?.en_cours ? !ui.brouillon.trim() || !!ui.claude.en_cours.arret : !(ui.brouillon.trim() || piecesEnAttente().length || ui.reglagesIA.length) || !iaPrete(); };
+const majEnvoi = () => { const b = $('#cl-envoyer'); if (b) b.disabled = ui.claude?.en_cours ? !(ui.brouillon.trim() || piecesEnAttente().length) || !!ui.claude.en_cours.arret :!(ui.brouillon.trim() || piecesEnAttente().length || ui.reglagesIA.length) || !iaPrete(); };
 $('#claude').addEventListener('click', (e) => {
   const i = e.target.closest('[data-reglage-i]')?.dataset.reglageI;
   if (i == null) return;
@@ -5783,6 +5932,18 @@ function rendreClaude() {
   const anciennes = c.versions.filter((v) => !dansLeFil.has(v.n));
   const bande = anciennes.length ? `<div class="cl-anciennes"><span>${suite ? 'Versions d’avant' : 'Vidéos déjà faites'}</span>${anciennes.map((v) => `<button data-version="${v.n}"${ui.vue === 'claude' && ui.versionVue === v.n ? ' class="actif"' : ''} title="Regarder la version ${v.n}">${ic('lire', 'plein')}v${v.n}${v.videos.length > 1 ? ` · ${v.videos.length}` : ''}</button>`).join('')}</div>` : '';
   const relances = suite && pret && !c.en_cours && c.echanges.at(-1)?.role === 'claude' && !c.echanges.at(-1)?.erreur ? blocIdees(true) : '';
+  // après un montage livré : ton IA demande la permission d'apprendre de tes vidéos publiées (leurs chiffres)
+  const finLivree = suite && pret && !c.en_cours && c.echanges.at(-1)?.role === 'claude' && !!c.echanges.at(-1)?.version;
+  if (finLivree) {
+    const cleP = `${ui.espace?.id ?? 'moi'}:${c.versions.at(-1)?.n ?? 0}`;
+    if (ui.propApprendreCle !== cleP) {
+      ui.propApprendreCle = cleP;
+      ui.propApprendre = null;
+      api('GET', `/api/apprendre/proposition?espace=${encodeURIComponent(ui.espace?.id ?? 'moi')}`).then((r) => { ui.propApprendre = r; if (r.proposer) rendreClaude(); }).catch(() => {});
+    }
+  }
+  const pa = finLivree && ui.propApprendre?.proposer ? ui.propApprendre : null;
+  const apprendre = pa ? `<div class="ia-apprendre">${ic('etincelle', 'plein')}<span><b>Apprendre de tes vidéos publiées ?</b><small>${pa.meilleure?.titre ? `« ${esc(pa.meilleure.titre)} »` : 'Ta meilleure vidéo'} : ${esc(Number(pa.meilleure?.vues ?? 0).toLocaleString('fr-FR'))} vues${pa.meilleure?.multiple ? ` (${esc(String(pa.meilleure.multiple).replace('.', ','))} fois ta moyenne)` : ''}. Ton IA peut regarder ce qui a marché sur tes ${pa.avec_chiffres} vidéo${pa.avec_chiffres > 1 ? 's' : ''} suivie${pa.avec_chiffres > 1 ? 's' : ''}, et s’en servir aux prochains montages.</small></span><div class="ia-apprendre-act"><button class="btn petit" data-cl="apprendre-non">Plus tard</button><button class="btn petit claude" data-cl="apprendre-oui">Oui, regarde</button></div></div>` : '';
   // en bas : le montage a changé depuis ? (sinon, rien à choisir) puis la zone d'écriture
   // (l'espace a changé : montage_change est vrai aussi, car l'empreinte du montage contient l'espace ; rien à choisir)
   const changement = suite && !c.en_cours && c.espace_change ? `<div class="ia-change">${ic('attention')}<span>Ce projet est maintenant pour ${esc(ui.espace?.nom ?? 'un autre espace')} : ton IA repartira d’un dossier et d’une conversation neufs.</span></div>`
@@ -5797,7 +5958,7 @@ function rendreClaude() {
     ${attente.length ? `<div class="cl-pjs">${attente.map(pucePiece).join('')}</div>` : ''}
     <textarea id="cl-texte" rows="2" spellcheck="true" placeholder="${esc(texteVide)}"${pret ? '' : ' disabled'}></textarea>
     <div class="cl-envoi"><button class="cl-joindre" data-cl="joindre" title="Joindre des fichiers : références, vidéos, charte graphique, logo, polices, zip… Tu peux aussi les glisser ou les coller ici.">${ic('trombone')}</button>${c.drive?.synchronise ? `<button class="cl-joindre" data-cl="joindre-drive" title="Joindre depuis ton Google Drive">${logo('drive', 16)}</button>` : ''}
-    <span class="espace"></span>${c.en_cours ? `<button data-cl="arreter" class="stop" title="Arrêter ${qui}">${ic('stop', 'plein')}</button><button data-cl="envoyer" id="cl-envoyer" title="${c.en_cours.ecoute ? `Lui écrire pendant son travail (⌘↵)` : 'Envoyer à la fin de son travail (⌘↵)'}">${ic('envoi')}</button>` : `<button data-cl="envoyer" id="cl-envoyer" title="Envoyer à ${qui} (⌘↵)">${ic('envoi')}</button>`}</div>
+    <span class="espace"></span>${c.en_cours ? `${c.en_cours.ecoute ? `<div class="segmente cl-quand" title="Quand ton message part : tout de suite (l’IA le lit au prochain geste, sans s’arrêter), ou quand elle a fini ce travail (une nouvelle demande)"><button data-cl="quand-envoyer" data-apres="0"${ui.apresTravail ? '' : ' class="actif"'}>Maintenant</button><button data-cl="quand-envoyer" data-apres="1"${ui.apresTravail ? ' class="actif"' : ''}>Après ce travail</button></div>` : ''}<button data-cl="arreter" class="stop" title="Arrêter ${qui}">${ic('stop', 'plein')}</button><button data-cl="envoyer" id="cl-envoyer" title="${c.en_cours.ecoute ? (ui.apresTravail ? 'Envoyer quand il aura fini ce travail (⌘↵)' : 'Lui écrire pendant son travail (⌘↵)') : 'Envoyer à la fin de son travail (⌘↵)'}">${ic('envoi')}</button>` : `<button data-cl="envoyer" id="cl-envoyer" title="Envoyer à ${qui} (⌘↵)">${ic('envoi')}</button>`}</div>
     <div class="cl-depot-ici">${ic('trombone')}<span>Lâche ici : ${qui} le recevra avec ton message</span></div></div>`;
   // pour qui l'IA monte ce projet : toujours visible près de la zone d'écriture (un clic pour changer)
   const E = ui.espace;
@@ -5805,7 +5966,7 @@ function rendreClaude() {
   // les cartes du pied (le montage a changé, le Drive, la voix off, la vidéo ouverte) : elles défilent entre elles quand la
   // colonne est courte, pour que la conversation garde sa place (style.css, .cl-cartes)
   const cartesPied = `${changement}${carteDrive()}${VO.carte()}${SQ.ligneIA()}`.trim();
-  box.innerHTML = `${tete}<div class="cl-haut" id="cl-haut">${recus}${brancher}${accueil}${fil}${reprendre}${bande}${relances}</div>
+  box.innerHTML = `${tete}<div class="cl-haut" id="cl-haut">${recus}${brancher}${accueil}${fil}${reprendre}${bande}${apprendre}${relances}</div>
     <div class="cl-pied">${cartesPied ? `<div class="cl-cartes">${cartesPied}</div>` : ''}${pour}${compose}</div>`;
   const haut = $('#cl-haut', box);
   const ta = $('#cl-texte', box);
@@ -5851,16 +6012,19 @@ async function envoyerDemande() {
   const texte = ui.brouillon.trim();
   const pj = piecesEnAttente();
   if (!c || envoiDemande) return;
-  // l'IA travaille : le message lui est ajouté (lu en route par Claude, envoyé à la fin pour Codex et Gemini)
+  // l'IA travaille : le message lui est ajouté (lu en route par Claude, envoyé à la fin pour Codex et Gemini), avec ses
+  // pièces jointes ; « Après ce travail » le garde pour la fin, même avec Claude
   if (c.en_cours) {
-    if (!texte) return $('#cl-texte')?.focus();
+    if (!texte && !pj.length) return $('#cl-texte')?.focus();
     const b = $('#cl-envoyer');
     if (b) b.disabled = true;
     envoiDemande = true;
     try {
-      const r = await api('POST', '/api/claude/ajouter', {message: texte});
+      const apres = !!ui.apresTravail && !!c.en_cours.ecoute;
+      const r = await api('POST', '/api/claude/ajouter', {message: texte, pieces: pj.map((x) => x.id), apres});
       ui.brouillon = '';
-      note(r.lu_en_route ? `${nomIA(c.en_cours.moteur)} lira ton message au prochain geste.` : `Ton message partira dès que ${nomIA(c.en_cours.moteur)} aura fini.`);
+      const qui = nomIA(c.en_cours.moteur);
+      note(r.apres ? `Ton message partira quand ${qui} aura fini ce travail.` : r.pieces ? `${qui} recevra ton message et ${r.pieces > 1 ? `tes ${r.pieces} fichiers` : 'ton fichier'} dès qu’ils seront prêts.` : r.lu_en_route ? `${qui} lira ton message au prochain geste.` : `Ton message partira dès que ${qui} aura fini.`);
       await chargerClaude();
     } catch (err) { note(err.message, true); majEnvoi(); } finally { envoiDemande = false; }
     return;
@@ -6036,7 +6200,32 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'tableau') return TB.ouvrir({espace: ui.notes?.espace?.id ?? ui.espace?.id ?? null});
     if (act === 'pour-qui') return changerEspaceProjet();
     if (act === 'regler-espace') return ESP.feuilleEspace(e.target.closest('[data-espace]').dataset.espace);
-    if (act === 'copier') { await copierTexte(e.target.closest('[data-texte]').dataset.texte); return note('Copié : colle-le dans l’app du réseau.'); }
+    if (act === 'copier') {
+      // un message de la conversation (le sien ou celui de l'IA), tel qu'il a été écrit
+      const q = e.target.closest('[data-quand]')?.dataset.quand;
+      if (q != null) {
+        const x = c.echanges.find((y) => (y.quand ?? '') === q);
+        if (!x?.texte) return;
+        await copierTexte(x.texte);
+        return note('Message copié.');
+      }
+      await copierTexte(e.target.closest('[data-texte]').dataset.texte);
+      return note('Copié : colle-le dans l’app du réseau.');
+    }
+    if (act === 'apprendre-oui') {
+      try {
+        await api('POST', '/api/recette/analyser', {espace: ui.espace?.id ?? 'moi', moteur: moteurIA()});
+        ui.propApprendre = {proposer: false};
+        rendreClaude();
+        return note('Ton IA regarde ce qui a marché (une à trois minutes). Sa recette sera dans ton tableau de bord, et elle s’en servira au prochain montage.');
+      } catch (err) { return note(err.message, true); }
+    }
+    if (act === 'apprendre-non') {
+      await api('POST', '/api/apprendre/plus-tard', {espace: ui.espace?.id ?? 'moi', pour: ui.propApprendre?.pour ?? null}).catch(() => {});
+      ui.propApprendre = {proposer: false};
+      return rendreClaude();
+    }
+    if (act === 'quand-envoyer') { ui.apresTravail = e.target.closest('[data-apres]').dataset.apres === '1'; return rendreClaude(); }
     if (act === 'finder') return await api('POST', '/api/ouvrir', {chemin: c.versions.flatMap((v) => v.videos).find((x) => x.nom === e.target.closest('[data-nom]').dataset.nom)?.chemin});
     if (act === 'annexes') return await api('POST', '/api/ouvrir', {chemin: c.versions.find((v) => String(v.n) === e.target.closest('[data-version]').dataset.version)?.annexes?.chemin});
     if (act === 'aux-medias') {
@@ -7129,7 +7318,7 @@ window.addEventListener('resize', () => { if (ui.ecran === 'montage') { applique
 const DISPO = {
   g: {defaut: 300, min: 220, max: () => Math.min(680, innerWidth * 0.42), nom: 'Médias'},
   d: {defaut: 344, min: 280, max: () => Math.min(900, innerWidth * 0.52), nom: 'IA et réglages'},
-  t: {defaut: 290, min: 170, max: () => Math.max(220, innerHeight * 0.7), nom: 'Timeline'},
+  t: {defaut: 290, min: 120, max: () => Math.max(220, innerHeight * 0.7), nom: 'Timeline'},
 };
 const ECRAN_MIN = 380; // l'aperçu garde toujours au moins cette largeur
 function borneDispo(k, v, d) {
@@ -7171,7 +7360,11 @@ document.addEventListener('pointerdown', (e) => {
   if (!p || e.button !== 0) return;
   e.preventDefault();
   const k = p.dataset.dispo;
-  const depart = {x: e.clientX, y: e.clientY, v: ui.dispo?.[k] ?? (k === 'g' ? $('#gauche').offsetWidth : k === 'd' ? $('#cote').offsetWidth : $('#chronologie').offsetHeight - ($('#ecran-montage').classList.contains('avec-claude') ? 70 : 0))};
+  // la hauteur de la timeline : celle qu'on lui a donnée (--h-tl), jamais celle de la rangée entière, qui compte aussi la
+  // zone de l'IA et sa table de montage (sinon, au premier mouvement, la timeline sautait à cette hauteur-là)
+  const ed = $('#ecran-montage');
+  const hauteurTl = () => parseFloat(getComputedStyle(ed).getPropertyValue('--h-tl')) || (ed.classList.contains('avec-blocs') ? 200 : DISPO.t.defaut);
+  const depart = {x: e.clientX, y: e.clientY, v: ui.dispo?.[k] ?? (k === 'g' ? $('#gauche').offsetWidth : k === 'd' ? $('#cote').offsetWidth : hauteurTl())};
   p.setPointerCapture(e.pointerId);
   p.classList.add('tire');
   document.body.classList.add(k === 't' ? 'tire-lig' : 'tire-col');
@@ -7214,7 +7407,7 @@ function dispoOrigine() {
   note('Disposition d’origine.');
 }
 
-window.addEventListener('focus', () => { if (ui.ecran === 'montage') { chargerRetours(); if (!ui.claude?.en_cours) chargerClaude(); } });
+window.addEventListener('focus', () => { if (ui.ecran === 'montage') { chargerRetours(); if (!ui.claude?.en_cours) chargerClaude(); verifierIntrouvables(true); } });
 
 // ——— Une seule fenêtre à la fois ———
 // La fenêtre la plus récente prend la main : les autres enregistrent, se mettent en pause et se ferment.
@@ -7372,7 +7565,7 @@ const MAJ = creerMaj({
   lien: (url) => api('POST', '/api/lien', {url}).catch((e) => note(e.message, true)),
 });
 const PUB = creerPublication({
-  api, note, esc, ic, ill, logo, JETON, NATIF, natif, copierTexte,
+  api, note, esc, ic, ill, logo, JETON, NATIF, natif, copierTexte, choisirSurOrdinateur,
   feuille: (html, large) => feuille(html, large), fermerFeuille: () => fermerFeuille(), feuilleOuverte: () => feuilleOuverte(),
   prefs: {lire: (k, d) => prefs.lire(k, d), ecrire: (k, v) => prefs.ecrire(k, v)},
   nomIA: () => nomIA(), iaPrete: () => iaPrete(), qualiteIA: () => qualiteIA(), nomQualite: () => (qualiteIA() === 'rapide' ? 'Rapide' : 'Soigné'), claude: () => ui.claude,

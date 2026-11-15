@@ -211,3 +211,32 @@
   .esp-confirme, .esp-couleur, .esp-police, .esp-carnet .carnet-lecon, .esp-serie, .esp-vide, .esp-rien li, .esp-personne-ill svg, .esp-attente, .esp-puces button.actif { animation: none; }
   .esp-tete-ill .ill-flotte, .esp-tete-ill .ill-etoile, .esp-tete-ill .ill-scintille, .esp-personne-ill .ill-flotte, .esp-personne-ill .ill-scintille { animation: none; }
 }
+
+/* ——— le kit média et la bibliothèque d'animations (11.1) ——— */
+.esp-kit-tete { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.esp-kit-tete .espace { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.esp-kit-tete small { color: var(--dim); font-size: 11.5px; line-height: 1.4; }
+.esp-kit-regles { margin: 0 0 14px; padding: 8px 11px; border-radius: 10px; background: rgba(255, 255, 255, .04); font-size: 12px; }
+.esp-kit-regles summary { display: flex; align-items: center; gap: 6px; color: var(--texte); font-weight: 600; list-style: none; }
+.esp-kit-regles summary::-webkit-details-marker { display: none; }
+.esp-kit-regles summary .ic { width: 14px; height: 14px; }
+.esp-kit-regles ul { margin: 8px 0 2px; padding-left: 18px; color: var(--dim); line-height: 1.5; }
+.esp-kit-groupe { margin: 0 0 18px; animation: entre-bas .35s var(--doux) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.esp-kit-groupe h4 { margin: 0 0 6px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.esp-kit-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px; }
+.esp-kit-el { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 6px; border-radius: 11px; background: rgba(255, 255, 255, .035); min-width: 0; }
+.esp-kit-el b { font-size: 11.5px; line-height: 1.3; }
+.esp-kit-el small { color: var(--dim); font-size: 10.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.esp-kit-img { position: relative; display: grid; place-items: center; height: 78px; border-radius: 8px; overflow: hidden; color: var(--dim-2);
+  background: repeating-conic-gradient(#2b2b31 0% 25%, #222227 0% 50%) 50% / 14px 14px; }
+.esp-kit-img .ic { width: 20px; height: 20px; }
+.esp-kit-img img { position: absolute; inset: 4px; width: calc(100% - 8px); height: calc(100% - 8px); object-fit: contain; animation: apparait .3s ease-out; }
+.esp-kit-img.avec-image > .ic { display: none; }
+.esp-kit-img em { position: absolute; right: 4px; bottom: 4px; z-index: 1; font-style: normal; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 6px; background: rgba(0, 0, 0, .6); color: #fff; }
+.esp-kit-retirer { position: absolute; top: 9px; right: 9px; z-index: 2; opacity: 0; background: rgba(0, 0, 0, .55) !important; transition: opacity .15s; }
+.esp-kit-el:hover .esp-kit-retirer, .esp-kit-retirer:focus-visible { opacity: 1; }
+.esp-kit-confirme { display: flex; gap: 4px; margin-top: 4px; }
+.esp-anims { display: flex; flex-direction: column; gap: 6px; }
+.esp-anim { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, .04); }
+.esp-anim .espace { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.esp-anim small { color: var(--dim); font-size: 11px; line-height: 1.4; }

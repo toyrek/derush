@@ -117,6 +117,10 @@ Tu écris comme à un monteur. Ton IA monte, et tout ce qu'elle pose (plans, tit
 
 <p align="center"><img src="docs/images/capture-demander.jpg" alt="La demande à l'IA, écrite dans la colonne de droite" width="100%"></p>
 
+Pendant qu'elle travaille, tu peux lui écrire et lui joindre des fichiers : ils lui arrivent tout de suite, ou *Après ce travail* si tu préfères. Dans *Mes espaces*, ton **kit média** (logos, charte, polices, fonds, logos de tes partenaires, chacun décrit) et ta **bibliothèque d'animations** (les cartons et transitions qu'elle a déjà faits pour toi) lui sont donnés à chaque montage.
+
+**Exporter**, en haut à droite, comme dans CapCut : ta timeline ou la vidéo de ton IA, en 1080p, 2K ou 4K quand tes rushes le permettent, avec une copie par réseau si tu veux.
+
 ## Tes médias, analysés
 
 À l'import, Dérush regarde et écoute chaque rush : image sombre, plate ou brûlée, dominante de couleur, tourné en **Log**, bruit de fond, voix étouffée, écho. Des pastilles le disent sur les vignettes ; la fiche du média (menu « … ») détaille tout. **Analyser** fait regarder tes rushes par ton IA, sans les poser dans la timeline : ce qu'ils contiennent, leurs meilleurs moments, leurs défauts. Ton IA de montage s'en sert, et voit tous tes médias, même ceux que tu n'as pas posés.
@@ -188,12 +192,12 @@ Sous chaque vidéo livrée (et à la fin de « Créer la vidéo »), deux bouton
 
 **Analyser.** Dérush mesure la vidéo finie (format, durée, niveau du son, coupes, première parole, débit, blancs), puis ton IA lit ce qui est dit, regarde les images, relit ses repères datés sur TikTok, Instagram et YouTube, et cherche ce qui marche en ce moment sur ton sujet. Tu obtiens une note sur 100, une note par réseau, huit points regardés (accroche, histoire, rythme, son, textes à l'écran, format, fin, originalité) avec la preuve de chaque constat, et trois choses à faire en premier. Un clic sur *Demander* met la correction dans ton message à l'IA. C'est une estimation pour améliorer la vidéo : personne ne peut promettre des vues.
 
-**Partager.** Choisis tes réseaux : l'IA écrit pour chacun la légende, les hashtags, le bon moment, l'image de couverture, et une stratégie pour faire circuler la vidéo. Tu relis, tu corriges, tu copies, ou tu publies d'un clic avec [Treg](https://treg.to). Tu peux aussi l'écrire dans la conversation (« publie-la sur TikTok et YouTube »), ou publier tout de suite sans plan (menu ⋯ de la vidéo).
+**Partager.** Choisis tes réseaux : l'IA écrit pour chacun la légende, les hashtags, le bon moment, l'image de couverture (tu la changes parmi plusieurs images, celle du lecteur, ou la tienne), et une stratégie pour faire circuler la vidéo. Un 👍, un 👎 ou un mot sur chaque conseil de l'analyse : ton IA s'en souvient. *Copier le rapport* le garde, *Pour une autre IA* en fait un plan de travail à coller ailleurs. Tu relis, tu corriges, tu copies, ou tu publies d'un clic avec [Treg](https://treg.to). Tu peux aussi l'écrire dans la conversation (« publie-la sur TikTok et YouTube »), ou publier tout de suite sans plan (menu ⋯ de la vidéo).
 
 | Réseau | Ce qui se passe |
 |---|---|
 | **TikTok** | La vidéo arrive en **brouillon** dans ta boîte TikTok ; tu colles la légende (bouton *Copier*) et tu publies depuis l'app. C'est une limite de TikTok pour l'instant. |
-| **YouTube Shorts** | Mise en ligne **non répertoriée** par défaut ; *Publique* ou *Privée* si tu le choisis. YouTube a besoin de ta **clé Treg** dans Dérush (Connexions › Treg › *Relier mes réseaux*) : le connecteur Treg d'un compte Claude ne lui suffit pas. |
+| **YouTube Shorts** | Mise en ligne **non répertoriée** par défaut ; *Publique* ou *Privée* si tu le choisis. YouTube a besoin de ta **clé API Treg** (créée dans ton tableau de bord Treg) dans Dérush (Connexions › Treg › *Relier mes réseaux*) : le connecteur Treg d'un compte Claude ne lui suffit pas. |
 | **Instagram Reels** | Publiée sur ton compte professionnel. Instagram doit aller chercher la vidéo sur une adresse web : elle passe par un lien public temporaire (une heure). L'IA te le dit. |
 | **LinkedIn** | Publiée sur ton profil. |
 
