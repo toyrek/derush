@@ -7,10 +7,16 @@
 // Elle sert à essayer le moteur Gemini sans compte Google :
 //   DERUSH_AGY=$PWD/outils/faux-agy.mjs AGY_FAUX=montage AGY_FAUX_VIDEO=<une vidéo .mp4> AGY_FAUX_TABLE=<un timeline.json> \
 //     DERUSH_SUPPORT=<dossier d'essai> DERUSH_BIBLIOTHEQUE=<dossier d'essai> DERUSH_SANS_NAVIGATEUR=1 node derush.mjs --port 4334
-// AGY_FAUX : normal | montage (livre une vidéo et une table de montage) | conseil (écrit reponse.json) | auth | erreur.
+// AGY_FAUX : normal | montage (livre une vidéo et une table de montage) | conseil (écrit reponse.json) | auth | erreur |
+//   oeil (le Mode Hollywood : ouvre le fichier nommé dans la demande, « Le fichier à regarder ET écouter : … », puis
+//   répond un index, un avis ou une réponse, ou AGY_FAUX_REPONSE) | oeil-sans-lire (répond sans ouvrir le fichier) |
+//   oeil-quota (le quota du compte est atteint) | oeil-interrompu (le flux est coupé la première fois, comme chez Google,
+//   puis la réponse arrive : une marque dans AGY_FAUX_TRACE se souvient du premier essai) | oeil-sourd (il dit n'avoir
+//   reçu que les images, à chaque fois) | oeil-sourd-une-fois (seulement la première fois).
 // AGY_FAUX_RENDU=<Composition> : dans « montage », lance pour de vrai « node remotion/rendre.mjs <Composition> rendu/final.mp4 »
 //   (le rendu passe alors par le relais de Dérush, comme avec la vraie commande).
-// AGY_FAUX_MODELES=perso : la liste d'un compte personnel (Gemini 4 Argon et Flash, sans Carbon).
+// AGY_FAUX_MODELES=perso : la liste d'un compte personnel (Gemini 4 Argon et Flash, sans Carbon) ; perso2026 : la même
+//   avec Gemini 4 Hydrogen (arrivé le 12 nov. 2026) et l'orchestrateur.
 // AGY_FAUX_ANNEXES=1 : dans « montage », remet aussi deux fichiers dans rendu/livraison/annexes/.
 // AGY_FAUX_JOURNAL=<fichier> : chaque lancement y ajoute une ligne (« --version », « models » ou « -p »), pour compter
 //   combien de fois Dérush lance la commande, et une ligne « cle agy … » de plus si elle a reçu la clé Treg ou ElevenLabs
@@ -33,7 +39,9 @@ if (a[0] === 'models') {
   const perso = ['gemini-4-argon-medium', 'gemini-4-argon-high', 'gemini-4-argon-low', 'gemini-3.8-flash-high', 'gemini-3.8-flash-medium', 'gemini-3.8-flash-low', 'claude-opus-5-5-high', 'claude-sonnet-5-5-medium', 'gpt-oss-120b-medium'];
   const tous = ['gemini-4-carbon-high', 'gemini-4-carbon-medium', 'gemini-4-carbon-low', ...perso, 'gemini-3.1-pro-high'];
   const nom = (s) => s.replace(/-(low|medium|high)$/, (x, e) => ` (${e[0].toUpperCase()}${e.slice(1)})`).split('-').map((x) => x[0].toUpperCase() + x.slice(1)).join(' ');
-  console.log((process.env.AGY_FAUX_MODELES === 'perso' ? perso : tous).map((s) => `${s}\t${nom(s)}`).join('\n'));
+  const perso2026 = ['gemini-4-argon-medium', 'gemini-4-argon-high', 'gemini-4-argon-low', 'gemini-4-hydrogen-high', 'gemini-4-hydrogen-xhigh', 'gemini-4-hydrogen-medium', 'gemini-4-hydrogen-low', 'gemini-pro-orchestrator-g1-pro', ...perso.slice(3)];
+  const liste = {perso, perso2026}[process.env.AGY_FAUX_MODELES] ?? tous;
+  console.log(liste.map((s) => `${s}\t${nom(s)}`).join('\n'));
   process.exit(0);
 }
 const i = a.findIndex((x) => x === '-p' || x === '--print' || x === '--prompt');
@@ -57,6 +65,8 @@ fs.writeFileSync(path.join(process.env.AGY_FAUX_TRACE ?? process.cwd(), '.agy-fa
   args: a.map((x) => (x === prompt ? `<prompt de ${prompt.length} caractères>` : x)), cwd: process.cwd(), reglages,
   treg: !!process.env.TREG_TOKEN, relais: !!process.env.DERUSH_RELAIS, boite: process.env.DERUSH_RELAIS_BOITE ?? null, relais_jeton: !!process.env.DERUSH_RELAIS_JETON,
   node_proxy: process.env.NODE_USE_ENV_PROXY ?? null, entree_standard: !process.stdin.isTTY,
+  plateau: {agents: fs.existsSync(path.join(process.cwd(), 'AGENTS.md')) ? fs.readFileSync(path.join(process.cwd(), 'AGENTS.md'), 'utf8').slice(0, 200) : null,
+    competences: (() => { try { return fs.readdirSync(path.join(process.cwd(), '.agents', 'skills')); } catch { return []; } })()},
 }, null, 1));
 dire({event: 'init', conversation_id: conv, init: {model: opt('--model') ?? 'gemini-3.8-flash-low', cwd: process.cwd(), tools: ['run_command', 'command_status', 'view_file', 'list_dir', 'grep_search', 'write_to_file', 'replace_file_content', 'read_url_content', 'search_web'], permission_mode: reglages?.toolPermission ?? 'request-review'}});
 let n = 0;
@@ -86,7 +96,36 @@ const commande = (ligne, faire) => outil('run_command', {CommandLine: ligne}, fa
 
 await outil('view_file', {AbsolutePath: path.join(process.cwd(), 'AGENTS.md')});
 let reponse = 'Voilà.';
-if (sc === 'conseil') {
+if (sc.startsWith('oeil')) {
+  // le Mode Hollywood : ouvrir la vidéo (lire le fichier donne l'image et le son), puis répondre
+  // les fichiers nommés dans la demande : la vidéo et son MP3 (« - l'image : … », « - le son : … »), ou un seul fichier
+  const fichiers = [...prompt.matchAll(/^(?:- l'image|- le son|Le fichier à (?:regarder ET écouter|regarder \(il n'a pas de son\)|écouter|lire)) : (.+)$/gm)].map((x) => x[1].trim());
+  const f = fichiers[0];
+  const marque = path.join(process.env.AGY_FAUX_TRACE ?? process.cwd(), '.interrompu');
+  if (sc === 'oeil-interrompu' && !fs.existsSync(marque)) {
+    fs.writeFileSync(marque, '1');
+    dire({event: 'result', result: {conversation_id: conv, status: 'ERROR', response: '', error: {message: 'The stream was interrupted. Please continue the task you were working on.'}, duration_seconds: 0.3, num_turns: 1}});
+    process.exit(0);
+  }
+  if (sc === 'oeil-quota') {
+    dire({event: 'result', result: {conversation_id: conv, status: 'ERROR', response: '', error: {message: 'RESOURCE_EXHAUSTED: You have exhausted your quota for this model. Try again later.'}, duration_seconds: 0.3, num_turns: 1}});
+    process.exit(0);
+  }
+  let ouvert = true;
+  if (sc !== 'oeil-sans-lire') for (const x of fichiers) ouvert = (await outil('read_file', {Path: x}, async () => `Read ${path.basename(x)}`, 'read_file', x)) && ouvert;
+  if (process.env.AGY_FAUX_TRACE) fs.writeFileSync(path.join(process.env.AGY_FAUX_TRACE, '.fichiers.json'), JSON.stringify(fichiers));
+  const index = {resume: 'Vu par la commande : une jeune femme parle face caméra.', lieu: 'une rue', ambiance: 'animée', personnes: 'une jeune femme',
+    moments: [{de: 0, a: 2, image: 'plan fixe', son: '« Bonjour »', interet: 4, type: 'parole'}], meilleurs: [{de: 0.4, a: 1.6, pourquoi: 'le sourire'}], problemes: [], texte_a_l_ecran: []};
+  const avis = {note: 8, resume: 'Vu par la commande : bien rythmée.', remarques: [{a: 1, gravite: 'a_regarder', quoi: 'Titre un peu court', conseil: 'Le laisser une seconde de plus'}]};
+  const decoupage = {idee: 'Vu par la commande : une rencontre en deux temps.', duree: 6, format: '9:16', accroche: 'Le sourire, dès la première seconde.',
+    plans: [{rush: 'M1', de: 0.4, a: 1.6, role: 'accroche', pourquoi: 'le sourire', texte: 'BONJOUR'}, {rush: 'M9', de: 0, a: 2, role: 'chute', pourquoi: 'un rush qui n’existe pas'}, {rush: 'M2', de: 0.2, a: 9, role: 'chute', pourquoi: 'la voix', texte: ''}],
+    son: 'la voix seule', rythme: 'deux coupes franches', a_eviter: ['M1 de 2 à 3 s : le son coupé net']};
+  const marqueSourd = path.join(process.env.AGY_FAUX_TRACE ?? process.cwd(), '.sourd');
+  const sourd = sc === 'oeil-sourd' || (sc === 'oeil-sourd-une-fois' && !fs.existsSync(marqueSourd));
+  if (sc === 'oeil-sourd-une-fois' && sourd) fs.writeFileSync(marqueSourd, '1');
+  if (sourd) index.moments = [{de: 0, a: 2, image: 'plan fixe', son: 'Non audible : l’outil de lecture n’a renvoyé que des images, aucune piste sonore.', interet: 3, type: 'ambiance'}];
+  reponse = !ouvert ? '' : process.env.AGY_FAUX_REPONSE ?? (/contrôles le montage|contrôleur qualité/.test(prompt) ? JSON.stringify(avis) : /Propose le découpage/.test(prompt) ? JSON.stringify(decoupage) : /Sa question/.test(prompt) ? 'Elle rit à 1,4 s, juste après la question.' : JSON.stringify(index));
+} else if (sc === 'conseil') {
   // un avis : la réponse est un fichier JSON du dossier
   reponse = (await ecrire('reponse.json', process.env.AGY_FAUX_REPONSE ?? '{"ok": true}')) ? 'Mon avis est dans reponse.json.' : '';
 } else if (sc === 'montage') {

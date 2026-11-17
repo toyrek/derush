@@ -1450,6 +1450,10 @@ body.tire-col iframe, body.tire-lig iframe, body.tire-col video, body.tire-lig v
 .case-echo small { color: var(--dim); font-size: 11.5px; }
 .bande-analyse { display: grid; grid-template-columns: 34px 1fr auto; gap: 9px; align-items: center; padding: 9px 10px; margin-bottom: 4px; border-radius: 11px; background: linear-gradient(135deg, rgba(255, 179, 64, .12), rgba(255, 69, 58, .06)); border: 1px solid rgba(255, 179, 64, .22); animation: apparait .25s ease-out; }
 .bande-analyse > svg, .bande-analyse > .ic { width: 30px; height: 30px; color: var(--vert); }
+.bande-oeil { background: linear-gradient(135deg, rgba(66, 133, 244, .16), rgba(155, 114, 203, .1)); border-color: rgba(66, 133, 244, .3); }
+.bande-oeil > .logo { animation: oeil-respire 2.4s ease-in-out infinite; }
+@keyframes oeil-respire { 50% { transform: scale(1.08); filter: brightness(1.15); } }
+@media (prefers-reduced-motion: reduce) { .bande-oeil > .logo { animation: none; } }
 .bande-analyse b { display: block; font-size: 12px; }
 .bande-analyse small { color: var(--dim); font-size: 11px; }
 @media (max-width: 1100px) { .fiche { grid-template-columns: 1fr; } }
@@ -1671,3 +1675,32 @@ body.tire-col iframe, body.tire-lig iframe, body.tire-col video, body.tire-lig v
 .medias-ia-el small { font-size: 10px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .medias-ia-el .icone-btn { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(0, 0, 0, .6) !important; opacity: 0; transition: opacity .15s; }
 .medias-ia-el:hover .icone-btn { opacity: 1; }
+
+/* ——— 11.2 : le Mode Hollywood (la puce, l'avis de Gemini sous la vidéo livrée) ——— */
+.cl-pour-rang { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cl-pour-rang .cl-pour { flex: 1; min-width: 0; }
+.cl-mode { display: inline-flex; align-items: center; height: 26px; padding: 2px; border-radius: 13px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .04); }
+.cl-mode button { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 10px; border-radius: 10px; color: var(--dim); font-size: 11.5px; font-weight: 600; transition: background .15s, color .15s; }
+.cl-mode button:hover { color: var(--texte); }
+.cl-mode button.actif { color: var(--texte); background: rgba(255, 255, 255, .1); }
+.cl-mode button[data-cl="mode-hollywood"].actif { color: #fff; background: linear-gradient(135deg, rgba(66, 133, 244, .4), rgba(155, 114, 203, .32)); }
+.cl-hollywood { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 13px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .04); color: var(--dim); font-size: 11.5px; font-weight: 600; transition: background .15s, color .15s, border-color .15s; }
+.cl-hollywood:hover { color: var(--texte); background: rgba(255, 255, 255, .08); }
+.cl-hollywood.actif { color: #fff; border-color: rgba(66, 133, 244, .55); background: linear-gradient(135deg, rgba(66, 133, 244, .28), rgba(155, 114, 203, .22)); }
+.cl-gemini { margin-top: 8px; padding: 9px 11px; border-radius: 12px; background: rgba(66, 133, 244, .07); border: 1px solid rgba(66, 133, 244, .22); font-size: 12px; }
+.cl-gemini.attente { display: flex; align-items: center; gap: 7px; color: var(--dim); }
+.cl-gemini summary { display: flex; align-items: center; gap: 6px; list-style: none; }
+.cl-gemini summary::-webkit-details-marker { display: none; }
+.cl-gemini summary i { font-style: normal; font-weight: 700; color: #8ab4f8; }
+.cl-gemini summary small { color: var(--dim); font-size: 10.5px; }
+.cl-gemini p { margin: 7px 0; line-height: 1.45; }
+.cl-gemini ul { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cl-gemini li { display: flex; gap: 8px; align-items: flex-start; }
+.cl-gemini li span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cl-gemini li b { font-weight: 600; font-size: 11.5px; line-height: 1.4; }
+.cl-gemini li small { color: var(--dim); font-size: 11px; line-height: 1.4; }
+.cl-gemini li.a_corriger b { color: #ffb4ab; }
+.cl-gemini .cl-temps { flex: none; min-width: 40px; padding: 2px 6px; border-radius: 6px; border: 0; background: rgba(255, 255, 255, .08); color: var(--texte); font: 11px var(--tc); }
+.cl-gemini .cl-temps:hover { background: rgba(66, 133, 244, .3); }
+.cl-gemini .cl-temps.vide { text-align: center; color: var(--dim-2); background: none; }
+.cx-hw-cle { margin-top: 6px; }

@@ -1350,13 +1350,13 @@ async function feuilleRush(m) {
       ${(mes.defauts ?? []).length ? `<ul class="fiche-defauts">${mes.defauts.map((d) => `<li>${ic('attention')}<span>${esc(d.texte)}</span></li>`).join('')}</ul>` : '<p class="dim fiche-ok">Rien à signaler : image et son propres.</p>'}
       ${im ? `<div class="fiche-mesures"><div><small>Exposition</small>${jauge(im.exposition, 'sombre', 'claire')}</div><div><small>Contraste</small>${jauge(Math.min(1, im.contraste / 0.9), 'plat', 'fort')}</div><div><small>Couleur</small>${jauge(Math.min(1, im.saturation / 0.6), 'terne', 'vive')}</div></div>` : ''}
       ${so ? `<p class="dim fiche-son">${[so.voix_dbfs != null ? `Voix vers ${Math.round(so.voix_dbfs)} dB` : null, so.fond_dbfs != null ? `fond vers ${Math.round(so.fond_dbfs)} dB` : null, so.brillance_db != null ? `aigus ${so.brillance_db > -15 ? 'présents' : so.brillance_db > -17 ? 'corrects' : 'faibles'}` : null, so.traine_db != null ? `écho ${so.traine_db > -17 ? 'marqué' : so.traine_db > -22 ? 'léger' : 'faible'}` : null].filter(Boolean).join(' · ')}</p>` : ''}</div>` : `<div class="fiche-bloc"><h4>${ic('oeil')}Ce que Dérush a mesuré</h4><p class="dim">Les mesures arrivent pendant la préparation du média.</p></div>`;
-  const sectionIA = `<div class="fiche-bloc ia"><h4>${ic('etincelle')}Ce que ton IA y voit</h4>${ia ? `
+  const sectionIA = `<div class="fiche-bloc ia"><h4>${ic('etincelle')}${ia?.moteur === 'gemini' ? 'Ce que Gemini, le réalisateur, y voit et entend' : 'Ce que ton IA y voit'}</h4>${ia ? `
       <p class="fiche-resume">${esc(ia.resume)}</p>
       ${ia.contenu?.length ? `<div class="fiche-tags">${ia.contenu.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       ${ia.moments?.length ? `<div class="fiche-moments">${ia.moments.map((mo2, k) => `<div class="moment"><button class="lien-temps" data-r="voir-moment" data-k="${k}" title="Le voir dans l’aperçu">${esc(tc(mo2.debut, fpsSrc(m)).slice(3, 8))} → ${esc(tc(mo2.fin, fpsSrc(m)).slice(3, 8))}</button><span>${esc(mo2.quoi)}</span><b>${'★'.repeat(mo2.force)}</b><button class="btn petit" data-r="poser-moment" data-k="${k}" title="Poser ce passage au montage">${ic('plus')}</button></div>`).join('')}</div>` : ''}
       ${ia.defauts?.length ? `<p class="dim">${ic('attention')} ${ia.defauts.map(esc).join(' · ')}</p>` : ''}
       ${ia.usage ? `<p class="dim">${ic('film')} ${esc(ia.usage)}</p>` : ''}
-      <button class="cl-lien" data-r="analyser">${ic('maj')}Refaire l’analyse</button>` : `<p class="dim">Ton IA regarde ce média (12 images et ce qui s’y dit) et te dit ce qu’il contient, ses meilleurs moments et ses défauts, sans que tu le mettes dans la timeline. Ton IA de montage s’en servira aussi.</p><button class="btn" data-r="analyser">${ic('oeil')}Analyser avec ${esc(nomIA())}</button>`}</div>`;
+      <button class="cl-lien" data-r="analyser">${ic('maj')}Refaire l’analyse${analyseHollywood() ? ' avec Gemini' : ''}</button>` : analyseHollywood() && m.type !== 'image' ? `<p class="dim">Mode Hollywood : Gemini, le réalisateur, regarde et écoute ce média en entier et te dit ce qu’il contient, ce qui s’y dit, ses meilleurs moments et ses défauts. Ton IA de montage s’en servira aussi.</p><button class="btn" data-r="analyser">${ic('oeil')}Analyser avec Gemini</button>` : `<p class="dim">Ton IA regarde ce média (12 images et ce qui s’y dit) et te dit ce qu’il contient, ses meilleurs moments et ses défauts, sans que tu le mettes dans la timeline. Ton IA de montage s’en servira aussi.</p><button class="btn" data-r="analyser">${ic('oeil')}Analyser avec ${esc(nomIA())}</button>`}</div>`;
   const sectionCouleur = m.type === 'video' ? `<div class="fiche-bloc"><h4>${ic('palette')}Couleurs de la caméra</h4>
       ${suggere && !m.couleur ? `<p class="fiche-suggestion">${ic('etincelle')}Dérush pense que ce rush est filmé en <b>${esc(suggere.nom)}</b> (${esc(suggere.pourquoi)}).</p>` : ''}
       <div class="rangee" style="gap:8px;flex-wrap:wrap"><select id="profil-couleur">${profils.map((x) => option(x.id, x.nom, x.id === choisi)).join('')}</select><button class="btn" data-r="choisir-lut" title="Le fichier .cube que donne le fabricant de ta caméra">${ic('trombone')}LUT officiel…</button></div>
@@ -1463,12 +1463,15 @@ async function feuilleVoixClaire(ids, plan = null) {
 }
 
 /** L'analyse par l'IA de quelques médias (ou de tous), sans les mettre dans la timeline. */
+/** Mode Hollywood allumé (et Gemini branché) : c'est Gemini, le réalisateur, qui analyse en regardant et en écoutant. */
+const analyseHollywood = () => !!(ui.claude?.hollywood?.ok && ui.claude?.hollywood?.actif);
 async function analyserMedias(ids) {
-  if (!iaPrete()) return feuilleConnexions();
+  const hw = analyseHollywood();
+  if (!hw && !iaPrete()) return feuilleConnexions();
   try {
-    await api('POST', '/api/medias/analyser', {ids, moteur: moteurIA()});
+    await api('POST', '/api/medias/analyser', {ids, moteur: hw ? 'gemini-oeil' : moteurIA()});
     ui.analyseIA = {etat: 'en_cours', ids, depuis_s: 0};
-    note(`${nomIA()} regarde ${ids.length > 1 ? `tes ${ids.length} médias` : 'ce média'} : planches d’images et texte. Tu peux continuer pendant ce temps.`);
+    note(hw ? `Gemini, le réalisateur, regarde et écoute ${ids.length > 1 ? `tes ${ids.length} médias` : 'ce média'} en entier. Tu peux continuer pendant ce temps.` : `${nomIA()} regarde ${ids.length > 1 ? `tes ${ids.length} médias` : 'ce média'} : planches d’images et texte. Tu peux continuer pendant ce temps.`);
     suivreAnalyse();
   } catch (err) { note(err.message, true); }
 }
@@ -1498,6 +1501,10 @@ async function suivreAnalyse() {
   }
 }
 $('#p-medias').addEventListener('click', async (e) => {
+  // la bande de Gemini (Mode Hollywood) : l'arrêter, ou la fermer
+  const oe = e.target.closest('[data-oeil]')?.dataset.oeil;
+  if (oe === 'arreter') { try { await api('POST', '/api/gemini/oeil/arreter'); note('Gemini s’arrête : les rushes déjà vus le restent.'); } catch (err) { note(err.message, true); } return suivreFile(); }
+  if (oe === 'fermer') { ui.oeilFerme = $('#bande-oeil')?.dataset.cle ?? null; $('#bande-oeil')?.remove(); return; }
   const a = e.target.closest('[data-analyse]')?.dataset.analyse;
   if (!a) return;
   if (a === 'arreter') await api('POST', '/api/medias/analyse/arreter').catch(() => {});
@@ -5521,6 +5528,40 @@ function publicationsHtml(pubs) {
     return `<div class="ia-pub e-${esc(p.etat)}">${logo(p.reseau, 20)}<span><b>${esc(RESEAUX_UI[p.reseau] ?? p.reseau)}</b><small>${esc(ETATS_PUB[p.etat] ?? p.etat)}${p.message ? ` · ${esc(p.message)}` : ''}</small></span>${p.lien ? `<button class="icone-btn" data-cl="lien-pub" data-lien="${esc(p.lien)}" title="Ouvrir la publication">${ic('lien')}</button>` : ''}${texte ? `<button class="icone-btn" data-cl="copier" data-texte="${esc(texte)}" title="Copier le titre, la légende et les hashtags">${ic('copier')}</button>` : ''}</div>`;
   }).join('')}</div>`;
 }
+/** La puce du Mode Hollywood, à côté de « Pour : … » : allumée, Gemini regarde et écoute les rushes pour ton IA. */
+/**
+ * Le mode de la demande, choisi avant d'écrire : Classique (ton IA monte seule, d'après les images et le texte des
+ * rushes) ou Hollywood (Gemini, le réalisateur, regarde et écoute les rushes, propose le découpage et contrôle la vidéo ;
+ * ton IA monte). Sans Gemini branché, « Hollywood » ouvre Connexions.
+ */
+const puceHollywood = (c) => {
+  const h = c?.hollywood ?? {};
+  const hw = !!(h.ok && h.actif);
+  return `<div class="cl-mode" role="group" aria-label="Le mode de montage"><button data-cl="mode-classique"${hw ? '' : ' class="actif"'} title="Classique : ton IA monte seule, d’après les images et le texte de tes rushes.">Classique</button><button data-cl="mode-hollywood"${hw ? ' class="actif"' : ''} title="${h.ok ? `Hollywood : ${esc(h.nom ?? 'Gemini')}, le réalisateur, regarde et écoute tes rushes, propose le découpage et contrôle la vidéo avant qu’elle parte ; ton IA monte.` : 'Hollywood : branche Gemini dans Connexions, et un réalisateur regardera et écoutera tes rushes avec ton IA.'}">${logo('gemini', 13)}<span>Hollywood</span></button></div>`;
+};
+/** L'avis de Gemini sur une vidéo livrée en Mode Hollywood (lib/gemini-api.mjs) : chargé, puis relu tant qu'il travaille. */
+ui.avisGemini = new Map();
+function avisGeminiHtml(x, v, k) {
+  const a = ui.avisGemini.get(x.nom);
+  if (a === undefined) {
+    ui.avisGemini.set(x.nom, null);
+    const lire = () => api('GET', `/api/gemini/avis?video=${encodeURIComponent(x.nom)}`).then((r) => {
+      ui.avisGemini.set(x.nom, r.avis ?? null);
+      if (r.avis?.etat === 'en_cours') setTimeout(lire, 6000);
+      rendreClaude();
+    }).catch(() => {});
+    lire();
+    return '';
+  }
+  if (!a) return '';
+  if (a.etat === 'en_cours') return `<div class="cl-gemini attente">${logo('gemini', 16)}<span>Gemini regarde et écoute ta vidéo…</span></div>`;
+  if (a.etat === 'erreur') return `<div class="cl-gemini">${logo('gemini', 16)}<span class="dim">L’avis de Gemini n’a pas abouti : ${esc(a.erreur ?? '')}</span></div>`;
+  const temps = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+  return `<details class="cl-gemini"${a.remarques?.some((r) => r.gravite === 'a_corriger') ? ' open' : ''}><summary>${logo('gemini', 16)}<b>L’avis de Gemini</b>${a.note != null ? `<i>${esc(String(a.note).replace('.', ','))}/10</i>` : ''}<small>image et son</small></summary>
+    ${a.resume ? `<p>${esc(a.resume)}</p>` : ''}
+    ${(a.remarques ?? []).length ? `<ul>${a.remarques.map((r) => `<li class="${r.gravite}">${r.a != null ? `<button class="cl-temps" data-cl="gemini-temps" data-t="${r.a}" data-version="${v.n}" data-video="${k}" title="Voir ce moment">${temps(r.a)}</button>` : '<span class="cl-temps vide">—</span>'}<span><b>${esc(r.quoi)}</b>${r.conseil ? `<small>${esc(r.conseil)}</small>` : ''}</span></li>`).join('')}</ul>` : '<p class="dim">Rien à signaler.</p>'}
+    <small class="dim">Ses temps sont des repères (une image par seconde). Demande à ton IA de corriger ce qui te parle.</small></details>`;
+}
 function carteVideo(v, k) {
   const x = v.videos[k];
   const seule = v.videos.length === 1;
@@ -5538,6 +5579,7 @@ function carteVideo(v, k) {
     <div class="act"><button class="icone-btn" data-cl="menu-video" data-nom="${esc(x.nom)}" title="Plus">${ic('points')}</button>${menu}</div></div>
     <div class="cl-avant-pub"><button class="btn petit" data-cl="analyser" data-nom="${esc(x.nom)}" title="Avant de publier : ton IA note l’accroche, le rythme, le son… et te dit quoi améliorer">${ic('eclair')}<span>Analyser</span></button><button class="btn petit publier" data-cl="partager" data-nom="${esc(x.nom)}" title="Légendes, hashtags, bon moment et publication sur TikTok, Instagram, YouTube, LinkedIn">${ic('publier')}<span>Partager</span></button></div>
     ${SQ.boutonVideoIA(v, x, k)}
+    ${v.hollywood ? avisGeminiHtml(x, v, k) : ''}
     ${avisHtml(x)}
     ${(x.publications ?? []).length ? publicationsHtml(x.publications) : ''}</div>`;
 }
@@ -5967,7 +6009,7 @@ function rendreClaude() {
   // colonne est courte, pour que la conversation garde sa place (style.css, .cl-cartes)
   const cartesPied = `${changement}${carteDrive()}${VO.carte()}${SQ.ligneIA()}`.trim();
   box.innerHTML = `${tete}<div class="cl-haut" id="cl-haut">${recus}${brancher}${accueil}${fil}${reprendre}${bande}${apprendre}${relances}</div>
-    <div class="cl-pied">${cartesPied ? `<div class="cl-cartes">${cartesPied}</div>` : ''}${pour}${compose}</div>`;
+    <div class="cl-pied">${cartesPied ? `<div class="cl-cartes">${cartesPied}</div>` : ''}<div class="cl-pour-rang">${pour}${puceHollywood(c)}</div>${compose}</div>`;
   const haut = $('#cl-haut', box);
   const ta = $('#cl-texte', box);
   ta.value = ui.brouillon;
@@ -6199,6 +6241,22 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'ouvrir-lien') { const l = e.target.closest('[data-lien]').dataset.lien; if (/^https:\/\//.test(l)) await api('POST', '/api/lien', {url: l}); return; }
     if (act === 'tableau') return TB.ouvrir({espace: ui.notes?.espace?.id ?? ui.espace?.id ?? null});
     if (act === 'pour-qui') return changerEspaceProjet();
+    if (act === 'mode-classique' || act === 'mode-hollywood' || act === 'hollywood') {
+      const actif = act === 'hollywood' ? !c.hollywood?.actif : act === 'mode-hollywood';
+      if (actif && !c.hollywood?.ok) return feuilleConnexions(); // Gemini n'est pas encore branché
+      if (actif === !!c.hollywood?.actif) return;
+      try { await api('POST', '/api/connexions/hollywood/activer', {actif}); note(actif ? `Mode Hollywood : ${c.hollywood?.nom ?? 'Gemini'}, le réalisateur, regardera et écoutera tes rushes, proposera le découpage et contrôlera la vidéo ; ton IA monte.` : 'Mode classique : ton IA monte seule.'); } catch (err) { note(err.message, true); }
+      return chargerClaude();
+    }
+    if (act === 'gemini-temps') {
+      // ce moment de la vidéo de l'IA, dans le lecteur
+      const b = e.target.closest('[data-t]');
+      const t = Number(b?.dataset.t);
+      if (!Number.isFinite(t)) return;
+      montrerVue('claude', Number(b.dataset.version), Number(b.dataset.video));
+      setTimeout(() => { const vc = $('#v-claude'); if (vc) { vc.pause?.(); vc.currentTime = t; } }, 350);
+      return;
+    }
     if (act === 'regler-espace') return ESP.feuilleEspace(e.target.closest('[data-espace]').dataset.espace);
     if (act === 'copier') {
       // un message de la conversation (le sien ou celui de l'IA), tel qu'il a été écrit
@@ -6355,6 +6413,33 @@ function sectionSons(d) {
       ${carteCx({etat: etatCarte(rs.ok, enCours(rs.action)), lg: logo('realsfx', 42), titre: 'Real SFX', sous: esc(rs.ok ? 'Pose les sons à l’image près, sous ta voix et ta musique, puis note son propre travail.' : 'Pose les sons à l’image près, sous ta voix et ta musique. À ajouter une fois (9 Mo).'), actions: rs.ok ? pret : ajouter('realsfx/installer', rs.action, 'Real SFX se télécharge depuis son dépôt officiel'), plus: erreurAction(rs.action)})}
       ${carteCx({etat: etatCarte(ea.ok, enCours(ea.action)), lg: logo('earshot', 42), titre: 'Earshot', sous: esc(ea.ok ? `L’oreille de l’IA : elle écoute, choisit et fabrique des sons, sur ton ordinateur.${ea.deja ? ' Déjà installé chez toi.' : ''}` : 'Facultatif. L’oreille de l’IA : elle écoute, choisit et fabrique des sons, sur ton ordinateur (2,5 Go).'), actions: ea.ok ? pret : ea.installable ? ajouter('earshot/installer', ea.action, 'Earshot et ses deux modèles : 2,5 Go, une dizaine de minutes') : '', plus: erreurAction(ea.action)})}</div></section>`;
 }
+/**
+ * Le Mode Hollywood : Gemini regarde et écoute les rushes pour l'IA qui monte, puis la vidéo livrée (lib/gemini-api.mjs).
+ * Deux voies : la commande Gemini (le compte Google de la personne, sans clé), et sa clé Google AI Studio, en secours ou
+ * d'abord si elle la choisit. La clé se colle ici (jamais dans la conversation) et ne revient pas.
+ */
+function sectionHollywood(d) {
+  const h = d.hollywood ?? {};
+  const cmd = h.commande ?? {};
+  const parCle = h.voie === 'cle';
+  const sousCmd = cmd.prete
+    ? `Prêt · ${cmd.nom}, par ta commande Gemini : ton compte Google, sans clé. Il regarde et écoute tes rushes avant que ton IA monte, puis la vidéo livrée : il te dit ce qui coince, image et son.`
+    : 'Gemini est la seule IA qui voit ET entend une vidéo. Connecte Gemini à ton compte Google (plus haut, « Ton IA ») : il regardera et écoutera tes rushes pour ton IA de montage, avec ton abonnement.';
+  const sousCle = h.ok
+    ? `Clé acceptée · ${h.nom ?? h.modele}. ${!cmd.prete ? 'Gemini regarde par ta clé ; s’il est débordé, Dérush passe au modèle suivant.' : parCle ? 'Gemini regarde d’abord par ta clé ; ta commande prend le relais.' : 'En secours : si ta commande ne peut pas (quota du compte…), Dérush passe par ta clé.'}`
+    : h.cle ? (h.pourquoi ?? 'Clé posée : vérifie-la.')
+      : `Facultatif${cmd.prete ? ', en secours' : ''}. Une clé Google AI Studio : gratuite, Gemini 4 Hydrogen ; avec la facturation de son projet, Gemini 4 Carbon (environ 1 € par heure de rushes).`;
+  const actionsCle = h.cle
+    ? '<button class="btn petit" data-cx-hw="verifier" title="Redemander à Google les modèles de ta clé et de ta commande, et reprendre le plus fort">Vérifier</button><button class="btn petit" data-cx-hw="retirer" title="Retirer la clé de cet ordinateur">Retirer</button>'
+    : `<button class="btn petit" data-cx-hw="creer" title="La page des clés de Google AI Studio s’ouvre dans ton navigateur">Créer ma clé</button><button class="btn bleu petit" data-cx-hw="coller" title="Copie ta clé dans Google AI Studio, puis clique ici">${ic('copier')}Coller ma clé</button>`;
+  const champ = !h.cle && ui.cxHwChamp ? '<div class="tg-cle cx-hw-cle"><input type="password" id="cx-hw-cle" placeholder="ou colle ta clé ici" autocomplete="off" spellcheck="false"><button class="btn petit" data-cx-hw="enregistrer">Enregistrer</button></div>' : '';
+  // le Mode Hollywood lui-même : allumé ou coupé ; et la voie, quand il y en a deux
+  const voies = cmd.prete && h.ok ? `<div class="segmente">${[['commande', 'Ton compte Google'], ['cle', 'Ta clé']].map(([k, t]) => `<button data-cx-hw-voie="${k}"${h.voie === k ? ' class="actif"' : ''} title="Gemini regarde d’abord par ${k === 'cle' ? 'ta clé (l’API de Google)' : 'ta commande Gemini (ton abonnement)'} ; l’autre prend le relais">${t}</button>`).join('')}</div>` : '';
+  const reglage = h.prete ? `<div class="cx-qualite"><span>Mode Hollywood</span><label class="interrupteur" title="Gemini regarde et écoute pour ton IA"><input type="checkbox" data-cx-hw-bascule${h.hollywood_demande !== false ? ' checked' : ''}><i></i></label>${voies}<small>${h.hollywood ? `Allumé : ${esc(h.nom_oeil ?? 'Gemini')} regarde et écoute avant chaque montage.` : 'Coupé : ton IA monte sans l’œil de Gemini.'}</small></div>` : '';
+  return `<section class="cx-section"><h4>${ic('etincelle', 'plein')}Mode Hollywood : l’œil et l’oreille</h4><div class="cx-grille">
+    ${carteCx({etat: etatCarte(cmd.prete), lg: logo('gemini', 42), titre: 'Gemini, par ton compte Google', sous: esc(sousCmd)})}
+    ${carteCx({etat: etatCarte(h.ok), lg: logo('gemini', 42), titre: 'Gemini, par ta clé Google', sous: esc(sousCle), actions: actionsCle, plus: champ + (h.ok && h.fermes?.length ? `<small class="attention">${esc(h.fermes[0].raison)}</small>` : '')})}</div>${reglage}</section>`;
+}
 async function feuilleConnexions() {
   let d;
   // une connexion lancée d'ici et pas encore vue : cette IA (seule) est revérifiée à l'ouverture
@@ -6375,6 +6460,7 @@ async function feuilleConnexions() {
     <section class="cx-section"><h4>${ic('etincelle', 'plein')}Ton IA, celle qui monte</h4><div class="cx-grille trois">${carteIA(d, 'claude')}${carteIA(d, 'codex')}${carteIA(d, 'gemini')}</div>
       <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(d.qualites ?? {}).map(([k, q]) => `<button data-cx="ia/choisir" data-qualite="${k}"${k === d.qualite ? ' class="actif"' : ''} title="${esc(q.aide)}">${esc(q.nom)}</button>`).join('')}</div><small>${esc(d.qualites?.[d.qualite]?.aide ?? '')}</small></div>
       ${d.choisi === 'claude' && d.claude?.ok ? rangeeModele(d.modeles, d.modele, true) : ''}</section>
+    ${sectionHollywood(d)}
     <section class="cx-section"><h4>${ic('onde')}Créer le son, les images, les plans</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(el.ok, el.attente), lg: logo('elevenlabs', 42), titre: 'ElevenLabs', sous: esc(el.ok ? 'Branché : musiques, voix, bruitages, images et plans vidéo.' : el.attente ? 'Autorise Dérush dans la page ElevenLabs ouverte dans ton navigateur.' : 'Musiques, voix off, bruitages, doublage, images et plans vidéo (crédits ElevenLabs).'), actions: el.ok ? `<span class="etiq ok">${ic('coche')}Branché</span>` : el.attente ? `<span class="etiq">${anneau(0.5)}En attente…</span>` : '<button class="btn bleu petit" data-cx="elevenlabs/brancher">Brancher</button>'})}</div></section>
     ${sectionSons(d)}
@@ -6431,6 +6517,13 @@ async function feuilleConnexions() {
   rendre();
   suivre();
   f.addEventListener('change', async (e) => {
+    // le Mode Hollywood, allumé ou coupé
+    if (e.target.dataset?.cxHwBascule !== undefined) {
+      try { await api('POST', '/api/connexions/hollywood/activer', {actif: e.target.checked}); note(e.target.checked ? 'Mode Hollywood allumé : Gemini regardera et écoutera tes rushes pour ton IA.' : 'Mode Hollywood coupé.'); } catch (err) { note(err.message, true); }
+      await relire(false);
+      if (ui.claude) chargerClaude();
+      return;
+    }
     const b = e.target.dataset?.cxBascule;
     if (!b) return;
     try { await api('POST', `/api/connexions/${b}`, {actif: e.target.checked}); } catch (err) { note(err.message, true); }
@@ -6442,6 +6535,43 @@ async function feuilleConnexions() {
     if (e.target.closest('[data-competences]')) { clearTimeout(minuterieConnexions); return CP.ouvrir({retour: () => feuilleConnexions()}); }
     const lien = e.target.closest('[data-lien]')?.dataset.lien;
     if (lien) return api('POST', '/api/lien', {url: lien}).catch((err) => note(err.message, true));
+    // le Mode Hollywood : la voie d'abord (le compte Google ou la clé)
+    const voie = e.target.closest('[data-cx-hw-voie]')?.dataset.cxHwVoie;
+    if (voie) {
+      try { const r = await api('POST', '/api/connexions/hollywood/voie', {voie}); note(`Gemini regarde d’abord par ${voie === 'cle' ? 'ta clé' : 'ton compte Google'} : ${r.hollywood?.nom_oeil ?? 'Gemini'}.`); } catch (err) { note(err.message, true); }
+      await relire(false);
+      if (ui.claude) chargerClaude();
+      return;
+    }
+    // créer sa clé (la page de Google AI Studio), la coller (presse-papiers, ou le champ), la vérifier, la retirer
+    const hw = e.target.closest('[data-cx-hw]')?.dataset.cxHw;
+    if (hw) {
+      const poser = async (cle) => {
+        const v = String(cle ?? '').trim();
+        if (!v) { ui.cxHwChamp = true; rendre(); return note('Le presse-papiers est vide : copie d’abord ta clé dans Google AI Studio (ou colle-la dans le champ).', true); }
+        try {
+          const r = await api('POST', '/api/connexions/hollywood/coller', {cle: v});
+          ui.cxHwChamp = false;
+          note(r.hollywood?.ok ? `Clé acceptée par Google : Mode Hollywood prêt, avec ${r.hollywood.nom ?? r.hollywood.modele}.` : `Clé rangée, mais Google la refuse : ${r.hollywood?.pourquoi ?? ''}`, !r.hollywood?.ok, !!r.hollywood?.ok);
+        } catch (err) { note(err.message, true); }
+      };
+      try {
+        if (hw === 'creer') await api('POST', '/api/lien', {url: 'https://aistudio.google.com/apikey'});
+        else if (hw === 'coller') {
+          let v = '';
+          try { v = await (NATIF ? demanderNatif('coller') : navigator.clipboard.readText()); } catch { ui.cxHwChamp = true; rendre(); return note('Le presse-papiers ne se lit pas ici : colle ta clé dans le champ.', true); }
+          await poser(v);
+        } else if (hw === 'enregistrer') await poser($('#cx-hw-cle', f)?.value);
+        else if (hw === 'verifier' || hw === 'retirer') {
+          const r = await api('POST', `/api/connexions/hollywood/${hw}`);
+          const cmd = r.hollywood?.commande?.prete ? ` Ta commande : ${r.hollywood.commande.nom}.` : '';
+          note(hw === 'retirer' ? `Clé Gemini retirée de cet ordinateur.${cmd ? ' Gemini regarde maintenant par ton compte Google.' : ''}` : r.hollywood?.ok ? `Clé acceptée : ${r.hollywood.nom ?? r.hollywood.modele}.${cmd}` : `Google refuse ta clé : ${r.hollywood?.pourquoi ?? ''}${cmd}`, hw === 'verifier' && !r.hollywood?.ok);
+        }
+      } catch (err) { note(err.message, true); }
+      await relire(false);
+      if (ui.claude) chargerClaude();
+      return;
+    }
     const b = e.target.closest('[data-cx]');
     if (!b) return;
     const action = b.dataset.cx;
@@ -7171,10 +7301,32 @@ $('#p-creer').addEventListener('submit', async (e) => {
 });
 
 // ——— Suivi des traitements ———
+/**
+ * Mode Hollywood : Gemini, le réalisateur, regarde et écoute les rushes en fond (dès l'import, ou en passant en
+ * Hollywood). Une bande au-dessus des médias le montre, avec un bouton pour l'arrêter ; elle dit aussi pourquoi il s'est
+ * arrêté (quota du compte…). Les rushes vus reçoivent leur analyse (★ et résumé) au fil de l'eau.
+ */
+function majBandeOeil(o) {
+  SRV.oeil = o;
+  let b = $('#bande-oeil');
+  const cle = o ? `${o.total}:${o.faits}:${o.arret ?? ''}` : '';
+  if (!o || (o.fini && !o.arret) || ui.oeilFerme === cle) { b?.remove(); return; }
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'bande-oeil';
+    b.className = 'bande-analyse bande-oeil';
+    $('#p-medias')?.insertBefore(b, $('#grille-medias'));
+  }
+  b.dataset.cle = cle;
+  b.innerHTML = !o.fini
+    ? `${logo('gemini', 28)}<div><b>Gemini, le réalisateur, regarde et écoute tes rushes · ${o.faits} sur ${o.total}</b><small>${esc(o.noms.length ? `En ce moment : ${o.noms.join(' · ')}` : 'Il commence')}${o.erreurs ? ` · ${o.erreurs} sans réponse` : ''}</small></div><button class="icone-btn" data-oeil="arreter" title="Arrêter (les rushes déjà vus le restent)">${ic('stop', 'plein')}</button>`
+    : `${ic('attention')}<div><b>Gemini s’est arrêté · ${o.faits} sur ${o.total} rushes vus</b><small>${esc(o.arret ?? '')}</small></div><button class="icone-btn" data-oeil="fermer" title="Fermer">${ic('fermer')}</button>`;
+}
 async function rafraichirMedias() {
   const r = await api('GET', '/api/file');
   const avantFile = SRV.file;
   SRV.file = r.file;
+  majBandeOeil(r.oeil ?? null);
   // une installation vient de finir : on relit l'état des moteurs
   if (avantFile?.en_cours?.meta?.type === 'installation' && !r.file.en_cours) SRV.moteurs = await api('GET', '/api/moteurs').catch(() => SRV.moteurs);
   // un détourage vient de finir : les masques qui manquaient sont peut-être là
@@ -7464,7 +7616,7 @@ async function demarrer() {
   if (e.mode === 'projet') await demarrerEditeur();
   else await afficherBibliotheque();
   MAJ.demarrer(e.maj);
-  setInterval(() => { if (!ui.remplacee && (SRV.file?.en_cours || SRV.file?.attente?.length || ui.exportTache || ui.renduTache || SQ.suit())) suivreFile(); }, 900);
+  setInterval(() => { if (!ui.remplacee && (SRV.file?.en_cours || SRV.file?.attente?.length || ui.exportTache || ui.renduTache || SQ.suit() || (SRV.oeil && !SRV.oeil.fini))) suivreFile(); }, 900);
   setInterval(() => { if (ui.remplacee) return; if (ui.ecran === 'montage') suivreFile(); else api('POST', '/api/signe').catch(() => {}); }, 6000);
   setInterval(() => { if (!ui.remplacee && ui.ecran === 'montage') chargerRetours(); }, 20000);
   requestAnimationFrame(boucle);

@@ -119,6 +119,8 @@ Tu écris comme à un monteur. Ton IA monte, et tout ce qu'elle pose (plans, tit
 
 Pendant qu'elle travaille, tu peux lui écrire et lui joindre des fichiers : ils lui arrivent tout de suite, ou *Après ce travail* si tu préfères. Dans *Mes espaces*, ton **kit média** (logos, charte, polices, fonds, logos de tes partenaires, chacun décrit) et ta **bibliothèque d'animations** (les cartons et transitions qu'elle a déjà faits pour toi) lui sont donnés à chaque montage.
 
+**Le Mode Hollywood** (à choisir avant chaque demande : *Classique* ou *Hollywood*) : Gemini, la seule IA qui voit ET entend une vidéo, devient le réalisateur de l'équipe, avec la même grille d'analyse et les mêmes compétences que ton IA de montage. Il dérushe chaque rush en entier, propose le découpage, répond aux questions de ton IA sur un passage, contrôle la vidéo avant qu'elle parte, puis te dit ce qui coince. Ton IA reste le monteur. Par ton compte Google (la commande Gemini connectée, sans clé), ou par ta clé Google AI Studio, en secours.
+
 **Exporter**, en haut à droite, comme dans CapCut : ta timeline ou la vidéo de ton IA, en 1080p, 2K ou 4K quand tes rushes le permettent, avec une copie par réseau si tu veux.
 
 ## Tes médias, analysés
