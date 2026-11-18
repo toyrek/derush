@@ -65,6 +65,7 @@ fs.writeFileSync(path.join(process.env.AGY_FAUX_TRACE ?? process.cwd(), '.agy-fa
   args: a.map((x) => (x === prompt ? `<prompt de ${prompt.length} caractères>` : x)), cwd: process.cwd(), reglages,
   treg: !!process.env.TREG_TOKEN, relais: !!process.env.DERUSH_RELAIS, boite: process.env.DERUSH_RELAIS_BOITE ?? null, relais_jeton: !!process.env.DERUSH_RELAIS_JETON,
   node_proxy: process.env.NODE_USE_ENV_PROXY ?? null, entree_standard: !process.stdin.isTTY,
+  reference_suivie: /COMME SA RÉFÉRENCE/.test(prompt),
   plateau: {agents: fs.existsSync(path.join(process.cwd(), 'AGENTS.md')) ? fs.readFileSync(path.join(process.cwd(), 'AGENTS.md'), 'utf8').slice(0, 200) : null,
     competences: (() => { try { return fs.readdirSync(path.join(process.cwd(), '.agents', 'skills')); } catch { return []; } })()},
 }, null, 1));
@@ -124,7 +125,10 @@ if (sc.startsWith('oeil')) {
   const sourd = sc === 'oeil-sourd' || (sc === 'oeil-sourd-une-fois' && !fs.existsSync(marqueSourd));
   if (sc === 'oeil-sourd-une-fois' && sourd) fs.writeFileSync(marqueSourd, '1');
   if (sourd) index.moments = [{de: 0, a: 2, image: 'plan fixe', son: 'Non audible : l’outil de lecture n’a renvoyé que des images, aucune piste sonore.', interet: 3, type: 'ambiance'}];
-  reponse = !ouvert ? '' : process.env.AGY_FAUX_REPONSE ?? (/contrôles le montage|contrôleur qualité/.test(prompt) ? JSON.stringify(avis) : /Propose le découpage/.test(prompt) ? JSON.stringify(decoupage) : /Sa question/.test(prompt) ? 'Elle rit à 1,4 s, juste après la question.' : JSON.stringify(index));
+  const reference = {idee: 'Un vlog qui enchaîne les réactions.', format: '9:16', duree: 2, rythme: 'un plan par seconde', accroche: 'un cri dès la première image',
+    plans: [{de: 0, a: 1, role: 'accroche', image: 'gros plan', mouvement: 'zoom rapide', transition: 'coupe sèche', texte: 'gros texte jaune', son: 'cri'}, {de: 1, a: 9, role: 'chute', image: 'plan large', mouvement: 'fixe', transition: 'fondu', texte: '', son: 'rires'}],
+    typo: 'Anton, capitales', couleurs: ['#FFD400', 'pas une couleur'], son: 'musique rapide, 128 BPM', fin: 'boucle', a_garder: ['le rythme'], a_changer: ['les rushes']};
+  reponse = !ouvert ? '' : process.env.AGY_FAUX_REPONSE ?? (/« comme celle-ci »/.test(prompt) ? JSON.stringify(reference) : /contrôles le montage|contrôleur qualité/.test(prompt) ? JSON.stringify(avis) : /Propose le découpage/.test(prompt) ? JSON.stringify(decoupage) : /Sa question/.test(prompt) ? 'Elle rit à 1,4 s, juste après la question.' : JSON.stringify(index));
 } else if (sc === 'conseil') {
   // un avis : la réponse est un fichier JSON du dossier
   reponse = (await ecrire('reponse.json', process.env.AGY_FAUX_REPONSE ?? '{"ok": true}')) ? 'Mon avis est dans reponse.json.' : '';

@@ -18,6 +18,7 @@ sont citées ci-dessous.
 | `youtube.svg` | YouTube | #FF0000 | https://www.youtube.com/howyoutubeworks/resources/brand-resources/#logos-icons-and-colors |
 | `youtubeshorts.svg` | YouTube Shorts | #FF0000 |  |
 | `blender.svg` | Blender | #E87D0D | https://www.blender.org/about/logo |
+| `hyperframes.png` | HyperFrames (HeyGen) | dégradé vert-bleu | L'icône du dépôt heygen-com/hyperframes (`assets/icon.png`, dépôt sous Apache-2.0), réduite à 160 px : montrée seulement pour dire quel moteur de rendu Dérush installe |
 | `ffmpeg.svg` | FFmpeg | #007808 |  |
 | `github.svg` | GitHub | #181717 | https://github.com/logos |
 | `git.svg` | Git | #F03C2E |  |

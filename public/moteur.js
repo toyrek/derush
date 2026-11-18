@@ -31,8 +31,12 @@ export const POLICES = {
   Poppins: [[600, 'poppins-600.woff2'], [800, 'poppins-800.woff2']],
   'Playfair Display': [[800, 'playfair-display-800.woff2']],
   'Permanent Marker': [[400, 'permanent-marker-400.woff2']],
+  // Geist (Vercel, OFL) : une linéale nette, sa version à chasse fixe, et une version en pixels
+  Geist: [[600, 'geist-600.woff2'], [900, 'geist-900.woff2']],
+  'Geist Mono': [[500, 'geist-mono-500.woff2'], [700, 'geist-mono-700.woff2']],
+  'Geist Pixel': [[400, 'geist-pixel-400.woff2']],
 };
-export const POLICES_TITRES = ['Anton', 'Bebas Neue', 'Archivo Black', 'Montserrat', 'Poppins', 'Playfair Display', 'Permanent Marker'];
+export const POLICES_TITRES = ['Anton', 'Bebas Neue', 'Archivo Black', 'Montserrat', 'Poppins', 'Playfair Display', 'Permanent Marker', 'Geist', 'Geist Mono', 'Geist Pixel'];
 const poidsFort = (famille) => Math.max(...(POLICES[famille] ?? [[800]]).map((p) => p[0]));
 const JAPONAIS = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif';
 

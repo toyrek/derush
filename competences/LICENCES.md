@@ -158,4 +158,15 @@ Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pa
 |---|---|---|---|---|
 | `motion-design` | Montage | https://github.com/LottieFiles/motion-design-skill | MIT | LottieFiles |
 
+
+## Ajoutées le 18 novembre 2026 (relues fichier par fichier ; provenance et retraits dans leur `SOURCE.md`)
+
+| Compétence | Domaine | Source | Licence | Auteur |
+|---|---|---|---|---|
+| `bang-motion` | Montage | https://github.com/bangtutorial/bang-motion | MIT | Bang Tutorial |
+| `lottie` | Montage | https://github.com/diffusionstudio/lottie | MIT | Diffusion Studio Inc. |
+| `hyperframes` | Montage | https://github.com/heygen-com/hyperframes (v0.9.64, adaptée à Dérush) | Apache-2.0 | HeyGen, Inc. |
+| `hyperframes-cli` | Montage | https://github.com/heygen-com/hyperframes (v0.9.64, adaptée à Dérush) | Apache-2.0 | HeyGen, Inc. |
+| `hyperframes-registry` | Montage | https://github.com/heygen-com/hyperframes (v0.9.64, adaptée à Dérush) | Apache-2.0 | HeyGen, Inc. |
+
 Les textes complets des licences sont dans `licences/`. Chaque dossier garde aussi sa licence (quand le dépôt en a une) et un `SOURCE.md` qui dit d’où il vient et ce qui a été retiré.

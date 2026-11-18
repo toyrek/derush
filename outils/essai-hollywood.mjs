@@ -279,6 +279,15 @@ essai('derush-gemini passe par la commande', qc.status === 0 && /Elle rit à 1,4
 const ctl = await lancerCmd(['--controle', path.join(P.racine, 'vidéos', 'finale.mp4'), 'Essai']);
 essai('derush-gemini --controle : la note, ce qui coince, les remarques avec leurs temps', ctl.status === 0 && /Le contrôle du réalisateur \(Gemini · Gemini 4 Hydrogen\) : 8\/10/.test(ctl.stdout) && /0:01\.0 \[à regarder\] Titre un peu court/.test(ctl.stdout) && /Rien à corriger : tu peux livrer/.test(ctl.stdout), ctl.stderr || ctl.stdout);
 essai('derush-gemini --controle sans vidéo : il le dit', /donne ta vidéo finale/.test((await lancerCmd(['--controle'])).stderr));
+// jusqu'à 8 sur 10 : le verdict compte les passes de correction de cette demande (rendu/controle/notes-gemini.jsonl)
+essai('8 sur 10 ou plus : le verdict dit de livrer', /Verdict : 8\/10, au moins 8 sur 10 : tu peux livrer/.test(ctl.stdout), ctl.stdout.slice(-300));
+fs.rmSync(path.join(atelier, 'rendu', 'controle', 'notes-gemini.jsonl'), {force: true});
+const avisNote = (note) => ({AGY_FAUX_REPONSE: JSON.stringify({note, resume: 'Le titre est caché.', remarques: [{a: 1, gravite: 'a_corriger', quoi: 'Titre sous la barre', conseil: 'remonte-le'}]})});
+const p1 = await lancerCmd(['--controle', path.join(P.racine, 'vidéos', 'finale.mp4')], avisNote(6));
+const p2 = await lancerCmd(['--controle', path.join(P.racine, 'vidéos', 'finale.mp4')], avisNote(7));
+const p3 = await lancerCmd(['--controle', path.join(P.racine, 'vidéos', 'finale.mp4')], avisNote(7));
+essai('sous 8 : corriger, rendre et relancer (passe 1 sur 2, puis 2 sur 2)', /Verdict : 6\/10, sous 8 .*passe de correction 1 sur 2/.test(p1.stdout) && /Verdict : 7\/10, sous 8 .*passe de correction 2 sur 2/.test(p2.stdout), `${p1.stdout.slice(-200)} | ${p2.stdout.slice(-200)}`);
+essai('après deux passes de correction : livrer, et dire la note', /Verdict : 7\/10 après deux passes de correction : livre maintenant/.test(p3.stdout), p3.stdout.slice(-200));
 
 console.log('Le découpage du réalisateur');
 P.d.medias.push({id: 'M3', nom: 'trop-court.mp4', type: 'video', duree: 1, chemin: video});
@@ -291,6 +300,16 @@ const pd = await G.proposerDecoupage(P, atelierD, 'Fais une vidéo verticale de 
 const decMd = fs.readFileSync(path.join(atelierD, 'contexte', 'gemini', 'DECOUPAGE.md'), 'utf8');
 const traceD = JSON.parse(fs.readFileSync(path.join(tmp, 'trace-agy', '.agy-faux.json'), 'utf8'));
 essai('par la commande : il lit son dérushage, propose ses plans, Dérush les vérifie et les pose', pd?.plans.length === 2 && pd.plans[0].texte === 'BONJOUR' && pd.plans[1].a === 2 && /\| 1 \| M1 \| 0:00\.4 → 0:01\.6 \| accroche/.test(decMd) && /tu restes le monteur/.test(decMd) && traceD.reglages.permissions.allow.some((r) => r.includes(path.join('contexte', 'gemini'))), JSON.stringify(pd).slice(0, 200));
+console.log('« Comme cette vidéo »');
+fs.copyFileSync(video, path.join(tmp, 'ma-reference.mp4'));
+const rf = await G.decomposerReference(P, path.join(tmp, 'ma-reference.mp4'), {nom: 'ma-reference.mp4'});
+essai('le réalisateur décompose la référence plan par plan (temps bornés à sa durée, couleurs vérifiées)', rf.reference.plans.length === 2 && rf.reference.plans[1].a <= 3.1 && JSON.stringify(rf.reference.couleurs) === '["#FFD400"]' && rf.reference.accroche === 'un cri dès la première image' && !rf.deja, JSON.stringify(rf).slice(0, 300));
+essai('une référence déjà décomposée ne repart pas', (await G.decomposerReference(P, path.join(tmp, 'ma-reference.mp4'), {nom: 'ma-reference.mp4'})).deja === true);
+const rmd = G.referenceEnTexte(rf.reference, 'ma-reference.mp4');
+essai('REFERENCE.md : au format Motion.md, un style à reproduire, jamais un contenu à copier', /format Motion\.md d’OpenMotion/.test(rmd) && /jamais un contenu à copier/.test(rmd) && /\| 1 \| 0:00\.0 → 0:01\.0 \| accroche/.test(rmd) && /\*\*À garder\*\*/.test(rmd));
+await G.proposerDecoupage(P, atelierD, 'Fais la même chose avec mes rushes.', {reference: rmd});
+essai('le découpage du réalisateur suit la structure de la référence', JSON.parse(fs.readFileSync(path.join(tmp, 'trace-agy', '.agy-faux.json'), 'utf8')).reference_suivie === true);
+essai('la consigne du monteur montre REFERENCE.md', /REFERENCE\.md/.test(G.consigneHollywood({rushes: 2, decoupage: pd, reference: true})) && !/REFERENCE/.test(G.consigneHollywood({rushes: 2})));
 const ch = G.consigneHollywood({rushes: 2, decoupage: pd});
 essai('la consigne du monteur : le dérushage, le découpage, les questions, le contrôle avant de livrer', /DECOUPAGE\.md/.test(ch) && /derush-gemini --controle/.test(ch) && /tu restes le monteur|tu es le monteur/.test(ch) && !/DECOUPAGE/.test(G.consigneHollywood({rushes: 2})));
 essai('sans demande, pas de découpage', (await G.proposerDecoupage(P, atelierD, '  ')) === null);

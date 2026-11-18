@@ -16,6 +16,8 @@
 //
 // --controle : avant de livrer, le réalisateur regarde et écoute ta vidéo en entier (15 minutes au plus) et rend sa
 // note sur 10, ce qui marche et ce qui coince, et ses remarques avec les temps (« à corriger » ou « à regarder »).
+// Jusqu'à 8 sur 10 : sous 8, corrige ce qu'il marque « à corriger », rends de nouveau et relance le contrôle ; deux
+// passes de correction au plus. La dernière ligne (« Verdict ») dit où tu en es.
 //
 // Le passage part chez Gemini (une version légère : 720 px, image et son), avec ta question : par la commande Gemini
 // (le compte Google de la personne), sinon par sa clé. La réponse arrive en français ; ses temps sont comptés depuis le
@@ -38,6 +40,21 @@ const sortir = (t, code = 1) => { process.stderr.write(`derush-gemini : ${t}\n`)
 // passe alors par le relais de Dérush (la boîte de fichiers, ou l'adresse locale), qui la fait hors du bac à sable.
 const jeton = process.env.DERUSH_RELAIS_JETON;
 const relais = jeton && (process.env.DERUSH_RELAIS_BOITE || process.env.DERUSH_RELAIS) ? {boite: process.env.DERUSH_RELAIS_BOITE || null, url: process.env.DERUSH_RELAIS || null} : null;
+// Le contrôle « jusqu'à 8 sur 10 » : chaque note du réalisateur est gardée pour ce travail (rendu/controle/
+// notes-gemini.jsonl, effacé par Dérush à chaque nouvelle demande). Le verdict dit s'il faut corriger encore.
+const RENDU = fs.existsSync('rendu') ? 'rendu' : fs.existsSync(path.join('..', 'rendu')) ? path.join('..', 'rendu') : 'rendu';
+const NOTES = path.join(RENDU, 'controle', 'notes-gemini.jsonl');
+function verdict(texte, video) {
+  const note = Number(/\/10/.test(String(texte)) ? /:\s*(\d+(?:[.,]\d+)?)\/10/.exec(String(texte))?.[1]?.replace(',', '.') : NaN);
+  let avant = 0;
+  try { avant = fs.readFileSync(NOTES, 'utf8').split('\n').filter(Boolean).length; } catch { /* premier contrôle */ }
+  try { fs.mkdirSync(path.dirname(NOTES), {recursive: true}); fs.appendFileSync(NOTES, `${JSON.stringify({video: path.basename(video), note: Number.isFinite(note) ? note : null, le: new Date().toISOString()})}\n`); } catch { /* dossier en lecture seule */ }
+  if (!Number.isFinite(note)) return '';
+  if (note >= 8) return `\nVerdict : ${note}/10, au moins 8 sur 10 : tu peux livrer. Dis sa note dans ton compte rendu.\n`;
+  if (avant >= 2) return `\nVerdict : ${note}/10 après deux passes de correction : livre maintenant, et dis dans ton compte rendu sa note et ce qui reste à améliorer.\n`;
+  return `\nVerdict : ${note}/10, sous 8 : corrige ce qu'il marque « à corriger » (les pires d'abord), rends de nouveau et relance ce contrôle (passe de correction ${avant + 1} sur 2).\n`;
+}
+
 const parRelais = async (corps) => {
   let ligne = null;
   if (relais.boite) {
@@ -49,7 +66,7 @@ const parRelais = async (corps) => {
   }
   const r = JSON.parse(/^##DERUSH-GEMINI (.*)##\s*$/.exec(String(ligne ?? '').trim())?.[1] ?? '{"ok":false,"message":"le relais de Dérush n’a pas répondu."}');
   if (!r.ok) sortir(r.message);
-  process.stdout.write(r.texte);
+  process.stdout.write(corps.mode === 'controle' ? `${r.texte}${verdict(r.texte, corps.fichier)}` : r.texte);
   process.exit(0);
 };
 if (!relais && !G.hollywoodActif()) sortir('le Mode Hollywood est coupé dans Dérush (Connexions › Mode Hollywood) : pas de question à Gemini. Fais sans, avec les images et le texte des rushes.');
@@ -63,7 +80,7 @@ if (args[0] === '--controle') {
   // pour qui est la vidéo : l'espace du projet, posé dans le dossier de travail (contexte/espace/ESPACE.md)
   let contexte = '';
   for (const f of [path.join('contexte', 'espace', 'ESPACE.md'), path.join('..', 'contexte', 'espace', 'ESPACE.md')]) { try { contexte = fs.readFileSync(f, 'utf8').slice(0, 2500); break; } catch { /* pas ici */ } }
-  try { process.stdout.write(await G.controlerVideo(video, {titre, contexte})); } catch (e) { sortir(e.message); }
+  try { const t = await G.controlerVideo(video, {titre, contexte}); process.stdout.write(`${t}${verdict(t, video)}`); } catch (e) { sortir(e.message); }
   process.exit(0);
 }
 const [cible, deBrut, aBrut, ...reste] = args;

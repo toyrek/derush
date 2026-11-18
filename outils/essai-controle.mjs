@@ -118,7 +118,17 @@ for n, (txt, x) in enumerate([("J'ai reçu la", 200), ("cettecollection", 220), 
   let jc = null;
   try { jc = JSON.parse(c.stdout); } catch { /* pas du JSON */ }
   essai('derush-controle répond en JSON, code 2 tant qu’il reste un problème', c.status === 2 && jc?.problemes?.length >= 2, `${c.status} ${c.stdout.slice(0, 200)}`);
+  essai('… avec la planche de toute la vidéo pour le second regard (jusqu’à 8 sur 10)', !!jc?.second_regard?.planche && fs.existsSync(jc.second_regard.planche) && /8/.test(jc.second_regard.consigne), JSON.stringify(jc?.second_regard ?? null));
 }
+console.log('Le second regard : toute la vidéo sur une planche');
+const courte = path.join(tmp, 'courte.mp4');
+const longue = path.join(tmp, 'longue.mp4');
+execFileSync(FFMPEG, ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=108x192:rate=10:duration=5', '-pix_fmt', 'yuv420p', courte]);
+execFileSync(FFMPEG, ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=192x108:rate=5:duration=100', '-pix_fmt', 'yuv420p', longue]);
+const pc = await C.plancheEntiere(courte, path.join(tmp, 'p-courte'));
+essai('une vidéo de 5 s : une image par seconde, 5 cases', pc.pas_s === 1 && pc.cases === 5 && fs.statSync(pc.fichier).size > 1000, JSON.stringify(pc));
+const pl = await C.plancheEntiere(longue, path.join(tmp, 'p-longue'));
+essai('une vidéo de 100 s : une image toutes les 3 s, 48 cases au plus', pl.pas_s === 3 && pl.cases === 34 && fs.existsSync(pl.fichier), JSON.stringify(pl));
 const c0 = spawnSync(process.execPath, [path.join(ICI, 'derush-controle.mjs')], {encoding: 'utf8'});
 essai('derush-controle sans rien : son mode d’emploi (accroche, voix, rythme compris), code 0', c0.status === 0 && /Usage/.test(c0.stdout) && /accroche/i.test(c0.stdout) && /rythme/i.test(c0.stdout));
 const c1 = spawnSync(process.execPath, [path.join(ICI, 'derush-controle.mjs'), path.join(tmp, 'nulle-part.mp4')], {encoding: 'utf8'});

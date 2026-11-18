@@ -5215,9 +5215,9 @@ const guideGestes = () => `<div class="guide">${geste('rushes', '01', 'Dépose',
 // qui n'ont pas de logo à eux (Real SFX, Earshot…) gardent un picto.
 const LOGOS = {openverse: 'openverse', claude: 'claude', anthropic: 'anthropic', codex: 'openai', openai: 'openai', chatgpt: 'openai', whisper: 'openai', gemini: 'googlegemini', google: 'google',
   elevenlabs: 'elevenlabs', drive: 'googledrive', treg: 'treg', tiktok: 'tiktok', youtube: 'youtubeshorts', instagram: 'instagram', linkedin: 'linkedin', facebook: 'facebook', x: 'x',
-  blender: 'blender', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', macos: 'macos', linux: 'linux', windows: 'windows',
+  blender: 'blender', hyperframes: 'hyperframes.png', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', macos: 'macos', linux: 'linux', windows: 'windows',
   premiere: 'adobepremierepro', resolve: 'davinciresolve'};
-const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', remotion: 'film', maj: 'maj', competences: 'outil'};
+const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', remotion: 'film', maj: 'maj', competences: 'outil', effaceur: 'baguette'};
 /**
  * Un logo sur sa pastille claire : les logos noirs (TikTok, GitHub…) restent lisibles sur le fond sombre.
  * La clé peut venir d'un fichier écrit par l'IA (un réseau dans la recette, une médiane) : seule une clé connue, ou un
@@ -5227,7 +5227,7 @@ const logo = (cle, taille = 22, cls = '') => {
   const k = typeof cle === 'string' && /^[a-z0-9-]{1,30}$/.test(cle) ? cle : 'inconnu';
   const t = Number(taille) || 22;
   return Object.hasOwn(LOGOS, k)
-    ? `<span class="logo l-${k} ${cls}" style="--t:${t}px"><img src="/logos/${LOGOS[k]}.svg" alt="" draggable="false"></span>`
+    ? `<span class="logo l-${k} ${cls}" style="--t:${t}px"><img src="/logos/${LOGOS[k]}${/\.png$/.test(LOGOS[k]) ? '' : '.svg'}" alt="" draggable="false"></span>`
     : `<span class="logo picto p-${k} ${cls}" style="--t:${t}px">${ic(Object.hasOwn(PICTOS, k) ? PICTOS[k] : 'etincelle')}</span>`;
 };
 const moteurIA = () => ui.claude?.ia?.choisi ?? SRV.moteurs?.ia_choisie ?? 'claude';
@@ -5238,10 +5238,87 @@ const nomIA = (m = moteurIA()) => NOMS_IA[m] ?? 'Claude';
 const iaPrete = (m = moteurIA()) => !!ui.claude?.[m]?.ok;
 const qualiteIA = () => ui.claude?.ia?.qualite ?? 'max';
 /** Le modèle de Claude choisi à la main (null : « Auto », selon le niveau). */
-const modeleIA = () => (ui.claude?.modeles?.[ui.claude?.ia?.modele] ? ui.claude.ia.modele : null);
-/** La rangée « Modèle de Claude » : Auto suit le niveau (Opus 5.5, ou Sonnet 5.5 en Rapide) ; sinon le modèle choisi. */
-const rangeeModele = (modeles, choisi, cx = false) => `<div class="cx-qualite cx-modele"><span>Modèle</span><div class="segmente">${[['', {nom: 'Auto', aide: 'Opus 5.5, ou Sonnet 5.5 au niveau Rapide'}], ...Object.entries(modeles ?? {})]
-  .map(([k, x]) => `<button ${cx ? 'data-cx="ia/choisir" ' : ''}data-modele="${k}"${(choisi ?? '') === k ? ' class="actif"' : ''} title="${esc(x.aide ?? '')}">${esc(x.nom)}</button>`).join('')}</div><small>${esc(choisi && modeles?.[choisi] ? `${modeles[choisi].nom} monte, au niveau de soin choisi.` : 'Auto : Opus 5.5, ou Sonnet 5.5 au niveau Rapide.')}</small></div>`;
+/** Le modèle choisi à la main pour l'IA (null : selon le niveau). */
+const modeleIA = (m = moteurIA()) => ui.claude?.ia?.modeles?.[m] ?? (m === 'claude' && ui.claude?.modeles?.[ui.claude?.ia?.modele] ? ui.claude.ia.modele : null);
+const nomModeleIA = (m = moteurIA()) => (ui.claude?.modeles_ia?.[m] ?? []).find((x) => x.id === modeleIA(m))?.nom ?? null;
+/**
+ * La rangée « Modèle » de l'IA choisie, tenue à jour en direct (lib/modeles-ia.mjs) : Claude (sa liste), Codex (le
+ * catalogue de ton compte ChatGPT), Gemini (les familles de ton compte Google). Auto suit le niveau ; « Nouveau » marque
+ * un modèle apparu dans la semaine.
+ */
+const rangeeModele = (moteur, liste, choisi, cx = false) => {
+  const auto = moteur === 'codex' ? `le modèle par défaut de Codex${liste?.[0] ? ` (${liste[0].nom})` : ''}` : moteur === 'gemini' ? 'le plus fort de ton compte, selon le niveau' : 'Opus 5.5, ou Sonnet 5.5 au niveau Rapide';
+  const nom = (liste ?? []).find((m) => m.id === choisi)?.nom;
+  return `<div class="cx-qualite cx-modele"><span>Modèle</span><div class="segmente">${[{id: '', nom: 'Auto', aide: auto}, ...(liste ?? [])]
+    .map((m) => `<button ${cx ? 'data-cx="ia/choisir" ' : ''}data-modele="${esc(m.id)}" data-moteur-modele="${moteur}"${(choisi ?? '') === m.id ? ' class="actif"' : ''} title="${esc(m.aide ?? '')}">${esc(m.nom)}${m.nouveau ? '<i class="nouveau">Nouveau</i>' : ''}</button>`).join('')}</div><small>${esc(nom ? `${nom} monte, au niveau de soin choisi.` : `Auto : ${auto}.`)}</small></div>`;
+};
+/** Les vitesses de Codex, dites en français (« Fast » : Rapide ; « 2x speed, increased usage » : 2× plus vite…). */
+const nomVitesse = (x) => (!x ? 'Normale' : x.id === 'priority' || /^fast$/i.test(x.nom) ? 'Rapide' : x.id === 'ultrafast' || /ultra/i.test(x.nom) ? 'Ultra-rapide' : x.nom);
+const aideVitesse = (x) => {
+  const a = String(x?.aide ?? '');
+  const fois = /(\d+(?:\.\d+)?)x speed/i.exec(a)?.[1];
+  return [fois ? `${fois.replace('.', ',')}× plus vite` : x?.id === 'ultrafast' ? 'les réponses les plus rapides' : 'plus vite', /increased usage/i.test(a) || x?.id === 'ultrafast' ? 'use ton quota plus vite' : ''].filter(Boolean).join(', ');
+};
+/** La vitesse de Codex choisie (null : normale), si le modèle qui monte la propose. */
+const vitesseIA = (m = moteurIA()) => {
+  if (m !== 'codex') return null;
+  const liste = ui.claude?.modeles_ia?.codex ?? [];
+  const mo = liste.find((x) => x.id === modeleIA('codex')) ?? (modeleIA('codex') ? null : liste[0]);
+  return mo?.vitesses?.find((v) => v.id === ui.claude?.ia?.vitesse_codex) ?? null;
+};
+/**
+ * La rangée « Vitesse » de Codex : normale, ou une des vitesses du modèle choisi (Rapide : 2× plus vite, en usant le
+ * quota plus vite ; Ultra-rapide pour certains). Rien si le modèle n'en propose pas.
+ */
+const rangeeVitesse = (liste, choisi, vitesse, cx = false) => {
+  const m = (liste ?? []).find((x) => x.id === choisi) ?? (choisi ? null : liste?.[0]);
+  const v = m?.vitesses ?? [];
+  if (!v.length) return '';
+  const actuelle = v.find((x) => x.id === vitesse) ?? null;
+  return `<div class="cx-qualite cx-modele cx-vitesse"><span>Vitesse</span><div class="segmente">${[{id: '', nom: 'Normale', aide: 'La vitesse habituelle, le quota habituel.'}, ...v]
+    .map((x) => `<button ${cx ? 'data-cx="ia/choisir" ' : ''}data-vitesse="${esc(x.id)}"${(actuelle?.id ?? '') === x.id ? ' class="actif"' : ''} title="${esc(x.id ? aideVitesse(x) : x.aide)}">${esc(x.id ? nomVitesse(x) : 'Normale')}</button>`).join('')}</div><small>${esc(actuelle ? `${nomVitesse(actuelle)} : ${aideVitesse(actuelle)}.` : 'Normale : la vitesse habituelle, le quota habituel.')}</small></div>`;
+};
+/** L'heure où un quota se recharge, dite simplement : « à 14 h 10 », « demain à 9 h », « mar. 25 nov. à 13 h ». */
+function quandRecharge(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(+d)) return '';
+  const h = `${d.getHours()} h${d.getMinutes() ? ` ${String(d.getMinutes()).padStart(2, '0')}` : ''}`;
+  const demain = new Date();
+  demain.setDate(demain.getDate() + 1);
+  if (d.toDateString() === new Date().toDateString()) return `à ${h}`;
+  if (d.toDateString() === demain.toDateString()) return `demain à ${h}`;
+  return `${d.toLocaleDateString('fr-FR', {weekday: 'short', day: 'numeric', month: 'short'})} à ${h}`;
+}
+const prixUsd = (usd) => `${Number(usd ?? 0).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} $`;
+/**
+ * Le quota d'une IA, sur sa carte : chaque fenêtre (5 heures, semaine), sa part utilisée et sa recharge ; « atteint »
+ * quand il l'est. Claude les annonce pendant son travail, Codex les donne à la demande, Gemini ne les donne pas.
+ */
+function blocQuota(q, m, {verifier = false} = {}) {
+  const bouton = verifier && m !== 'gemini' ? `<button class="lien-btn" data-cx-quota="${m}" title="${m === 'claude' ? 'Une toute petite demande à Claude, pour relire ses quotas' : 'Relire les quotas de ton compte ChatGPT (rien n’est consommé)'}">Revérifier</button>` : '';
+  if (!q?.connu) {
+    const t = m === 'claude' ? 'Quota : il s’affiche pendant le prochain travail de Claude.' : m === 'codex' ? 'Quota : Dérush le lit…' : 'Quota : Google ne le donne pas ; Dérush te dit s’il est atteint.';
+    return `<div class="quota inconnu"><small>${esc(t)}</small>${bouton}</div>`;
+  }
+  if (q.statut === 'atteint') return `<div class="quota atteint"><small><b>Quota atteint</b>${q.recharge ? ` · se recharge ${esc(quandRecharge(q.recharge))}` : ''}</small>${bouton}</div>`;
+  const fen = (q.fenetres ?? []).map((x) => `<span class="q-fen" title="${esc(`${x.nom} : ${x.pourcent} % utilisés${x.recharge ? `, se recharge ${quandRecharge(x.recharge)}` : ''}`)}"><b>${esc(x.nom)}</b><i class="q-barre"><i class="${x.pourcent >= 90 ? 'rouge' : x.pourcent >= 70 ? 'orange' : ''}" style="width:${Math.max(2, x.pourcent)}%"></i></i><em>${x.pourcent} %</em>${x.recharge ? `<small>se recharge ${esc(quandRecharge(x.recharge))}</small>` : ''}</span>`).join('');
+  return `<div class="quota${q.statut === 'presque' ? ' presque' : ''}">${fen || '<small>Quota : rien d’annoncé pour l’instant.</small>'}${q.forfait ? `<small class="dim">Forfait ${esc(q.forfait.charAt(0).toUpperCase() + q.forfait.slice(1))}</small>` : ''}${bouton}</div>`;
+}
+/**
+ * Le forfait de Claude est épuisé au moment d'envoyer : la suite au choix. Le crédit API n'est jamais pris sans ce clic.
+ * Renvoie « api », « autre », « envoyer », ou null (fermé sans choisir : rien ne part).
+ */
+function choixForfaitEpuise() {
+  return new Promise((ok) => {
+    const q = ui.claude?.quotas?.claude ?? {};
+    const api = ui.claude?.claude_api?.ok;
+    let choix = null;
+    const f = feuille(`<h3>Ton forfait Claude est épuisé</h3><p class="sous-titre">${esc(q.recharge ? `Il se recharge ${quandRecharge(q.recharge)}.` : 'Il se recharge bientôt.')} ${api ? 'Tu peux continuer avec ton crédit API (payé à l’usage, pour cette demande seulement), choisir une autre IA, ou envoyer quand même.' : 'Tu peux choisir une autre IA, ou envoyer quand même.'}</p>
+      <div class="pied">${api ? `<button class="btn bleu" data-choix="api">${ic('etincelle', 'plein')}Avec mon crédit API</button>` : ''}<button class="btn" data-choix="autre">${ic('prise')}Une autre IA</button><span class="espace"></span><button class="btn" data-choix="envoyer">Envoyer quand même</button></div>`);
+    f.avantFermeture = () => { ok(choix); };
+    f.addEventListener('click', (e) => { const k = e.target.closest('[data-choix]')?.dataset.choix; if (!k) return; choix = k; fermerFeuille(); });
+  });
+}
 const RESEAUX_UI = {tiktok: 'TikTok', youtube: 'YouTube Shorts', instagram: 'Instagram Reels', linkedin: 'LinkedIn'};
 const ETATS_PUB = {publie: 'Publiée', brouillon: 'Brouillon dans ta boîte', en_cours: 'En cours', echec: 'Pas publiée'};
 /** Le format d'une vidéo, dit simplement (9:16, 16:9…). */
@@ -5403,7 +5480,7 @@ function vignettePiece(x, voir = false) {
   const fond = x.apercu && !x.introuvable ? ` style="background-image:url('${urlPiece(x.id)}')"` : '';
   return `<span class="pj-vig t-${x.type}${fond ? ' image' : ''}${x.introuvable ? ' perdue' : ''}"${voir ? ` data-cl="voir-piece" data-id="${x.id}"` : ''} title="${esc(titre)}"${fond}>${fond ? '' : ic(ICONES_PIECE[x.type] ?? 'trombone')}${x.type === 'video' && fond ? `<i>${ic('lire', 'plein')}</i>` : ''}</span>`;
 }
-const selectRole = (x) => `<select class="pj-role" data-role="${x.id}" title="Ce que c’est, pour l’IA">${Object.entries(ui.claude?.roles ?? {}).map(([k, n]) => option(k, n, k === x.role)).join('')}</select>`;
+const selectRole = (x) => `<select class="pj-role" data-role="${x.id}" title="Ce que c’est, pour l’IA">${Object.entries(ui.claude?.roles ?? {}).map(([k, n]) => option(k, n, k === x.role)).join('')}</select>${x.type === 'video' && x.role === 'reference' ? '<i class="pj-comme" title="Ton IA reprend son style (structure, rythme, textes, transitions, son), jamais son contenu. En Mode Hollywood, Gemini la décompose d’abord, plan par plan.">Comme cette vidéo</i>' : ''}`;
 /** Une puce de pièce jointe, dans la zone d'écriture (elle partira avec le prochain message). */
 function pucePiece(x) {
   const etat = x.erreur ? ` — ${x.erreur}` : x.en_preparation ? ' — Dérush la prépare pour ton IA…' : '';
@@ -5766,7 +5843,12 @@ function bulleClaude(x, c) {
   const questions = x === c.echanges.at(-1) && !c.en_cours && !x.erreur ? questionsALaFin(x.texte) : [];
   const repondre = questions.length ? `<div class="cl-repondre"><button class="btn petit" data-cl="repondre" data-n="${questions.length}" title="Prépare tes réponses, numérotées, dans la zone d’écriture">${ic('bulle')}Répondre</button>${VO.questionsOuvertes()
     ? `<button class="btn petit" data-cl="vo-ouvrir" title="Réponds question par question, par écrit ou au micro : tes réponses servent à ta voix off">${ic('micro')}Au micro</button>` : ''}</div>` : '';
-  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}${x.texte ? boutonCopier(x) : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
+  // un forfait épuisé : la suite au choix (le crédit API de Claude en dernier recours, une autre IA)
+  const qa = x.quota_atteint && x === c.echanges.at(-1) && !c.en_cours ? x.quota_atteint : null;
+  const autres = qa ? ['claude', 'codex', 'gemini'].filter((k) => k !== qa.moteur && c[k]?.ok && c.quotas?.[k]?.statut !== 'atteint') : [];
+  const suiteQuota = qa ? `<div class="cl-quota"><small>${esc(`Le quota de ${nomIA(qa.moteur)} est atteint.${qa.recharge ? ` Il se recharge ${quandRecharge(qa.recharge)}.` : ''}`)}</small><div class="cl-repondre">${qa.moteur === 'claude' && c.claude_api?.ok ? `<button class="btn petit bleu" data-cl="credit-api" title="Claude reprend ta demande avec le crédit de ton compte API (payé à l’usage), pour cette fois seulement">${ic('etincelle', 'plein')}Continuer avec mon crédit API</button>` : ''}${autres.length ? `<button class="btn petit" data-cl="choisir-ia">${ic('prise')}Monter avec ${autres.map((k) => nomIA(k)).join(' ou ')}</button>` : ''}</div>${qa.moteur === 'claude' && !c.claude_api?.cle ? '<small class="dim">Du crédit sur l’API de Claude ? Branche-le dans Connexions (« Le crédit API de Claude ») : Dérush te le proposera ici, en dernier recours.</small>' : ''}</div>` : '';
+  const cout = x.credit_api ? `<small class="cl-cout">${ic('etincelle', 'plein')}Payé avec ton crédit API${x.credit_api.usd != null ? ` : ${prixUsd(x.credit_api.usd)}` : ''}</small>` : '';
+  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}${x.texte ? boutonCopier(x) : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${suiteQuota}${cout}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
 }
 /** La bulle de l'IA au travail : la bobine tourne, une ligne dit ce qu'elle fait, son rendu passe en petit ; le détail se déplie. */
 // Ce qu'une demande dure d'ordinaire à chaque niveau (avant que cet ordinateur en ait mesuré une lui-même)
@@ -5951,7 +6033,7 @@ function rendreClaude() {
 
   // en haut : l'IA choisie (un clic pour changer), ce qu'elle a reçu, et le menu
   const tete = `<div class="ia-tete">
-    <button class="ia-choix" data-cl="choisir-ia" title="Choisir l’IA et la qualité">${logo(m, 26)}<span><b>${nomIA(m)}</b><small>${pret ? esc([m === 'claude' && modeleIA() ? c.modeles[modeleIA()].nom : null, c.qualites?.[qualiteIA()]?.nom ?? ''].filter(Boolean).join(' · ')) : 'à brancher'}</small></span>${ic('img-plus', 'chevron')}</button>
+    <button class="ia-choix" data-cl="choisir-ia" title="Choisir l’IA et la qualité">${logo(m, 26)}<span><b>${nomIA(m)}</b><small>${pret ? esc([nomModeleIA(m), c.qualites?.[qualiteIA()]?.nom ?? '', vitesseIA(m) ? nomVitesse(vitesseIA(m)) : null].filter(Boolean).join(' · ')) : 'à brancher'}</small></span>${ic('img-plus', 'chevron')}</button>
     <span class="espace"></span>
     ${envoyees.length ? `<button class="ia-recus${ui.clRecus ? ' actif' : ''}" data-cl="recus" title="Les fichiers que l’IA a reçus">${ic('trombone')}<span>${envoyees.length}</span></button>` : ''}
     <button class="icone-btn${ui.clMenu ? ' actif' : ''}" data-cl="menu" title="Plus : connexions, brief, créer sans IA…">${ic('points')}</button>
@@ -5965,7 +6047,7 @@ function rendreClaude() {
     ? `<div class="ia-accueil">${ill('motion')}<h2>Décris ton animation</h2><p>Pas besoin de vidéo : le sujet, les mots à afficher, la durée, le style. Joins ton logo ou ta charte si tu en as.</p>${pret ? blocIdees(false) : ''}</div>`
     : !P.medias.length && !c.pieces.length
     ? `<div class="ia-accueil">${ill(DESSINS_MODE[modeP] === 'claude' ? 'rushes' : DESSINS_MODE[modeP])}<h2>D’abord, ta matière</h2><p>${matiere}</p><div class="ia-accueil-act"><button class="btn principal" data-a="importer">${ic('plus')}Importer</button><button class="btn" data-a="drive" title="Retrouver tes rushes dans ton Google Drive, par jour">${logo('drive', 16)}Depuis mon Drive</button></div></div>`
-    : `<div class="ia-accueil">${ill('claude')}<h2>Qu’est-ce qu’on monte&nbsp;?</h2><p>Écris ce que tu veux. Joins tes références, ta charte ou ton logo si tu en as.</p>${pret ? blocIdees(false) : ''}</div>`;
+    : `<div class="ia-accueil">${ill('claude')}<h2>Qu’est-ce qu’on monte&nbsp;?</h2><p>Écris ce que tu veux. Joins une vidéo à imiter (« comme celle-ci »), ta charte ou ton logo si tu en as.</p>${pret ? blocIdees(false) : ''}</div>`;
   const fil = suite || c.en_cours ? `<div class="cl-fil">${c.echanges.map((x) => bulleClaude(x, c)).join('')}${c.en_cours ? bulleTravail(c) : ''}</div>` : '';
   const dansOuverte = SQ.dansOuverte();
   const reprendre = suite && c.decoupe_ia && !c.en_cours
@@ -6016,6 +6098,7 @@ function rendreClaude() {
   hauteurTexte(ta);
   if (focus) { ta.focus(); ta.setSelectionRange(...curseur); }
   majEnvoi();
+  majLienReference();
   if (c.en_cours) majTravail(c);
   // une réponse arrive : on montre ton message puis la réponse ; l'IA au travail : on suit le bas ; l'accueil se lit par le haut
   const derniere = $$('.cl-b.humain', box).at(-1);
@@ -6082,6 +6165,14 @@ async function envoyerDemande() {
     ui.brouillon = '';
     return rendreClaude();
   }
+  // le forfait de Claude est épuisé : rien ne part sans un choix (le crédit API n'est jamais pris tout seul)
+  let creditApi = false;
+  if (moteurIA() === 'claude' && c.quotas?.claude?.statut === 'atteint') {
+    const choix = await choixForfaitEpuise();
+    if (choix === 'autre') return feuilleChoixIA();
+    if (choix !== 'api' && choix !== 'envoyer') return;
+    creditApi = choix === 'api';
+  }
   const peutSuivre = c.echanges.length > 0 && !!c.session;
   const depart = !peutSuivre || c.espace_change ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
   const b = $('#cl-envoyer');
@@ -6090,7 +6181,7 @@ async function envoyerDemande() {
   try {
     await sauver(true);
     const message = [texte || (reglages ? 'Applique ces réglages sur ta vidéo, sans rien changer d’autre.' : ''), reglages].filter(Boolean).join('\n\n');
-    await api('POST', '/api/claude/demander', {message, pieces: pj.map((x) => x.id), moteur: moteurIA(), qualite: qualiteIA(), nouveau: depart === 'nouveau'});
+    await api('POST', '/api/claude/demander', {message, pieces: pj.map((x) => x.id), moteur: moteurIA(), qualite: qualiteIA(), nouveau: depart === 'nouveau', ...(creditApi ? {credit_api: true} : {})});
     ui.brouillon = '';
     ui.reglagesIA = [];
     ui.depart = null;
@@ -6165,7 +6256,29 @@ $('#claude').addEventListener('input', (e) => {
   ui.brouillon = e.target.value;
   hauteurTexte(e.target);
   majEnvoi();
+  majLienReference();
 });
+// « Comme cette vidéo », depuis un lien : un lien de TikTok, Instagram ou YouTube dans ce qu'on écrit propose de joindre
+// la vidéo comme référence (lib/lien-video.mjs). Rien ne se télécharge sans ce clic.
+const SITES_REF = /^(?:[\w-]+\.)*(tiktok\.com|instagram\.com|youtube\.com|youtu\.be)$/i;
+function lienDansTexte(t) {
+  for (const m of String(t ?? '').matchAll(/https?:\/\/[^\s<>"'«»]+/gi)) {
+    try { const u = new URL(m[0].replace(/[.,;:!?)]+$/, '')); if (u.protocol === 'https:' && SITES_REF.test(u.hostname)) return u.toString(); } catch { /* pas une adresse */ }
+  }
+  return null;
+}
+function majLienReference() {
+  const zone = $('#cl-compose');
+  if (!zone) return;
+  const lien = lienDansTexte(ui.brouillon);
+  let b = $('#cl-lien-ref');
+  if (!lien || ui.liensJoints?.has(lien) || !iaPrete()) { b?.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'cl-lien-ref'; b.className = 'cl-lien-ref'; zone.insertBefore(b, $('#cl-texte', zone)); }
+  if (b.dataset.lien === lien) return;
+  b.dataset.lien = lien;
+  const site = /tiktok/i.test(lien) ? 'TikTok' : /instagram/i.test(lien) ? 'Instagram' : 'YouTube';
+  b.innerHTML = `${ic('lien')}<span>Une vidéo ${site} : la prendre comme référence, « comme celle-ci » ?</span><button class="btn petit bleu" data-cl="lien-ref" data-lien="${esc(lien)}" title="Dérush télécharge la vidéo (720p) dans ton projet et la joint à ton message : ton IA reprend son style, jamais son contenu">${ic('importer')}Joindre la vidéo</button>`;
+}
 $('#claude').addEventListener('keydown', (e) => {
   if (e.target.id === 'cl-texte' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (!e.repeat) envoyerDemande(); }
 });
@@ -6339,6 +6452,32 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'brief') return feuilleBrief();
     if (act === 'atelier') return await api('POST', '/api/ouvrir', {chemin: c.atelier_chemin});
     if (act === 'reessayer') return chargerClaude(true);
+    // un lien de TikTok, Instagram ou YouTube : la vidéo téléchargée et jointe comme référence (sur ce clic seulement)
+    if (act === 'lien-ref') {
+      const lien = e.target.closest('[data-lien]').dataset.lien;
+      const b = e.target.closest('button');
+      b.disabled = true;
+      b.innerHTML = `${anneau(0.4)}Téléchargement…`;
+      note('Dérush télécharge la vidéo du lien (la première fois, il installe aussi son téléchargeur : 37 Mo)…');
+      try {
+        await api('POST', '/api/claude/pieces/lien', {url: lien});
+        (ui.liensJoints ??= new Set()).add(lien);
+        note('Jointe comme référence : ton IA reprendra son style, jamais son contenu. Elle reste à son auteur : ne la republie pas.', false, true);
+      } catch (err) { note(err.message, true); b.disabled = false; }
+      return chargerClaude();
+    }
+    // le forfait de Claude épuisé : Claude reprend la demande avec le crédit API, sur ce clic et pour cette fois seulement
+    if (act === 'credit-api') {
+      const derniere = [...c.echanges].reverse().find((y) => y.role === 'humain' && y.texte)?.texte ?? '';
+      const message = c.session ? 'Ton forfait Claude était épuisé : reprends ma dernière demande là où tu en étais (tu travailles maintenant avec mon crédit API).' : derniere;
+      if (!message) return note('Écris d’abord ce que tu veux que Claude fasse.', true);
+      e.target.closest('button').disabled = true;
+      try {
+        await api('POST', '/api/claude/demander', {message, moteur: 'claude', qualite: qualiteIA(), credit_api: true});
+        note('Claude reprend avec ton crédit API (payé à l’usage), pour cette demande seulement.');
+      } catch (err) { note(err.message, true); }
+      return chargerClaude();
+    }
     if (act === 'decoupe') {
       const {plans} = await api('GET', '/api/claude/decoupe');
       const bons = plans.filter((p) => media(p.media));
@@ -6397,7 +6536,7 @@ function carteIA(d, m) {
   const familles = m === 'gemini' && x.ok ? [...new Set((x.modeles ?? []).map((s) => String(s).replace(/-(low|medium|high|max)$/, '').split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')))].join(', ') : '';
   const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}${familles ? ` · ${esc(familles)}` : ''}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
   const aide = m === 'gemini' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google dans la page qui suit, ferme le terminal, puis reviens ici.' : 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.';
-  return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: nomIA(m), sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? `<small class="dim">${aide}</small>` : '')});
+  return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: nomIA(m), sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? `<small class="dim">${aide}</small>` : '') + (x.ok ? blocQuota(d.quotas?.[m], m, {verifier: true}) : '')});
 }
 /** Les vrais sons : la bibliothèque (remplie avec Openverse), Real SFX pour les poser, Earshot pour écouter. */
 function sectionSons(d) {
@@ -6418,6 +6557,41 @@ function sectionSons(d) {
  * Deux voies : la commande Gemini (le compte Google de la personne, sans clé), et sa clé Google AI Studio, en secours ou
  * d'abord si elle la choisit. La clé se colle ici (jamais dans la conversation) et ne revient pas.
  */
+/** L'effaceur de texte incrusté : Apple Vision trouve le texte, LaMa refait l'image dessous. */
+function carteEffaceur(d) {
+  const e = d.effaceur ?? {};
+  const occupe = enCours(e.action);
+  const sous = e.ok ? 'Prêt : ton IA efface les sous-titres ou le titre incrustés d’un rush (exporté de CapCut, de TikTok…) pour le remonter propre.'
+    : e.installable === false ? e.pourquoi ?? 'Pas disponible sur cet ordinateur.'
+      : `Efface les sous-titres incrustés d’un rush. Dérush l’installe tout seul quand un de tes rushes en a, ou maintenant (${e.taille ?? '260 Mo'}).`;
+  const actions = e.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : occupe ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : e.installable !== false ? '<button class="btn bleu petit" data-cx="effaceur/installer">Installer</button>' : '';
+  return carteCx({etat: etatCarte(e.ok, occupe), lg: logo('effaceur', 42), titre: 'Effaceur de texte', sous: esc(sous), actions, plus: erreurAction(e.action)});
+}
+/** HyperFrames, le second moteur de rendu : des vidéos écrites en HTML, et environ 450 blocs prêts. */
+function carteHyperframes(d) {
+  const h = d.hyperframes ?? {};
+  const occupe = enCours(h.action);
+  const sous = h.ok ? `Version ${h.version} : l’IA écrit des vidéos en HTML et pioche dans 450 blocs prêts (transitions, titres animés, graphiques, cartes, 3D).`
+    : h.installable === false ? h.pourquoi ?? 'Pas disponible sur cet ordinateur.'
+      : 'Le second moteur de rendu : des vidéos écrites en HTML et 450 blocs prêts. Dérush l’installe avant ton prochain montage, ou maintenant (environ 120 Mo).';
+  const actions = h.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : occupe ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : h.installable !== false ? '<button class="btn bleu petit" data-cx="hyperframes/installer">Installer</button>' : '';
+  return carteCx({etat: etatCarte(h.ok, occupe), lg: logo('hyperframes', 42), titre: 'HyperFrames', sous: esc(sous), actions, plus: erreurAction(h.action)});
+}
+/**
+ * Le crédit API de Claude, en dernier recours : une clé de la console Anthropic, utilisée seulement quand la personne
+ * la choisit (forfait épuisé), pour cette demande-là. La clé n'est jamais renvoyée à l'interface.
+ */
+function sectionCreditApi(d) {
+  const a = d.claude_api ?? {};
+  const sous = a.ok ? `Prête, jamais utilisée toute seule : seulement quand ton forfait Claude est épuisé et que tu choisis « Avec mon crédit API », pour cette demande-là.${a.depense_usd ? ` Dépensé avec Dérush : ${prixUsd(a.depense_usd)}.` : ''}`
+    : a.cle ? (a.erreur ?? 'Clé posée : vérifie-la.')
+      : 'Facultatif, en dernier recours. Quand ton forfait Claude est épuisé, Dérush peut te proposer de continuer avec le crédit de ton compte API Claude (console.anthropic.com), payé à l’usage. Jamais sans ton accord.';
+  const actions = a.cle
+    ? '<button class="btn petit" data-cx-ca="verifier" title="Redemander à Anthropic si la clé marche (rien n’est consommé)">Vérifier</button><button class="btn petit" data-cx-ca="retirer" title="Retirer la clé de cet ordinateur">Retirer</button>'
+    : `<button class="btn petit" data-cx-ca="creer" title="La page des clés de la console Anthropic s’ouvre dans ton navigateur">Créer ma clé</button><button class="btn bleu petit" data-cx-ca="coller" title="Copie ta clé dans la console Anthropic, puis clique ici">${ic('copier')}Coller ma clé</button>`;
+  const champ = !a.cle && ui.cxCaChamp ? '<div class="tg-cle cx-hw-cle"><input type="password" id="cx-ca-cle" placeholder="ou colle ta clé ici (sk-ant-…)" autocomplete="off" spellcheck="false"><button class="btn petit" data-cx-ca="enregistrer">Enregistrer</button></div>' : '';
+  return `<section class="cx-section"><h4>${ic('etincelle', 'plein')}Le crédit API de Claude, en dernier recours</h4><div class="cx-grille">${carteCx({etat: etatCarte(a.ok), lg: logo('claude', 42), titre: 'Claude, par ton crédit API', sous: esc(sous), actions, plus: champ})}</div></section>`;
+}
 function sectionHollywood(d) {
   const h = d.hollywood ?? {};
   const cmd = h.commande ?? {};
@@ -6459,7 +6633,9 @@ async function feuilleConnexions() {
     f.innerHTML = `<div class="cx-tete"><div><h3>Connexions</h3><p class="sous-titre">Tout ce dont Dérush a besoin, branché ici en un clic. Rien n’est partagé sans toi.</p></div><span class="marque-iabai"><span>Dérush</span><small>par</small><img src="/marque/iabai.png" alt="IABAI"></span></div>
     <section class="cx-section"><h4>${ic('etincelle', 'plein')}Ton IA, celle qui monte</h4><div class="cx-grille trois">${carteIA(d, 'claude')}${carteIA(d, 'codex')}${carteIA(d, 'gemini')}</div>
       <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(d.qualites ?? {}).map(([k, q]) => `<button data-cx="ia/choisir" data-qualite="${k}"${k === d.qualite ? ' class="actif"' : ''} title="${esc(q.aide)}">${esc(q.nom)}</button>`).join('')}</div><small>${esc(d.qualites?.[d.qualite]?.aide ?? '')}</small></div>
-      ${d.choisi === 'claude' && d.claude?.ok ? rangeeModele(d.modeles, d.modele, true) : ''}</section>
+      ${d[d.choisi]?.ok ? rangeeModele(d.choisi, d.modeles_ia?.[d.choisi], d.modele_ia?.[d.choisi], true) : ''}
+      ${d.choisi === 'codex' && d.codex?.ok ? rangeeVitesse(d.modeles_ia?.codex, d.modele_ia?.codex, d.vitesse_codex, true) : ''}</section>
+    ${sectionCreditApi(d)}
     ${sectionHollywood(d)}
     <section class="cx-section"><h4>${ic('onde')}Créer le son, les images, les plans</h4><div class="cx-grille">
       ${carteCx({etat: etatCarte(el.ok, el.attente), lg: logo('elevenlabs', 42), titre: 'ElevenLabs', sous: esc(el.ok ? 'Branché : musiques, voix, bruitages, images et plans vidéo.' : el.attente ? 'Autorise Dérush dans la page ElevenLabs ouverte dans ton navigateur.' : 'Musiques, voix off, bruitages, doublage, images et plans vidéo (crédits ElevenLabs).'), actions: el.ok ? `<span class="etiq ok">${ic('coche')}Branché</span>` : el.attente ? `<span class="etiq">${anneau(0.5)}En attente…</span>` : '<button class="btn bleu petit" data-cx="elevenlabs/brancher">Brancher</button>'})}</div></section>
@@ -6471,7 +6647,9 @@ async function feuilleConnexions() {
       ${carteCx({etat: etatCarte(treg.actif && treg.pret), lg: logo('treg', 42), titre: 'Treg', sous: esc(treg.pret ? `Relié${treg.jeton ? ' avec ta clé' : ' par le connecteur de ton compte Claude'}. Rien ne part sans ton clic.` : 'Conseillé. Treg relie tes comptes à ton IA : elle publie à ta place, lit tes chiffres et tes commentaires, et apprend ce qui marche chez toi. Tu choisis les comptes, rien ne part sans ton clic. Trois gestes, une seule fois : Dérush te guide.'),
         plus: reseaux,
         actions: `<button class="btn ${treg.pret ? '' : 'bleu '}petit" data-guide-treg title="Trois gestes, une seule fois">${treg.pret ? 'Voir mes réseaux' : 'Relier mes réseaux'}</button><label class="interrupteur" title="Donner Treg à l’IA"><input type="checkbox" data-cx-bascule="treg/activer"${treg.actif ? ' checked' : ''}><i></i></label>`})}</div></section>
-    <section class="cx-section"><h4>${ic('cube')}La 3D</h4><div class="cx-grille">
+    <section class="cx-section"><h4>${ic('cube')}L’image : 3D, motion design, retouche</h4><div class="cx-grille trois">
+      ${carteHyperframes(d)}
+      ${carteEffaceur(d)}
       ${carteCx({etat: etatCarte(bl.ok, enCours(d.blender_action)), lg: logo('blender', 42), titre: 'Blender', sous: esc(bl.ok ? `${bl.nom} : l’IA s’en sert pour la 3D réaliste.` : 'Facultatif : sans lui, l’IA fait la 3D dans la page (Three.js).'), actions: bl.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : enCours(d.blender_action) ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : '<button class="btn petit" data-cx="blender/installer">Installer</button>', plus: erreurAction(d.blender_action)})}</div></section>
     <section class="cx-section"><h4>${ic('outil')}Dérush</h4><div class="cx-grille deux">
       ${carteCx({etat: etatCarte(d.competences?.remotion, enCours(d.competences?.action)), lg: logo('competences', 42), titre: `${d.competences?.nombre ?? 0} compétences`, sous: esc(`Montage, FFmpeg, étalonnage, sous-titres, son, motion design, TikTok, Reels, Shorts, publication${d.competences?.remotion ? ', Remotion' : ''}${d.competences?.ajoutees ? `, et ${d.competences.ajoutees} ajoutée${d.competences.ajoutees > 1 ? 's' : ''} par toi` : ''} : l’IA les lit avant de travailler.`), actions: `${d.competences?.remotion ? '' : enCours(d.competences?.action) ? `<span class="etiq">${anneau(0.5)}Téléchargement…</span>` : '<button class="btn petit" data-cx="competences/remotion" title="Les compétences Remotion se téléchargent depuis leur dépôt officiel">Ajouter Remotion</button>'}<button class="btn ${d.competences?.remotion ? 'bleu ' : ''}petit" data-competences title="Une compétence trouvée sur GitHub ou dans l’annuaire skills.sh">${d.competences?.ajoutees ? 'Gérer' : 'Ajouter une compétence'}</button>`, plus: erreurAction(d.competences?.action)})}
@@ -6535,6 +6713,44 @@ async function feuilleConnexions() {
     if (e.target.closest('[data-competences]')) { clearTimeout(minuterieConnexions); return CP.ouvrir({retour: () => feuilleConnexions()}); }
     const lien = e.target.closest('[data-lien]')?.dataset.lien;
     if (lien) return api('POST', '/api/lien', {url: lien}).catch((err) => note(err.message, true));
+    // le crédit API de Claude (dernier recours) : créer la clé (la console Anthropic), la coller, la vérifier, la retirer
+    const ca = e.target.closest('[data-cx-ca]')?.dataset.cxCa;
+    if (ca) {
+      const poserCle = async (cle) => {
+        const v = String(cle ?? '').trim();
+        if (!v) { ui.cxCaChamp = true; rendre(); return note('Le presse-papiers est vide : copie d’abord ta clé dans la console Anthropic (ou colle-la dans le champ).', true); }
+        try {
+          const r = await api('POST', '/api/connexions/claude-api/coller', {cle: v});
+          ui.cxCaChamp = false;
+          note(r.claude_api?.ok ? 'Clé acceptée par Anthropic : ton crédit API est prêt, en dernier recours.' : `Clé rangée, mais Anthropic la refuse : ${r.claude_api?.erreur ?? ''}`, !r.claude_api?.ok, !!r.claude_api?.ok);
+        } catch (err) { note(err.message, true); }
+      };
+      try {
+        if (ca === 'creer') await api('POST', '/api/lien', {url: 'https://console.anthropic.com/settings/keys'});
+        else if (ca === 'coller') {
+          let v = '';
+          try { v = await (NATIF ? demanderNatif('coller') : navigator.clipboard.readText()); } catch { ui.cxCaChamp = true; rendre(); return note('Le presse-papiers ne se lit pas ici : colle ta clé dans le champ.', true); }
+          await poserCle(v);
+        } else if (ca === 'enregistrer') await poserCle($('#cx-ca-cle', f)?.value);
+        else {
+          const r = await api('POST', `/api/connexions/claude-api/${ca}`);
+          note(ca === 'retirer' ? 'Clé de l’API Claude retirée de cet ordinateur.' : r.claude_api?.ok ? 'Clé acceptée par Anthropic.' : `Anthropic refuse ta clé : ${r.claude_api?.erreur ?? ''}`, ca !== 'retirer' && !r.claude_api?.ok);
+        }
+      } catch (err) { note(err.message, true); }
+      await relire(false);
+      if (ui.claude) chargerClaude();
+      return;
+    }
+    // relire le quota d'une IA (Codex : rien n'est consommé ; Claude : une toute petite demande)
+    const bq = e.target.closest('[data-cx-quota]');
+    if (bq) {
+      bq.disabled = true;
+      bq.textContent = 'Lecture…';
+      try { const r = await api('POST', '/api/connexions/quotas/verifier', {moteur: bq.dataset.cxQuota}); note(r.message ?? 'Quotas relus.'); } catch (err) { note(err.message, true); }
+      await relire(false);
+      if (ui.claude) chargerClaude();
+      return;
+    }
     // le Mode Hollywood : la voie d'abord (le compte Google ou la clé)
     const voie = e.target.closest('[data-cx-hw-voie]')?.dataset.cxHwVoie;
     if (voie) {
@@ -6576,7 +6792,7 @@ async function feuilleConnexions() {
     if (!b) return;
     const action = b.dataset.cx;
     const corps = {};
-    if (action === 'ia/choisir') { if (b.dataset.moteur) corps.moteur = b.dataset.moteur; if (b.dataset.qualite) corps.qualite = b.dataset.qualite; if (b.dataset.modele !== undefined) corps.modele = b.dataset.modele || null; }
+    if (action === 'ia/choisir') { if (b.dataset.moteur) corps.moteur = b.dataset.moteur; if (b.dataset.qualite) corps.qualite = b.dataset.qualite; if (b.dataset.modele !== undefined) { corps.modele = b.dataset.modele || null; corps.moteur_modele = b.dataset.moteurModele ?? 'claude'; } if (b.dataset.vitesse !== undefined) corps.vitesse = b.dataset.vitesse || null; }
     b.disabled = true;
     try {
       await api('POST', `/api/connexions/${action}`, corps);
@@ -6592,18 +6808,37 @@ async function feuilleConnexions() {
 }
 
 /** « Qui monte ? » : Claude, Codex ou Gemini, et le niveau de soin. */
+/**
+ * Le sélecteur s'ouvre : Dérush revérifie en fond les modèles de chaque IA (s'ils ont plus d'une heure) ; la fenêtre
+ * se redessine une fois que la nouvelle liste est là (un nouveau modèle de ChatGPT, de Gemini…).
+ */
+function rafraichirModelesIA() {
+  if (Date.now() - (ui.modelesIaVus ?? 0) < 60000) return;
+  ui.modelesIaVus = Date.now();
+  const prendre = async () => {
+    const r = await api('GET', '/api/ia/modeles').catch(() => null);
+    if (!r?.modeles_ia || !ui.claude) return;
+    const avant = JSON.stringify(ui.claude.modeles_ia ?? null);
+    ui.claude.modeles_ia = r.modeles_ia;
+    if (JSON.stringify(r.modeles_ia) !== avant && $('.feuille .ia-cartes')) feuilleChoixIA();
+  };
+  prendre();
+  setTimeout(prendre, 9000); // la vérification de fond (Codex, Gemini) a eu le temps de finir
+}
 function feuilleChoixIA() {
   const c = ui.claude;
   if (!c) return feuilleConnexions();
+  rafraichirModelesIA();
   const carte = (m) => {
     const x = c[m] ?? {};
     const choisi = moteurIA() === m;
-    return `<button class="ia-carte${choisi ? ' choisie' : ''}${x.ok ? '' : ' pas-prete'}" data-moteur="${m}">${logo(m, 44)}<span><b>${nomIA(m)}</b><small>${esc(c.ia?.noms?.[m]?.compte ?? '')}</small><small class="${x.ok ? 'ok' : 'attention'}">${esc(x.ok ? 'Prête' : x.pourquoi ?? '')}</small></span>${choisi ? `<i class="coche">${ic('coche')}</i>` : ''}</button>`;
+    return `<button class="ia-carte${choisi ? ' choisie' : ''}${x.ok ? '' : ' pas-prete'}" data-moteur="${m}">${logo(m, 44)}<span><b>${nomIA(m)}</b><small>${esc(c.ia?.noms?.[m]?.compte ?? '')}</small><small class="${x.ok ? 'ok' : 'attention'}">${esc(x.ok ? 'Prête' : x.pourquoi ?? '')}</small>${x.ok ? blocQuota(c.quotas?.[m], m) : ''}</span>${choisi ? `<i class="coche">${ic('coche')}</i>` : ''}</button>`;
   };
   const f = feuille(`<h3>Qui monte ta vidéo ?</h3><p class="sous-titre">Choisis ton IA et le niveau de soin. Tu peux changer à tout moment : la conversation continue avec la nouvelle.</p>
     <div class="ia-cartes trois">${carte('claude')}${carte('codex')}${carte('gemini')}</div>
     <div class="cx-qualite"><span>Qualité</span><div class="segmente">${Object.entries(c.qualites ?? {}).map(([k, q]) => `<button data-qualite="${k}"${k === qualiteIA() ? ' class="actif"' : ''}>${esc(q.nom)}</button>`).join('')}</div><small id="aide-qualite">${esc(c.qualites?.[qualiteIA()]?.aide ?? '')}</small></div>
-    ${moteurIA() === 'claude' && c.claude?.ok ? rangeeModele(c.modeles, modeleIA()) : ''}
+    ${c[moteurIA()]?.ok ? rangeeModele(moteurIA(), c.modeles_ia?.[moteurIA()], modeleIA()) : ''}
+    ${moteurIA() === 'codex' && c.codex?.ok ? rangeeVitesse(c.modeles_ia?.codex, modeleIA('codex'), c.ia?.vitesse_codex) : ''}
     <div class="pied"><button class="btn" data-connexions>${ic('prise')}Connexions</button><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`);
   f.addEventListener('click', async (e) => {
     if (e.target.closest('[data-fermer]')) return fermerFeuille();
@@ -6611,13 +6846,21 @@ function feuilleChoixIA() {
     const m = e.target.closest('[data-moteur]')?.dataset.moteur;
     const q = e.target.closest('[data-qualite]')?.dataset.qualite;
     const mo = e.target.closest('[data-modele]')?.dataset.modele;
+    const pour = e.target.closest('[data-modele]')?.dataset.moteurModele;
+    const vi = e.target.closest('[data-vitesse]')?.dataset.vitesse;
     if (m && !c[m]?.ok) return feuilleConnexions();
-    if (!m && !q && mo === undefined) return;
+    if (!m && !q && mo === undefined && vi === undefined) return;
     try {
-      await api('POST', '/api/connexions/ia/choisir', m ? {moteur: m} : q ? {qualite: q} : {modele: mo || null});
+      if (vi !== undefined) {
+        await api('POST', '/api/connexions/ia/choisir', {vitesse: vi || null});
+        await chargerClaude();
+        note(vi ? `Codex travaille en vitesse ${nomVitesse(vitesseIA('codex')).toLowerCase()} : ${aideVitesse(vitesseIA('codex'))}.` : 'Codex travaille à sa vitesse normale.');
+        return feuilleChoixIA();
+      }
+      await api('POST', '/api/connexions/ia/choisir', m ? {moteur: m} : q ? {qualite: q} : {modele: mo || null, moteur_modele: pour});
       await chargerClaude();
       if (m) note(`${nomIA(m)} monte tes prochaines vidéos.`);
-      if (mo !== undefined && !m && !q) note(mo ? `${c.modeles?.[mo]?.nom ?? 'Ce modèle'} monte tes prochaines vidéos.` : 'Claude choisit son modèle selon le niveau.');
+      if (mo !== undefined && !m && !q) note(mo ? `${(c.modeles_ia?.[pour] ?? []).find((x) => x.id === mo)?.nom ?? 'Ce modèle'} monte tes prochaines vidéos.` : `${nomIA(pour)} choisit son modèle selon le niveau.`);
       feuilleChoixIA();
     } catch (err) { note(err.message, true); }
   });
