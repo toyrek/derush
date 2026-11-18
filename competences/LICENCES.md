@@ -168,5 +168,6 @@ Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pa
 | `hyperframes` | Montage | https://github.com/heygen-com/hyperframes (v0.9.64, adaptée à Dérush) | Apache-2.0 | HeyGen, Inc. |
 | `hyperframes-cli` | Montage | https://github.com/heygen-com/hyperframes (v0.9.64, adaptée à Dérush) | Apache-2.0 | HeyGen, Inc. |
 | `hyperframes-registry` | Montage | https://github.com/heygen-com/hyperframes (v0.9.64, adaptée à Dérush) | Apache-2.0 | HeyGen, Inc. |
+| `styles-video` | Montage | https://github.com/nexu-io/openmotion (commit 2b57cf6 : 96 recettes de style et 3 guides face caméra, adaptés à Dérush, noms et index en français) | Apache-2.0 | nexu-io (OpenDesign) |
 
 Les textes complets des licences sont dans `licences/`. Chaque dossier garde aussi sa licence (quand le dépôt en a une) et un `SOURCE.md` qui dit d’où il vient et ce qui a été retiré.

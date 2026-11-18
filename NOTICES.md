@@ -25,6 +25,7 @@ et sous quelle licence.
 | Polices Geist, Geist Mono et Geist Pixel | `public/polices/` | The Geist Project Authors (Vercel), paquet npm `geist` 1.9.2 | SIL Open Font License 1.1 |
 | Compétences `hyperframes`, `hyperframes-cli`, `hyperframes-registry` (adaptées : commande `derush-hyperframes`, sans télémétrie ni avis envoyés) | `competences/` | HeyGen, Inc. (HyperFrames 0.9.64) | Apache-2.0 |
 | Compétences `bang-motion` (ouvertures, typographie animée, motion design) et `lottie` (animations Lottie) | `competences/` | Bang Tutorial ; Diffusion Studio Inc. | MIT |
+| Compétence `styles-video` : 96 recettes de style et 3 guides face caméra (adaptés : en-tête et outils de Dérush, noms et index en français, liens vers des vidéos d'autres créateurs retirés) | `competences/styles-video/` | nexu-io, OpenDesign (OpenMotion, commit 2b57cf6) | Apache-2.0 |
 | Icône d'HyperFrames | `public/logos/hyperframes.png` | HeyGen, Inc. (dépôt sous Apache-2.0) | montrée seulement pour dire quel moteur Dérush installe |
 | Logo IABAI | `public/marque/` | IABAI / YABAÏ | tous droits réservés |
 

@@ -5304,17 +5304,74 @@ function blocQuota(q, m, {verifier = false} = {}) {
   const fen = (q.fenetres ?? []).map((x) => `<span class="q-fen" title="${esc(`${x.nom} : ${x.pourcent} % utilisés${x.recharge ? `, se recharge ${quandRecharge(x.recharge)}` : ''}`)}"><b>${esc(x.nom)}</b><i class="q-barre"><i class="${x.pourcent >= 90 ? 'rouge' : x.pourcent >= 70 ? 'orange' : ''}" style="width:${Math.max(2, x.pourcent)}%"></i></i><em>${x.pourcent} %</em>${x.recharge ? `<small>se recharge ${esc(quandRecharge(x.recharge))}</small>` : ''}</span>`).join('');
   return `<div class="quota${q.statut === 'presque' ? ' presque' : ''}">${fen || '<small>Quota : rien d’annoncé pour l’instant.</small>'}${q.forfait ? `<small class="dim">Forfait ${esc(q.forfait.charAt(0).toUpperCase() + q.forfait.slice(1))}</small>` : ''}${bouton}</div>`;
 }
+// ——— plusieurs comptes par IA (lib/comptes.mjs) : ChatGPT et Claude, au clic, jamais tout seul ———
+const NOMS_COMPTE_IA = {claude: 'Claude', codex: 'ChatGPT'};
+/** Le quota d'un compte en quelques mots : « 5 heures : 34 % · Semaine : 12 % », « quota atteint, se recharge… ». */
+function quotaEnBref(q) {
+  if (!q) return 'quota pas encore lu';
+  if (q.statut === 'atteint') return `quota atteint${q.recharge ? `, se recharge ${quandRecharge(q.recharge)}` : ''}`;
+  return (q.fenetres ?? []).slice(0, 2).map((x) => `${x.nom} : ${x.pourcent} %`).join(' · ') || 'quota pas encore annoncé';
+}
 /**
- * Le forfait de Claude est épuisé au moment d'envoyer : la suite au choix. Le crédit API n'est jamais pris sans ce clic.
- * Renvoie « api », « autre », « envoyer », ou null (fermé sans choisir : rien ne part).
+ * Les autres comptes de cette IA qui peuvent prendre la suite : pas celui qui est à bout (`sauf`, sinon celui qui
+ * travaille), connectés (ou pas encore vérifiés : Dérush vérifie au clic), pas à bout eux-mêmes, et pas le double d'un
+ * autre (« meme_que » : le même compte, donc le même quota).
  */
-function choixForfaitEpuise() {
+function comptesDispo(comptes, m, sauf = null) {
+  const liste = comptes?.[m] ?? [];
+  const exclu = sauf ?? liste.find((k) => k.actif)?.id ?? 'principal';
+  return liste.filter((k) => k.id !== exclu && k.connecte !== false && k.quota?.statut !== 'atteint' && !k.meme_que);
+}
+/**
+ * Les comptes d'une IA, sur sa carte : chacun avec son quota ; la personne choisit celui qui travaille (« Utiliser »).
+ * Un seul compte : un simple lien pour en ajouter un autre. Rien n'est changé sans son clic.
+ */
+function blocComptes(d, m) {
+  if (!NOMS_COMPTE_IA[m]) return '';
+  const x = d[m] ?? {};
+  const liste = d.comptes?.[m] ?? [];
+  // un autre compte : seulement pour une IA déjà connectée (ou qui en a déjà plusieurs, pour revenir au principal)
+  if (liste.length < 2 && !x.ok) return '';
+  const nom = NOMS_COMPTE_IA[m];
+  const ajout = ui.cxNouveauCompte === m
+    ? `<div class="cpt-nouveau"><div class="tg-cle"><input id="cx-cpt-nom" maxlength="40" value="${esc(`Compte ${Math.max(2, liste.length + 1)}`)}" aria-label="Le nom de ce compte" spellcheck="false"><button class="btn bleu petit" data-cx-compte="creer" data-ia="${m}">Me connecter</button><button class="lien-btn" data-cx-compte="annuler">Annuler</button></div>
+      <small class="dim">${esc(`Un autre compte ${nom} à toi (perso, asso…) : la page de connexion s’ouvre, connecte-toi avec CE compte. Dérush n’en change jamais tout seul. Les conditions d’OpenAI et d’Anthropic interdisent de multiplier les comptes pour contourner leurs limites.`)}</small></div>`
+    : `<button class="lien-btn cpt-ajouter" data-cx-compte="ajouter" data-ia="${m}" title="${esc(`Ajouter un autre compte ${nom} : quand l’un est à bout, Dérush te proposera de continuer avec l’autre`)}">${ic('plus')}${esc(`Un autre compte ${nom}`)}</button>`;
+  if (liste.length < 2) return `<div class="comptes seul">${ajout}</div>`;
+  const lignes = liste.map((k) => {
+    const etat = k.connecte === false ? (k.lien ? 'connexion en cours…' : 'pas connecté') : k.actif ? 'utilisé' : k.connecte ? 'connecté' : '…';
+    const forfait = k.forfait ? ` · ${k.forfait.charAt(0).toUpperCase()}${k.forfait.slice(1)}` : '';
+    const renommer = ui.cxRenommer === `${m}:${k.id}`;
+    const titre = renommer
+      ? `<span class="tg-cle"><input id="cx-cpt-renom" maxlength="40" value="${esc(k.nom)}" aria-label="Le nom de ce compte" spellcheck="false"><button class="btn petit" data-cx-compte="renommer-ok" data-ia="${m}" data-id="${k.id}">OK</button></span>`
+      : `<b>${esc(k.nom)}</b><button class="lien-btn discret" data-cx-compte="renommer" data-ia="${m}" data-id="${k.id}" title="Renommer ce compte">${ic('crayon')}</button>`;
+    const actions = k.connecte === false
+      ? `${k.lien ? `<button class="lien-btn" data-cx-compte="lien" data-ia="${m}" data-id="${k.id}" title="Copier le lien de connexion, à ouvrir dans une fenêtre privée ou un autre profil de ton navigateur">Copier le lien</button>` : ''}<button class="btn petit" data-cx-compte="connecter" data-ia="${m}" data-id="${k.id}">Me connecter</button>`
+      : k.actif ? `<span class="etiq ok">${ic('coche')}Utilisé</span>` : `<button class="btn petit" data-cx-compte="choisir" data-ia="${m}" data-id="${k.id}" title="Dérush travaillera avec ce compte, jusqu’à ce que tu en choisisses un autre">Utiliser</button>`;
+    const retirer = k.principal ? '' : `<button class="lien-btn discret" data-cx-compte="retirer" data-ia="${m}" data-id="${k.id}" title="Le déconnecter et le retirer de Dérush">Retirer</button>`;
+    const relire = k.connecte && !k.actif ? `<button class="lien-btn discret" data-cx-quota="${m}" data-compte="${k.id}" title="${m === 'claude' ? 'Une toute petite demande à Claude avec ce compte, pour relire ses quotas' : 'Relire les quotas de ce compte (rien n’est consommé)'}">Revérifier</button>` : '';
+    return `<div class="cpt${k.actif ? ' actif' : ''}${k.connecte === false ? ' manque' : ''}"><i class="cpt-point"></i><div class="cpt-txt"><div class="cpt-nom">${titre}</div><small>${esc(`${etat}${forfait}${k.connecte && !k.actif ? ` · ${quotaEnBref(k.quota)}` : ''}`)}</small>${k.meme_que ? `<small class="attention">${esc(`C’est le même compte que « ${k.meme_que} » : ton navigateur t’a reconnecté à celui-là. Retire-le, puis ajoute-le de nouveau en ouvrant le lien de connexion dans une fenêtre privée.`)}</small>` : ''}</div><div class="cpt-act">${actions}${relire}${retirer}</div></div>`;
+  }).join('');
+  return `<div class="comptes"><div class="cpt-tete"><b>${esc(`Tes comptes ${nom}`)}</b><small>Dérush n’en change jamais tout seul.</small></div>${lignes}${ajout}</div>`;
+}
+/**
+ * Le forfait d'une IA (Claude, ChatGPT) est épuisé au moment d'envoyer : la suite au choix. Un autre compte, le crédit
+ * API ou une autre IA ne sont jamais pris sans ce clic ; en Mode Hollywood, `relais` : l'IA de l'équipe qui monterait
+ * à sa place. Renvoie « compte:<id> », « relais », « api », « autre », « envoyer », ou null (fermé : rien ne part).
+ */
+function choixForfaitEpuise(m = 'claude', {relais = null} = {}) {
   return new Promise((ok) => {
-    const q = ui.claude?.quotas?.claude ?? {};
-    const api = ui.claude?.claude_api?.ok;
+    const c = ui.claude ?? {};
+    const q = c.quotas?.[m] ?? {};
+    const api = m === 'claude' && c.claude_api?.ok;
+    const dispo = comptesDispo(c.comptes, m).slice(0, 3);
     let choix = null;
-    const f = feuille(`<h3>Ton forfait Claude est épuisé</h3><p class="sous-titre">${esc(q.recharge ? `Il se recharge ${quandRecharge(q.recharge)}.` : 'Il se recharge bientôt.')} ${api ? 'Tu peux continuer avec ton crédit API (payé à l’usage, pour cette demande seulement), choisir une autre IA, ou envoyer quand même.' : 'Tu peux choisir une autre IA, ou envoyer quand même.'}</p>
-      <div class="pied">${api ? `<button class="btn bleu" data-choix="api">${ic('etincelle', 'plein')}Avec mon crédit API</button>` : ''}<button class="btn" data-choix="autre">${ic('prise')}Une autre IA</button><span class="espace"></span><button class="btn" data-choix="envoyer">Envoyer quand même</button></div>`);
+    const options = [dispo.length ? `continuer avec ton compte ${dispo.map((k) => `« ${k.nom} »`).join(' ou ')}` : null, relais ? `laisser ${nomIA(relais)} monter (Mode Hollywood)` : null,
+      api ? 'continuer avec ton crédit API (payé à l’usage, pour cette demande seulement)' : null, relais ? null : 'choisir une autre IA', relais ? null : 'envoyer quand même'].filter(Boolean);
+    const phrase = options.length > 1 ? `Tu peux ${options.slice(0, -1).join(', ')} ou ${options.at(-1)}.` : `Tu peux ${options[0]}.`;
+    const f = feuille(`<h3>${esc(`Ton forfait ${nomIA(m)} est épuisé`)}</h3><p class="sous-titre">${esc(q.recharge ? `Il se recharge ${quandRecharge(q.recharge)}.` : 'Il se recharge bientôt.')} ${esc(phrase)}</p>
+      <div class="pied">${dispo.map((k) => `<button class="btn bleu" data-choix="compte:${k.id}">${ic('prise')}${esc(`Avec « ${k.nom} »`)}</button>`).join('')}${relais ? `<button class="btn${dispo.length ? '' : ' bleu'}" data-choix="relais">${esc(`${nomIA(relais)} monte`)}</button>` : ''}${api ? `<button class="btn${dispo.length || relais ? '' : ' bleu'}" data-choix="api">${ic('etincelle', 'plein')}Avec mon crédit API</button>` : ''}${relais ? '' : `<button class="btn" data-choix="autre">${ic('prise')}Une autre IA</button><span class="espace"></span><button class="btn" data-choix="envoyer">Envoyer quand même</button>`}</div>`);
+    f.classList.add('forfait');
     f.avantFermeture = () => { ok(choix); };
     f.addEventListener('click', (e) => { const k = e.target.closest('[data-choix]')?.dataset.choix; if (!k) return; choix = k; fermerFeuille(); });
   });
@@ -5480,7 +5537,7 @@ function vignettePiece(x, voir = false) {
   const fond = x.apercu && !x.introuvable ? ` style="background-image:url('${urlPiece(x.id)}')"` : '';
   return `<span class="pj-vig t-${x.type}${fond ? ' image' : ''}${x.introuvable ? ' perdue' : ''}"${voir ? ` data-cl="voir-piece" data-id="${x.id}"` : ''} title="${esc(titre)}"${fond}>${fond ? '' : ic(ICONES_PIECE[x.type] ?? 'trombone')}${x.type === 'video' && fond ? `<i>${ic('lire', 'plein')}</i>` : ''}</span>`;
 }
-const selectRole = (x) => `<select class="pj-role" data-role="${x.id}" title="Ce que c’est, pour l’IA">${Object.entries(ui.claude?.roles ?? {}).map(([k, n]) => option(k, n, k === x.role)).join('')}</select>${x.type === 'video' && x.role === 'reference' ? '<i class="pj-comme" title="Ton IA reprend son style (structure, rythme, textes, transitions, son), jamais son contenu. En Mode Hollywood, Gemini la décompose d’abord, plan par plan.">Comme cette vidéo</i>' : ''}`;
+const selectRole = (x) => `<select class="pj-role" data-role="${x.id}" title="Ce que c’est, pour l’IA">${Object.entries(ui.claude?.roles ?? {}).map(([k, n]) => option(k, n, k === x.role)).join('')}</select>${x.type === 'video' && x.role === 'reference' ? '<i class="pj-comme" title="Ton IA reprend son style (structure, rythme, textes, transitions, son), jamais son contenu. En Mode Hollywood, Gemini la décompose d’abord, plan par plan.">Comme cette vidéo</i>' : ''}${x.type === 'document' && x.role === 'reference' && /(?:^|[\s._-])motion(?:[_-]design)?\.md$/i.test(x.nom ?? '') ? '<i class="pj-comme" title="Un Motion.md : une vidéo déjà décomposée plan par plan (le format d’OpenMotion). Ton IA reprend ce style avec tes rushes et ta marque, sans la vidéo d’origine.">Comme cette vidéo (Motion.md)</i>' : ''}`;
 /** Une puce de pièce jointe, dans la zone d'écriture (elle partira avec le prochain message). */
 function pucePiece(x) {
   const etat = x.erreur ? ` — ${x.erreur}` : x.en_preparation ? ' — Dérush la prépare pour ton IA…' : '';
@@ -5614,8 +5671,80 @@ function publicationsHtml(pubs) {
 const puceHollywood = (c) => {
   const h = c?.hollywood ?? {};
   const hw = !!(h.ok && h.actif);
-  return `<div class="cl-mode" role="group" aria-label="Le mode de montage"><button data-cl="mode-classique"${hw ? '' : ' class="actif"'} title="Classique : ton IA monte seule, d’après les images et le texte de tes rushes.">Classique</button><button data-cl="mode-hollywood"${hw ? ' class="actif"' : ''} title="${h.ok ? `Hollywood : ${esc(h.nom ?? 'Gemini')}, le réalisateur, regarde et écoute tes rushes, propose le découpage et contrôle la vidéo avant qu’elle parte ; ton IA monte.` : 'Hollywood : branche Gemini dans Connexions, et un réalisateur regardera et écoutera tes rushes avec ton IA.'}">${logo('gemini', 13)}<span>Hollywood</span></button></div>`;
+  const e = c?.equipe;
+  // en Hollywood, l'équipe à côté : ses logos, et la feuille pour choisir le modèle de chaque IA
+  const equipe = hw && e ? `<button class="cl-equipe" data-cl="equipe" title="${esc(`Ton équipe : ${e.phrase} Clique pour choisir le modèle de chaque IA.`)}">${pileEquipe(e.membres)}<span>Équipe</span></button>` : '';
+  return `<div class="cl-mode" role="group" aria-label="Le mode de montage"><button data-cl="mode-classique"${hw ? '' : ' class="actif"'} title="Classique : ton IA monte seule, d’après les images et le texte de tes rushes.">Classique</button><button data-cl="mode-hollywood"${hw ? ' class="actif"' : ''} title="${h.ok ? `Hollywood : trois IA travaillent ensemble. ${esc(h.nom ?? 'Gemini')}, le réalisateur, regarde et écoute tes rushes, propose le découpage et contrôle la vidéo ; ton IA monte ; ChatGPT dessine ce qui manque.` : 'Hollywood : branche Gemini dans Connexions, et un réalisateur regardera et écoutera tes rushes avec ton IA.'}">${logo('gemini', 13)}<span>Hollywood</span></button></div>${equipe}`;
 };
+/** Les logos de l'équipe, en pile (le réalisateur, le monteur, le graphiste). */
+const pileEquipe = (membres = [], t = 14) => `<span class="pile-equipe">${membres.map((k) => logo(k, t)).join('')}</span>`;
+/** Ce que l'équipe Hollywood a fait pour une réponse : qui a réalisé, monté, dessiné (et qui a passé la main). */
+function ligneEquipe(e) {
+  const m = [];
+  if (e.realisateur) m.push([logo('gemini', 14), `${String(e.realisateur).split(' ')[0]} a réalisé`]);
+  m.push([logo(e.monteur, 14), `${nomIA(e.monteur)} a monté${e.relais && e.relais !== e.monteur ? ` (à la place de ${nomIA(e.relais)})` : ''}`]);
+  if (e.dessins) m.push([logo('chatgpt', 14), `ChatGPT a fait ${e.dessins > 1 ? `${e.dessins} dessins` : 'un dessin'}`]);
+  return `<div class="cl-equipe-faite" title="Ton équipe Hollywood">${m.map(([l, t]) => `<span>${l}${esc(t)}</span>`).join('')}</div>`;
+}
+/**
+ * « Ton équipe Hollywood » : le réalisateur (Gemini), le monteur (l'IA de « Qui monte ? ») et le graphiste (ChatGPT),
+ * chacun avec son modèle, son quota et son état. Quand une IA n'a plus de quota, la feuille dit qui prend sa place.
+ */
+async function feuilleEquipe() {
+  let d;
+  try { d = await api('GET', '/api/connexions'); } catch (err) { return note(err.message, true); }
+  const e = d.equipe ?? {};
+  const mi = d.modeles_ia ?? {};
+  const m = e.monteur?.ia ?? d.choisi ?? 'claude';
+  const mEff = e.monteur_effectif ?? m;
+  const choixModele = (role, liste, choisi, auto) => `<label class="eq-modele"><span>Modèle</span><select data-eq-modele="${role}">${[{id: '', nom: `Auto : ${auto}`}, ...(liste ?? [])]
+    .map((x) => `<option value="${esc(x.id)}"${(choisi ?? '') === x.id ? ' selected' : ''}>${esc(x.nom)}${x.nouveau ? ' · nouveau' : ''}</option>`).join('')}</select></label>`;
+  const etat = (pret, aBout, sinon) => (pret ? `<small class="ok">${ic('coche')}Prêt</small>`
+    : aBout ? `<small class="attention">${ic('attention')}Plus de quota${aBout.recharge && !aBout.estime ? `, il se recharge ${esc(quandRecharge(aBout.recharge))}` : ' pour le moment'}</small>`
+      : `<small class="attention">${ic('attention')}${esc(sinon)}</small>`);
+  const carte = (lg, titre, qui, desc, statut, quota, reglage, plus = '') => `<div class="eq-carte">${logo(lg, 40)}<div class="eq-corps"><b>${esc(titre)} <span>· ${esc(qui)}</span></b><small>${esc(desc)}</small>${statut}${quota}${reglage}${plus}</div></div>`;
+  const autoMonteur = mEff === 'codex' ? `le modèle par défaut de Codex${mi.codex?.[0] ? ` (${mi.codex[0].nom})` : ''}` : mEff === 'gemini' ? 'le plus fort de ton compte, selon le niveau' : 'Opus 5.5, ou Sonnet 5.5 au niveau Rapide';
+  const g = e.graphiste ?? {};
+  const f = feuille(`<h3>Ton équipe Hollywood</h3><p class="sous-titre">Trois IA travaillent ensemble, chacune son métier et son modèle. Si l’une n’a plus de quota, les deux autres continuent sans toi.</p>
+    <div class="eq-cartes">
+      ${carte('gemini', 'Le réalisateur', 'Gemini', 'Il regarde et écoute tes rushes, propose le découpage, décompose une vidéo à imiter et note la vidéo sur 10 avant qu’elle parte.',
+        etat(e.realisateur?.pret, e.realisateur?.a_bout, 'Pas branché : Connexions › Mode Hollywood.'), blocQuota(d.quotas?.gemini, 'gemini'), choixModele('realisateur', mi.gemini, e.realisateur?.modele, 'le plus fort de ton compte'))}
+      ${carte(mEff, 'Le monteur', e.monteur?.remplace_par ? `${nomIA(mEff)}, à la place de ${nomIA(m)}` : nomIA(mEff), 'Il choisit les passages, coupe, habille et rend la vidéo, avec les notes du réalisateur et les dessins du graphiste.',
+        etat(!!d[mEff]?.ok && !e.monteur?.a_bout || !!e.monteur?.remplace_par, e.monteur?.remplace_par ? null : e.monteur?.a_bout, d[mEff]?.pourquoi ?? 'Pas prêt : Connexions.'), blocQuota(d.quotas?.[mEff], mEff),
+        choixModele('monteur', mi[mEff], d.modele_ia?.[mEff], autoMonteur), '<button class="lien-btn" data-eq-qui title="Claude, Codex ou Gemini">Changer d’IA</button>')}
+      ${carte('chatgpt', 'Le graphiste', 'ChatGPT', 'Il dessine ce qui manque à ton montage : autocollants, illustrations, fonds, objets, personnages animés (planches de sprites, GIF). Avec ton forfait ChatGPT.',
+        !g.connecte ? etat(false, null, 'Connecte Codex à ton compte ChatGPT (Connexions › Ton IA).') : !g.voulu ? '<small class="dim">Coupé : ton monteur dessine en code.</small>' : etat(g.pret, g.a_bout, ''),
+        g.connecte ? blocQuota(d.quotas?.codex, 'codex') : '', g.connecte ? choixModele('graphiste', mi.codex, g.modele, `celui de Codex${mi.codex?.[0] ? ` (${mi.codex[0].nom})` : ''}`) : '',
+        g.connecte ? `<label class="eq-bascule"><span>ChatGPT dessine</span><span class="interrupteur" title="ChatGPT dessine pour ton monteur"><input type="checkbox" data-eq-graphiste${g.voulu ? ' checked' : ''}><i></i></span></label>` : '')}
+    </div>
+    <p class="eq-phrase">${ic('etincelle', 'plein')}<span>${esc(e.phrase ?? '')}</span></p>
+    <div class="pied"><button class="btn" data-connexions>${ic('prise')}Connexions</button><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`);
+  f.classList.add('equipe');
+  f.addEventListener('change', async (ev) => {
+    const s = ev.target.closest('[data-eq-modele]');
+    const t = ev.target.closest('[data-eq-graphiste]');
+    if (!s && !t) return;
+    try {
+      if (s) {
+        const role = s.dataset.eqModele;
+        const nom = s.selectedOptions[0]?.textContent ?? '';
+        if (role === 'monteur') await api('POST', '/api/connexions/ia/choisir', {modele: s.value || null, moteur_modele: mEff});
+        else await api('POST', '/api/connexions/hollywood/equipe', {role, modele: s.value || null});
+        note(`${role === 'realisateur' ? 'Le réalisateur' : role === 'monteur' ? 'Le monteur' : 'Le graphiste'} : ${s.value ? nom : `${nom.replace(/^Auto : /, '')} (auto)`}.`);
+      } else {
+        await api('POST', '/api/connexions/hollywood/equipe', {role: 'graphiste', actif: t.checked});
+        note(t.checked ? 'ChatGPT dessinera ce qui manque à tes montages.' : 'ChatGPT ne dessine plus : ton monteur dessinera en code.');
+      }
+      if (ui.claude) await chargerClaude();
+      feuilleEquipe();
+    } catch (err) { note(err.message, true); }
+  });
+  f.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-fermer]')) return fermerFeuille();
+    if (ev.target.closest('[data-connexions]')) return feuilleConnexions();
+    if (ev.target.closest('[data-eq-qui]')) return ui.claude ? feuilleChoixIA() : feuilleConnexions();
+  });
+}
 /** L'avis de Gemini sur une vidéo livrée en Mode Hollywood (lib/gemini-api.mjs) : chargé, puis relu tant qu'il travaille. */
 ui.avisGemini = new Map();
 function avisGeminiHtml(x, v, k) {
@@ -5843,12 +5972,21 @@ function bulleClaude(x, c) {
   const questions = x === c.echanges.at(-1) && !c.en_cours && !x.erreur ? questionsALaFin(x.texte) : [];
   const repondre = questions.length ? `<div class="cl-repondre"><button class="btn petit" data-cl="repondre" data-n="${questions.length}" title="Prépare tes réponses, numérotées, dans la zone d’écriture">${ic('bulle')}Répondre</button>${VO.questionsOuvertes()
     ? `<button class="btn petit" data-cl="vo-ouvrir" title="Réponds question par question, par écrit ou au micro : tes réponses servent à ta voix off">${ic('micro')}Au micro</button>` : ''}</div>` : '';
-  // un forfait épuisé : la suite au choix (le crédit API de Claude en dernier recours, une autre IA)
-  const qa = x.quota_atteint && x === c.echanges.at(-1) && !c.en_cours ? x.quota_atteint : null;
+  // un forfait épuisé : la suite au choix (le crédit API de Claude en dernier recours, une autre IA) ; en Mode Hollywood,
+  // une autre IA de l'équipe a déjà pris la suite toute seule : c'est seulement dit
+  // (plusieurs comptes : « Continuer avec « Compte 2 » », au clic ; après un relais, passer à l'autre compte pour la suite)
+  const derniereBulle = x === c.echanges.at(-1) && !c.en_cours;
+  const passer = x.quota_atteint?.relais && derniereBulle ? comptesDispo(c.comptes, x.quota_atteint.moteur, x.quota_atteint.compte ?? 'principal')[0] : null;
+  const relaisQuota = x.quota_atteint?.relais ? `<small class="cl-relais">${ic('relais')}${esc(`${nomIA(x.quota_atteint.relais)} a pris la suite, là où ${nomIA(x.quota_atteint.moteur)} s’était arrêté (Mode Hollywood).`)}${passer ? `<button class="lien-btn" data-cl="passer-compte" data-ia="${x.quota_atteint.moteur}" data-id="${passer.id}" title="${esc(`Tes prochaines demandes à ${nomIA(x.quota_atteint.moteur)} partiront avec ce compte`)}">${esc(`Passer à ton compte « ${passer.nom} »`)}</button>` : ''}</small>` : '';
+  const qa = x.quota_atteint && !x.quota_atteint.relais && derniereBulle ? x.quota_atteint : null;
   const autres = qa ? ['claude', 'codex', 'gemini'].filter((k) => k !== qa.moteur && c[k]?.ok && c.quotas?.[k]?.statut !== 'atteint') : [];
-  const suiteQuota = qa ? `<div class="cl-quota"><small>${esc(`Le quota de ${nomIA(qa.moteur)} est atteint.${qa.recharge ? ` Il se recharge ${quandRecharge(qa.recharge)}.` : ''}`)}</small><div class="cl-repondre">${qa.moteur === 'claude' && c.claude_api?.ok ? `<button class="btn petit bleu" data-cl="credit-api" title="Claude reprend ta demande avec le crédit de ton compte API (payé à l’usage), pour cette fois seulement">${ic('etincelle', 'plein')}Continuer avec mon crédit API</button>` : ''}${autres.length ? `<button class="btn petit" data-cl="choisir-ia">${ic('prise')}Monter avec ${autres.map((k) => nomIA(k)).join(' ou ')}</button>` : ''}</div>${qa.moteur === 'claude' && !c.claude_api?.cle ? '<small class="dim">Du crédit sur l’API de Claude ? Branche-le dans Connexions (« Le crédit API de Claude ») : Dérush te le proposera ici, en dernier recours.</small>' : ''}</div>` : '';
+  const dispo = qa ? comptesDispo(c.comptes, qa.moteur, qa.compte ?? 'principal').slice(0, 2) : [];
+  const nomCompte = qa?.compte && qa.compte !== 'principal' ? (c.comptes?.[qa.moteur] ?? []).find((k) => k.id === qa.compte)?.nom : null;
+  const suiteQuota = qa ? `<div class="cl-quota"><small>${esc(`Le quota de ${nomIA(qa.moteur)}${nomCompte ? ` (ton compte « ${nomCompte} »)` : ''} est atteint.${qa.recharge ? ` Il se recharge ${quandRecharge(qa.recharge)}.` : ''}`)}</small><div class="cl-repondre">${dispo.map((k) => `<button class="btn petit bleu" data-cl="autre-compte" data-ia="${qa.moteur}" data-id="${k.id}" title="${esc(`${nomIA(qa.moteur)} reprend ta demande avec ton compte « ${k.nom} » : il repart du dossier de travail`)}">${ic('prise')}${esc(`Continuer avec « ${k.nom} »`)}</button>`).join('')}${qa.moteur === 'claude' && c.claude_api?.ok ? `<button class="btn petit${dispo.length ? '' : ' bleu'}" data-cl="credit-api" title="Claude reprend ta demande avec le crédit de ton compte API (payé à l’usage), pour cette fois seulement">${ic('etincelle', 'plein')}Continuer avec mon crédit API</button>` : ''}${autres.length ? `<button class="btn petit" data-cl="choisir-ia">${ic('prise')}Monter avec ${autres.map((k) => nomIA(k)).join(' ou ')}</button>` : ''}</div>${qa.moteur === 'claude' && !c.claude_api?.cle && !dispo.length ? '<small class="dim">Du crédit sur l’API de Claude ? Branche-le dans Connexions (« Le crédit API de Claude ») : Dérush te le proposera ici, en dernier recours.</small>' : ''}</div>` : '';
   const cout = x.credit_api ? `<small class="cl-cout">${ic('etincelle', 'plein')}Payé avec ton crédit API${x.credit_api.usd != null ? ` : ${prixUsd(x.credit_api.usd)}` : ''}</small>` : '';
-  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}${x.texte ? boutonCopier(x) : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${suiteQuota}${cout}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
+  // le Mode Hollywood : qui a réalisé, monté et dessiné cette vidéo
+  const equipeFaite = x.equipe && (x.version || x.equipe.dessins || x.equipe.relais) ? ligneEquipe(x.equipe) : '';
+  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}${x.texte ? boutonCopier(x) : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${relaisQuota}${suiteQuota}${cout}${equipeFaite}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
 }
 /** La bulle de l'IA au travail : la bobine tourne, une ligne dit ce qu'elle fait, son rendu passe en petit ; le détail se déplie. */
 // Ce qu'une demande dure d'ordinaire à chaque niveau (avant que cet ordinateur en ait mesuré une lui-même)
@@ -6081,7 +6219,7 @@ function rendreClaude() {
     ${ui.reglagesIA.length ? `<div class="cl-reglages"><small>${ic('reglages')}${ui.reglagesIA.length} réglage${ui.reglagesIA.length > 1 ? 's' : ''} sur la table de montage, envoyé${ui.reglagesIA.length > 1 ? 's' : ''} avec ton message</small>${ui.reglagesIA.map((r, i) => `<span class="bloc-regle" title="${esc(r.texte)}"><b>${esc(r.nom)}</b> ${esc(r.texte)}<button data-reglage-i="${i}" title="Retirer ce réglage">${ic('fermer')}</button></span>`).join('')}</div>` : ''}
     ${attente.length ? `<div class="cl-pjs">${attente.map(pucePiece).join('')}</div>` : ''}
     <textarea id="cl-texte" rows="2" spellcheck="true" placeholder="${esc(texteVide)}"${pret ? '' : ' disabled'}></textarea>
-    <div class="cl-envoi"><button class="cl-joindre" data-cl="joindre" title="Joindre des fichiers : références, vidéos, charte graphique, logo, polices, zip… Tu peux aussi les glisser ou les coller ici.">${ic('trombone')}</button>${c.drive?.synchronise ? `<button class="cl-joindre" data-cl="joindre-drive" title="Joindre depuis ton Google Drive">${logo('drive', 16)}</button>` : ''}
+    <div class="cl-envoi"><button class="cl-joindre" data-cl="joindre" title="Joindre des fichiers : références, vidéos, charte graphique, logo, polices, zip… Tu peux aussi les glisser ou les coller ici.">${ic('trombone')}</button>${c.drive?.synchronise ? `<button class="cl-joindre" data-cl="joindre-drive" title="Joindre depuis ton Google Drive">${logo('drive', 16)}</button>` : ''}<button class="cl-joindre cl-style" data-cl="styles" title="Choisir un style : 99 recettes (face caméra, explications, promos, pubs produit, logos et affiches, effets, méthodes de montage)">${ic('palette')}</button>
     <span class="espace"></span>${c.en_cours ? `${c.en_cours.ecoute ? `<div class="segmente cl-quand" title="Quand ton message part : tout de suite (l’IA le lit au prochain geste, sans s’arrêter), ou quand elle a fini ce travail (une nouvelle demande)"><button data-cl="quand-envoyer" data-apres="0"${ui.apresTravail ? '' : ' class="actif"'}>Maintenant</button><button data-cl="quand-envoyer" data-apres="1"${ui.apresTravail ? ' class="actif"' : ''}>Après ce travail</button></div>` : ''}<button data-cl="arreter" class="stop" title="Arrêter ${qui}">${ic('stop', 'plein')}</button><button data-cl="envoyer" id="cl-envoyer" title="${c.en_cours.ecoute ? (ui.apresTravail ? 'Envoyer quand il aura fini ce travail (⌘↵)' : 'Lui écrire pendant son travail (⌘↵)') : 'Envoyer à la fin de son travail (⌘↵)'}">${ic('envoi')}</button>` : `<button data-cl="envoyer" id="cl-envoyer" title="Envoyer à ${qui} (⌘↵)">${ic('envoi')}</button>`}</div>
     <div class="cl-depot-ici">${ic('trombone')}<span>Lâche ici : ${qui} le recevra avec ton message</span></div></div>`;
   // pour qui l'IA monte ce projet : toujours visible près de la zone d'écriture (un clic pour changer)
@@ -6165,14 +6303,22 @@ async function envoyerDemande() {
     ui.brouillon = '';
     return rendreClaude();
   }
-  // le forfait de Claude est épuisé : rien ne part sans un choix (le crédit API n'est jamais pris tout seul)
+  // le forfait de Claude est épuisé : rien ne part sans un choix (le crédit API n'est jamais pris tout seul). En Mode
+  // Hollywood, une autre IA de l'équipe monte à sa place : c'est dit, et la demande part
+  // Avec plusieurs comptes (lib/comptes.mjs), un autre compte de cette IA est proposé d'abord : jamais pris sans ce clic.
   let creditApi = false;
-  if (moteurIA() === 'claude' && c.quotas?.claude?.statut === 'atteint') {
-    const choix = await choixForfaitEpuise();
+  const mi = moteurIA();
+  const relaisEquipe = c.hollywood?.ok && c.hollywood?.actif && c.equipe?.monteur?.ia === mi ? c.equipe.monteur.remplace_par : null;
+  const forfaitABout = ['claude', 'codex'].includes(mi) && c.quotas?.[mi]?.statut === 'atteint';
+  if (forfaitABout && (comptesDispo(c.comptes, mi).length || (!relaisEquipe && mi === 'claude'))) {
+    const choix = await choixForfaitEpuise(mi, {relais: relaisEquipe});
     if (choix === 'autre') return feuilleChoixIA();
-    if (choix !== 'api' && choix !== 'envoyer') return;
+    if (choix?.startsWith('compte:')) {
+      try { const r = await api('POST', `/api/comptes/${mi}/choisir`, {id: choix.slice(7)}); note(r.message); } catch (err) { return note(err.message, true); }
+    } else if (choix === 'relais') note(`${nomIA()} n’a plus de quota : ${nomIA(relaisEquipe)} monte à sa place (Mode Hollywood).`);
+    else if (choix !== 'api' && choix !== 'envoyer') return;
     creditApi = choix === 'api';
-  }
+  } else if (relaisEquipe) note(`${nomIA()} n’a plus de quota : ${nomIA(relaisEquipe)} monte à sa place (Mode Hollywood).`);
   const peutSuivre = c.echanges.length > 0 && !!c.session;
   const depart = !peutSuivre || c.espace_change ? 'nouveau' : (ui.depart ?? (c.montage_change ? 'nouveau' : 'suite'));
   const b = $('#cl-envoyer');
@@ -6203,6 +6349,51 @@ function preparerReponse(n) {
   ta.focus();
   ta.setSelectionRange(curseur, curseur);
   ta.scrollTop = 0;
+}
+/**
+ * Les styles vidéo (competences/styles-video, recettes adaptées d'OpenMotion) : 99 recettes en 7 familles. Un clic pose
+ * « Style : <nom> » en tête de la zone d'écriture, à la place d'un style déjà choisi ; ton IA lit alors sa recette.
+ */
+async function feuilleStyles() {
+  if (!ui.stylesCatalogue) { try { ui.stylesCatalogue = await api('GET', '/api/styles'); } catch (err) { return note(err.message, true); } }
+  const cat = ui.stylesCatalogue;
+  const actuel = /^Style\s*:\s*(.+)$/im.exec(ui.brouillon ?? '')?.[1]?.trim() ?? null;
+  const f = feuille('', true);
+  f.classList.add('styles');
+  const rendre = () => {
+    const fam = ui.stylesFamille ?? '';
+    const liste = cat.styles.filter((s) => !fam || s.categorie === fam);
+    const aide = cat.categories.find((x) => x.id === fam)?.aide;
+    f.innerHTML = `<h3>Choisis un style</h3><p class="sous-titre">${cat.styles.length} recettes de direction artistique. Ton IA lit celle que tu choisis et l’applique avec tes rushes et ta marque. Facultatif : sans style, elle choisit.</p>
+      <div class="segmente st-familles">${[{id: '', nom: 'Tous'}, ...cat.categories].map((x) => `<button data-st-famille="${x.id}"${fam === x.id ? ' class="actif"' : ''}${x.aide ? ` title="${esc(x.aide)}"` : ''}>${esc(x.nom)}</button>`).join('')}</div>
+      ${aide ? `<p class="st-aide">${esc(aide)}</p>` : ''}
+      <div class="st-grille">${liste.map((s) => `<button class="st-carte${actuel === s.nom ? ' choisi' : ''}" data-st="${esc(s.id)}" title="${esc(`${s.nom} (${s.nom_origine})`)}"><b>${esc(s.nom)}</b><small>${esc(s.description)}</small>${actuel === s.nom ? `<i class="coche">${ic('coche')}</i>` : ''}</button>`).join('')}</div>
+      <p class="st-source">Recettes adaptées d’OpenMotion (licence Apache-2.0).</p>
+      <div class="pied">${actuel ? '<button class="btn" data-st-retirer>Sans style</button>' : ''}<span class="espace"></span><button class="btn principal" data-fermer>Fermer</button></div>`;
+  };
+  rendre();
+  f.addEventListener('click', (e) => {
+    if (e.target.closest('[data-fermer]')) return fermerFeuille();
+    const fam = e.target.closest('[data-st-famille]');
+    if (fam) { ui.stylesFamille = fam.dataset.stFamille || null; return rendre(); }
+    const s = cat.styles.find((x) => x.id === e.target.closest('[data-st]')?.dataset.st);
+    if (!s && !e.target.closest('[data-st-retirer]')) return;
+    poserStyle(s?.nom ?? null);
+    fermerFeuille();
+    note(s ? `Style : ${s.nom}. Écris ta demande, ton IA suivra cette recette.` : 'Sans style : ton IA choisit.');
+  });
+}
+/** Pose « Style : <nom> » en tête de la zone d'écriture (à la place d'un style déjà là), ou le retire (null). */
+function poserStyle(nom) {
+  const ta = $('#cl-texte');
+  const sans = String(ui.brouillon ?? '').replace(/^Style\s*:.*(?:\n|$)/im, '').replace(/^\n+/, '');
+  ui.brouillon = nom ? `Style : ${nom}\n${sans}` : sans;
+  if (!ta) return;
+  ta.value = ui.brouillon;
+  hauteurTexte(ta);
+  majEnvoi();
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
 }
 /** Envoie une demande sans repasser par « Depuis mon Drive » : après l'import de ses rushes, ou « Envoyer tel quel ». */
 async function envoyerSansDetour(message) {
@@ -6354,11 +6545,12 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'ouvrir-lien') { const l = e.target.closest('[data-lien]').dataset.lien; if (/^https:\/\//.test(l)) await api('POST', '/api/lien', {url: l}); return; }
     if (act === 'tableau') return TB.ouvrir({espace: ui.notes?.espace?.id ?? ui.espace?.id ?? null});
     if (act === 'pour-qui') return changerEspaceProjet();
+    if (act === 'equipe') return feuilleEquipe();
     if (act === 'mode-classique' || act === 'mode-hollywood' || act === 'hollywood') {
       const actif = act === 'hollywood' ? !c.hollywood?.actif : act === 'mode-hollywood';
       if (actif && !c.hollywood?.ok) return feuilleConnexions(); // Gemini n'est pas encore branché
       if (actif === !!c.hollywood?.actif) return;
-      try { await api('POST', '/api/connexions/hollywood/activer', {actif}); note(actif ? `Mode Hollywood : ${c.hollywood?.nom ?? 'Gemini'}, le réalisateur, regardera et écoutera tes rushes, proposera le découpage et contrôlera la vidéo ; ton IA monte.` : 'Mode classique : ton IA monte seule.'); } catch (err) { note(err.message, true); }
+      try { await api('POST', '/api/connexions/hollywood/activer', {actif}); note(actif ? `Mode Hollywood : ${c.hollywood?.nom ?? 'Gemini'}, le réalisateur, regardera et écoutera tes rushes, proposera le découpage et contrôlera la vidéo ; ton IA monte${c.codex?.ok ? ' ; ChatGPT dessine ce qui manque' : ''}. « Équipe » : le modèle de chacun.` :'Mode classique : ton IA monte seule.'); } catch (err) { note(err.message, true); }
       return chargerClaude();
     }
     if (act === 'gemini-temps') {
@@ -6433,6 +6625,7 @@ $('#claude').addEventListener('click', async (e) => {
     if (act?.startsWith('seq-')) return await SQ.clic(act, e.target.closest('[data-cl]'));
     if (act === 'pourquoi-long') return feuillePourquoiLong();
     if (act === 'joindre') return joindreFichiers();
+    if (act === 'styles') return feuilleStyles();
     if (act === 'joindre-drive') {
       const r = await choisirSurOrdinateur('drive');
       return r.indisponible ? note('La fenêtre « Ouvrir » de l’ordinateur n’a pas pu s’ouvrir.', true) : joindreChemins(r.chemins);
@@ -6465,6 +6658,23 @@ $('#claude').addEventListener('click', async (e) => {
         note('Jointe comme référence : ton IA reprendra son style, jamais son contenu. Elle reste à son auteur : ne la republie pas.', false, true);
       } catch (err) { note(err.message, true); b.disabled = false; }
       return chargerClaude();
+    }
+    // un forfait à bout : la personne choisit un autre de ses comptes (jamais Dérush tout seul) ; la demande repart avec
+    // lui, dans le même dossier de travail (sa conversation, elle, reste à l'autre compte). « passer-compte » : après un
+    // relais du Mode Hollywood, seulement pour les prochaines demandes.
+    if (act === 'autre-compte' || act === 'passer-compte') {
+      const b = e.target.closest('button');
+      b.disabled = true;
+      try {
+        const r = await api('POST', `/api/comptes/${b.dataset.ia}/choisir`, {id: b.dataset.id});
+        const derniere = String([...c.echanges].reverse().find((y) => y.role === 'humain' && y.texte)?.texte ?? '').replace(/^\(Mon forfait était épuisé[^)]*\)\s*/, '');
+        if (act === 'autre-compte' && derniere) {
+          const nom = (c.comptes?.[b.dataset.ia] ?? []).find((k) => k.id === b.dataset.id)?.nom ?? 'l’autre';
+          await api('POST', '/api/claude/demander', {message: `(Mon forfait était épuisé sur l’autre compte : tu travailles maintenant avec mon compte « ${nom} ». Reprends ma dernière demande là où le travail s’était arrêté, ses fichiers sont dans le dossier de travail.)\n\n${derniere}`, moteur: b.dataset.ia, qualite: qualiteIA()});
+        }
+        note(r.message ?? 'Compte changé.');
+      } catch (err) { note(err.message, true); b.disabled = false; }
+      return chargerClaude(b.dataset.ia);
     }
     // le forfait de Claude épuisé : Claude reprend la demande avec le crédit API, sur ce clic et pour cette fois seulement
     if (act === 'credit-api') {
@@ -6519,7 +6729,8 @@ const pasCx = () => (Date.now() - (ui.cxSuivre?.debut ?? 0) < 60000 ? 5000 : 150
 /** Ce que l'éditeur montre de l'IA : quand cela change dans Connexions, l'éditeur le relit. */
 const etatIAs = (d) => JSON.stringify([d?.claude?.ok, d?.codex?.ok, d?.gemini?.ok, d?.choisi, d?.qualite, d?.modele]);
 const etatCarte = (ok, attente = false) => (ok ? 'ok' : attente ? 'attente' : 'manque');
-const carteCx = ({etat, lg, titre, sous, actions = '', plus = ''}) => `<div class="cx-carte ${etat}">${lg}<div class="cx-txt"><b>${titre}<i class="cx-point"></i></b><small>${sous}</small>${plus}</div><div class="cx-act">${actions}</div></div>`;
+// bas : ce qui prend toute la largeur de la carte, sous elle (les comptes d'une IA)
+const carteCx = ({etat, lg, titre, sous, actions = '', plus = '', bas = ''}) => `<div class="cx-carte ${etat}${bas ? ' a-bas' : ''}">${lg}<div class="cx-txt"><b>${titre}<i class="cx-point"></i></b><small>${sous}</small>${plus}</div><div class="cx-act">${actions}</div>${bas ? `<div class="cx-bas">${bas}</div>` : ''}</div>`;
 const enCours = (a) => a?.etat === 'en_cours';
 const erreurAction = (a) => (a?.etat === 'erreur' ? `<small class="attention">${esc(a.message)}</small>` : '');
 /** Une IA : installée et connectée ? Sinon, un bouton pour l'une ou l'autre étape. */
@@ -6534,9 +6745,11 @@ function carteIA(d, m) {
         : x.connectable ? `<button class="btn bleu petit" data-cx="${m}/connecter">Me connecter</button>` : '';
   // Gemini : les modèles que ce compte Google propose (ils changent d'un compte à l'autre)
   const familles = m === 'gemini' && x.ok ? [...new Set((x.modeles ?? []).map((s) => String(s).replace(/-(low|medium|high|max)$/, '').split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')))].join(', ') : '';
-  const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}${familles ? ` · ${esc(familles)}` : ''}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
+  // un autre compte que le principal (lib/comptes.mjs) : son nom est dit
+  const compte = x.compte && !x.compte.principal ? ` (« ${esc(x.compte.nom)} »)` : '';
+  const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}${compte}${familles ? ` · ${esc(familles)}` : ''}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
   const aide = m === 'gemini' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google dans la page qui suit, ferme le terminal, puis reviens ici.' : 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.';
-  return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: nomIA(m), sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? `<small class="dim">${aide}</small>` : '') + (x.ok ? blocQuota(d.quotas?.[m], m, {verifier: true}) : '')});
+  return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: nomIA(m), sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? `<small class="dim">${aide}</small>` : '') + (x.ok ? blocQuota(d.quotas?.[m], m, {verifier: true}) : ''), bas: blocComptes(d, m)});
 }
 /** Les vrais sons : la bibliothèque (remplie avec Openverse), Real SFX pour les poser, Earshot pour écouter. */
 function sectionSons(d) {
@@ -6583,6 +6796,12 @@ function carteHyperframes(d) {
  */
 function sectionCreditApi(d) {
   const a = d.claude_api ?? {};
+  // ce qui reste : le crédit de départ noté par la personne, moins ce que Dérush a dépensé depuis (aucune API ne donne le
+  // solde d'un compte ; ce qui est dépensé ailleurs n'y est pas, la console fait foi)
+  const notee = a.depart_usd != null;
+  const depart = a.ok ? (notee && !ui.cxCaDepart
+    ? `<div class="ca-reste"><b>${esc(`Il te reste environ ${prixUsd(a.reste_usd)}`)}</b><small>${esc(`sur ${prixUsd(a.depart_usd)} noté le ${new Date(a.depart_le).toLocaleDateString('fr-FR', {day: 'numeric', month: 'long'})} : Dérush retire ce qu’il dépense (${prixUsd(a.depense_depuis_usd)} depuis). Ce que tu dépenses ailleurs n’y est pas : ta console fait foi.`)}</small><span><button class="lien-btn" data-cx-ca="changer-depart">Changer</button><button class="lien-btn" data-cx-ca="console">Voir ma console</button></span></div>`
+    : `<div class="ca-reste"><small>${esc('Combien te reste-t-il ? Aucune API ne donne le solde : note ici le crédit que ta console Anthropic affiche (Billing), Dérush en retirera ce qu’il dépense.')}</small><div class="tg-cle"><input id="cx-ca-depart" inputmode="decimal" placeholder="ton crédit, en dollars (ex. 1300)" value="${notee ? esc(String(a.depart_usd)) : ''}" autocomplete="off" spellcheck="false"><button class="btn petit" data-cx-ca="depart">Noter</button>${notee ? '<button class="lien-btn" data-cx-ca="garder-depart">Annuler</button>' : ''}</div><button class="lien-btn" data-cx-ca="console">Voir ma console</button></div>`) : '';
   const sous = a.ok ? `Prête, jamais utilisée toute seule : seulement quand ton forfait Claude est épuisé et que tu choisis « Avec mon crédit API », pour cette demande-là.${a.depense_usd ? ` Dépensé avec Dérush : ${prixUsd(a.depense_usd)}.` : ''}`
     : a.cle ? (a.erreur ?? 'Clé posée : vérifie-la.')
       : 'Facultatif, en dernier recours. Quand ton forfait Claude est épuisé, Dérush peut te proposer de continuer avec le crédit de ton compte API Claude (console.anthropic.com), payé à l’usage. Jamais sans ton accord.';
@@ -6590,7 +6809,7 @@ function sectionCreditApi(d) {
     ? '<button class="btn petit" data-cx-ca="verifier" title="Redemander à Anthropic si la clé marche (rien n’est consommé)">Vérifier</button><button class="btn petit" data-cx-ca="retirer" title="Retirer la clé de cet ordinateur">Retirer</button>'
     : `<button class="btn petit" data-cx-ca="creer" title="La page des clés de la console Anthropic s’ouvre dans ton navigateur">Créer ma clé</button><button class="btn bleu petit" data-cx-ca="coller" title="Copie ta clé dans la console Anthropic, puis clique ici">${ic('copier')}Coller ma clé</button>`;
   const champ = !a.cle && ui.cxCaChamp ? '<div class="tg-cle cx-hw-cle"><input type="password" id="cx-ca-cle" placeholder="ou colle ta clé ici (sk-ant-…)" autocomplete="off" spellcheck="false"><button class="btn petit" data-cx-ca="enregistrer">Enregistrer</button></div>' : '';
-  return `<section class="cx-section"><h4>${ic('etincelle', 'plein')}Le crédit API de Claude, en dernier recours</h4><div class="cx-grille">${carteCx({etat: etatCarte(a.ok), lg: logo('claude', 42), titre: 'Claude, par ton crédit API', sous: esc(sous), actions, plus: champ})}</div></section>`;
+  return `<section class="cx-section"><h4>${ic('etincelle', 'plein')}Le crédit API de Claude, en dernier recours</h4><div class="cx-grille">${carteCx({etat: etatCarte(a.ok), lg: logo('claude', 42), titre: 'Claude, par ton crédit API', sous: esc(sous), actions, plus: champ + depart})}</div></section>`;
 }
 function sectionHollywood(d) {
   const h = d.hollywood ?? {};
@@ -6609,17 +6828,26 @@ function sectionHollywood(d) {
   const champ = !h.cle && ui.cxHwChamp ? '<div class="tg-cle cx-hw-cle"><input type="password" id="cx-hw-cle" placeholder="ou colle ta clé ici" autocomplete="off" spellcheck="false"><button class="btn petit" data-cx-hw="enregistrer">Enregistrer</button></div>' : '';
   // le Mode Hollywood lui-même : allumé ou coupé ; et la voie, quand il y en a deux
   const voies = cmd.prete && h.ok ? `<div class="segmente">${[['commande', 'Ton compte Google'], ['cle', 'Ta clé']].map(([k, t]) => `<button data-cx-hw-voie="${k}"${h.voie === k ? ' class="actif"' : ''} title="Gemini regarde d’abord par ${k === 'cle' ? 'ta clé (l’API de Google)' : 'ta commande Gemini (ton abonnement)'} ; l’autre prend le relais">${t}</button>`).join('')}</div>` : '';
-  const reglage = h.prete ? `<div class="cx-qualite"><span>Mode Hollywood</span><label class="interrupteur" title="Gemini regarde et écoute pour ton IA"><input type="checkbox" data-cx-hw-bascule${h.hollywood_demande !== false ? ' checked' : ''}><i></i></label>${voies}<small>${h.hollywood ? `Allumé : ${esc(h.nom_oeil ?? 'Gemini')} regarde et écoute avant chaque montage.` : 'Coupé : ton IA monte sans l’œil de Gemini.'}</small></div>` : '';
-  return `<section class="cx-section"><h4>${ic('etincelle', 'plein')}Mode Hollywood : l’œil et l’oreille</h4><div class="cx-grille">
+  const eq = d.equipe ?? {};
+  const reglage = h.prete ? `<div class="cx-qualite"><span>Mode Hollywood</span><label class="interrupteur" title="Trois IA travaillent ensemble pour ton montage"><input type="checkbox" data-cx-hw-bascule${h.hollywood_demande !== false ? ' checked' : ''}><i></i></label>${voies}<small>${h.hollywood ? esc(`Allumé : ${eq.phrase ?? `${h.nom_oeil ?? 'Gemini'} regarde et écoute avant chaque montage.`}`) : 'Coupé : ton IA monte seule.'}</small>${h.hollywood ? `<button class="btn petit" data-cx-equipe title="Le modèle de chaque IA de l’équipe">${pileEquipe(eq.membres ?? [], 13)}Ton équipe</button>` : ''}</div>` : '';
+  // le graphiste : ChatGPT, par l'outil d'images de Codex (le forfait ChatGPT de la personne)
+  const g = eq.graphiste ?? {};
+  const sousG = !g.connecte ? 'Le graphiste de l’équipe : il dessine ce qui manque au montage (autocollants, illustrations, fonds, personnages animés). Connecte Codex à ton compte ChatGPT, plus haut (« Ton IA »).'
+    : g.a_bout ? `Plus de quota pour le moment${g.a_bout.recharge && !g.a_bout.estime ? ` (il se recharge ${quandRecharge(g.a_bout.recharge)})` : ''} : ton monteur dessine en code.${(() => { const k = comptesDispo(d.comptes, 'codex')[0]; return k ? ` Ton compte ChatGPT « ${k.nom} » a encore du quota : choisis-le plus haut (« Utiliser ») si tu veux qu’il dessine.` : ''; })()}`
+      : g.voulu ? 'Prêt : le graphiste de l’équipe dessine ce qui manque à ton montage (autocollants, illustrations, fonds, personnages animés en sprites ou GIF), avec ton forfait ChatGPT.' : 'Coupé : ton monteur dessine en code.';
+  const carteG = carteCx({etat: etatCarte(g.pret), lg: logo('chatgpt', 42), titre: 'ChatGPT, le graphiste', sous: esc(sousG),
+    actions: g.connecte ? `<label class="interrupteur" title="ChatGPT dessine pour ton monteur (Mode Hollywood)"><input type="checkbox" data-cx-hw-graphiste${g.voulu ? ' checked' : ''}><i></i></label>` : ''});
+  return `<section class="cx-section"><h4>${ic('etincelle', 'plein')}Mode Hollywood : trois IA ensemble</h4><div class="cx-grille">
     ${carteCx({etat: etatCarte(cmd.prete), lg: logo('gemini', 42), titre: 'Gemini, par ton compte Google', sous: esc(sousCmd)})}
-    ${carteCx({etat: etatCarte(h.ok), lg: logo('gemini', 42), titre: 'Gemini, par ta clé Google', sous: esc(sousCle), actions: actionsCle, plus: champ + (h.ok && h.fermes?.length ? `<small class="attention">${esc(h.fermes[0].raison)}</small>` : '')})}</div>${reglage}</section>`;
+    ${carteCx({etat: etatCarte(h.ok), lg: logo('gemini', 42), titre: 'Gemini, par ta clé Google', sous: esc(sousCle), actions: actionsCle, plus: champ + (h.ok && h.fermes?.length ? `<small class="attention">${esc(h.fermes[0].raison)}</small>` : '')})}
+    ${carteG}</div>${reglage}</section>`;
 }
 async function feuilleConnexions() {
   let d;
   // une connexion lancée d'ici et pas encore vue : cette IA (seule) est revérifiée à l'ouverture
   const attendu = cxAttendu();
   if (attendu) ui.cxSuivre.vu = Date.now();
-  try { d = await api('GET', `/api/connexions${attendu ? `?force=${attendu}` : ''}`); } catch (e) { return note(e.message, true); }
+  try { d = await api('GET', `/api/connexions${attendu ? (ui.cxSuivre.compte ? `?compte=${attendu}:${ui.cxSuivre.compte}` : `?force=${attendu}`) : ''}`); } catch (e) { return note(e.message, true); }
   ui.cxMontree = true;
   const f = feuille('', true);
   f.classList.add('connexions');
@@ -6658,10 +6886,12 @@ async function feuilleConnexions() {
   };
   // force : rien (l'état gardé par le serveur), ou les noms de ce qu'il faut revérifier (« claude », « blender,earshot ») ;
   // toujours : redessiner même si rien n'a changé (après un clic, pour rendre la main au bouton)
-  const relire = async (force = false, toujours = true) => {
+  // compte : « codex:c-1a2b3c », un compte dont on attend la connexion (lib/comptes.mjs), revérifié seul
+  const relire = async (force = false, toujours = true, compte = '') => {
     const avant = JSON.stringify(d);
     const iaAvant = etatIAs(d);
-    try { d = await api('GET', `/api/connexions${force ? `?force=${encodeURIComponent(force)}` : ''}`); } catch { return; }
+    const params = [force ? `force=${encodeURIComponent(force)}` : '', compte ? `compte=${encodeURIComponent(compte)}` : ''].filter(Boolean).join('&');
+    try { d = await api('GET', `/api/connexions${params ? `?${params}` : ''}`); } catch { return; }
     if (!feuilleOuverte() || !f.isConnected) return;
     if (toujours || JSON.stringify(d) !== avant) rendre();
     // l'éditeur suit ce qui a changé pour l'IA (prête, choisie, qualité, modèle) : le serveur vient de le vérifier
@@ -6674,16 +6904,25 @@ async function feuilleConnexions() {
   // agy models, Blender, Earshot) était revérifié de force toutes les 3,5 s pendant 15 minutes, même feuille fermée.
   const suivre = () => {
     clearTimeout(minuterieConnexions);
-    if (cxAttendu() && d[ui.cxSuivre.quoi]?.ok) ui.cxSuivre = null;
+    // l'IA attendue est prête, ou le compte attendu est connecté (Dérush ne le choisit pas pour autant : au clic)
+    if (cxAttendu()) {
+      const s = ui.cxSuivre;
+      const k = s.compte ? (d.comptes?.[s.quoi] ?? []).find((y) => y.id === s.compte) : null;
+      if (s.compte ? !k || k.connecte : d[s.quoi]?.ok) {
+        ui.cxSuivre = null;
+        if (k) note(`Compte « ${k.nom} » connecté.${k.actif ? '' : ' Clique « Utiliser » quand tu veux que Dérush travaille avec lui.'}`, false, true);
+      }
+    }
     const occupe = occupesCx(d).length > 0 || !!d.elevenlabs?.attente;
     if (!occupe && !cxAttendu()) return;
     minuterieConnexions = setTimeout(async () => {
       if (!f.isConnected || !feuilleOuverte()) return;
       const attendu = cxAttendu();
-      const forcer = attendu && Date.now() - ui.cxSuivre.vu >= pasCx() - 200 ? attendu : '';
-      if (forcer) ui.cxSuivre.vu = Date.now();
+      const due = attendu && Date.now() - ui.cxSuivre.vu >= pasCx() - 200;
+      if (due) ui.cxSuivre.vu = Date.now();
+      const forcer = due && !ui.cxSuivre.compte ? attendu : '';
       const avant = occupesCx(d);
-      await relire(forcer, false);
+      await relire(forcer, false, due && ui.cxSuivre.compte ? `${attendu}:${ui.cxSuivre.compte}` : '');
       const finis = avant.filter((k) => k !== 'remotion' && !occupesCx(d).includes(k));
       if (finis.length && f.isConnected && feuilleOuverte()) await relire(finis.join(','), false);
       suivre();
@@ -6694,10 +6933,23 @@ async function feuilleConnexions() {
   f.avantFermeture = () => { clearTimeout(minuterieConnexions); if (ui.claude) chargerClaude(cxAttendu() ?? false); };
   rendre();
   suivre();
+  // Entrée dans le nom d'un compte, ou dans le crédit noté : comme leur bouton
+  f.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !['cx-cpt-nom', 'cx-cpt-renom', 'cx-ca-depart'].includes(e.target.id)) return;
+    e.preventDefault();
+    e.target.closest('.tg-cle')?.querySelector('[data-cx-compte="creer"], [data-cx-compte="renommer-ok"], [data-cx-ca="depart"]')?.click();
+  });
   f.addEventListener('change', async (e) => {
     // le Mode Hollywood, allumé ou coupé
     if (e.target.dataset?.cxHwBascule !== undefined) {
-      try { await api('POST', '/api/connexions/hollywood/activer', {actif: e.target.checked}); note(e.target.checked ? 'Mode Hollywood allumé : Gemini regardera et écoutera tes rushes pour ton IA.' : 'Mode Hollywood coupé.'); } catch (err) { note(err.message, true); }
+      try { await api('POST', '/api/connexions/hollywood/activer', {actif: e.target.checked}); note(e.target.checked ? 'Mode Hollywood allumé : Gemini regardera et écoutera tes rushes, ton IA montera, ChatGPT dessinera ce qui manque.' : 'Mode Hollywood coupé.'); } catch (err) { note(err.message, true); }
+      await relire(false);
+      if (ui.claude) chargerClaude();
+      return;
+    }
+    // le graphiste de l'équipe (ChatGPT), allumé ou coupé
+    if (e.target.dataset?.cxHwGraphiste !== undefined) {
+      try { await api('POST', '/api/connexions/hollywood/equipe', {role: 'graphiste', actif: e.target.checked}); note(e.target.checked ? 'ChatGPT dessinera ce qui manque à tes montages (Mode Hollywood).' : 'ChatGPT ne dessine plus : ton monteur dessinera en code.'); } catch (err) { note(err.message, true); }
       await relire(false);
       if (ui.claude) chargerClaude();
       return;
@@ -6711,8 +6963,43 @@ async function feuilleConnexions() {
     if (e.target.closest('[data-fermer]')) return fermerFeuille(); // avantFermeture arrête le suivi et relit l'éditeur
     if (e.target.closest('[data-guide-treg]')) { clearTimeout(minuterieConnexions); return PUB.guideTreg(() => feuilleConnexions()); }
     if (e.target.closest('[data-competences]')) { clearTimeout(minuterieConnexions); return CP.ouvrir({retour: () => feuilleConnexions()}); }
+    if (e.target.closest('[data-cx-equipe]')) { clearTimeout(minuterieConnexions); return feuilleEquipe(); }
     const lien = e.target.closest('[data-lien]')?.dataset.lien;
     if (lien) return api('POST', '/api/lien', {url: lien}).catch((err) => note(err.message, true));
+    // plusieurs comptes (lib/comptes.mjs) : en ajouter un (puis s'y connecter), copier son lien de connexion, le choisir,
+    // le renommer, le retirer. Rien ne change sans ce clic.
+    const bc = e.target.closest('[data-cx-compte]');
+    if (bc) {
+      const quoi = bc.dataset.cxCompte;
+      const ia = bc.dataset.ia;
+      const id = bc.dataset.id;
+      const compteDe = () => (d.comptes?.[ia] ?? []).find((y) => y.id === id);
+      if (quoi === 'ajouter') { ui.cxNouveauCompte = ia; ui.cxRenommer = null; rendre(); $('#cx-cpt-nom', f)?.select(); return; }
+      if (quoi === 'annuler') { ui.cxNouveauCompte = null; return rendre(); }
+      if (quoi === 'renommer') { ui.cxRenommer = `${ia}:${id}`; ui.cxNouveauCompte = null; rendre(); $('#cx-cpt-renom', f)?.select(); return; }
+      if (quoi === 'lien') {
+        const lien = compteDe()?.lien;
+        if (!lien) return note('Le lien n’est plus là : clique « Me connecter » pour en avoir un nouveau.', true);
+        try { await navigator.clipboard.writeText(lien); note('Lien copié : ouvre-le dans une fenêtre privée (ou un autre profil de ton navigateur), connecte-toi avec ton autre compte, puis reviens ici.'); } catch { note('Le presse-papiers ne répond pas : connecte-toi dans la page qui s’est ouverte.', true); }
+        return;
+      }
+      if (quoi === 'retirer' && !confirm(`Retirer le compte « ${compteDe()?.nom ?? ''} » ? Dérush le déconnecte et oublie son dossier. Ton compte lui-même n’est pas touché.`)) return;
+      bc.disabled = true;
+      try {
+        const action = {creer: 'ajouter', 'renommer-ok': 'nommer'}[quoi] ?? quoi;
+        const corps = quoi === 'creer' ? {nom: $('#cx-cpt-nom', f)?.value ?? ''} : quoi === 'renommer-ok' ? {id, nom: $('#cx-cpt-renom', f)?.value ?? ''} : {id};
+        const r = await api('POST', `/api/comptes/${ia}/${action}`, corps);
+        if (quoi === 'creer' || quoi === 'connecter') ui.cxSuivre = {quoi: ia, compte: r.compte?.id ?? id, debut: Date.now(), vu: Date.now(), jusqua: Date.now() + 15 * 60000};
+        ui.cxNouveauCompte = null;
+        ui.cxRenommer = null;
+        if (r.comptes) d.comptes = {...(d.comptes ?? {}), [ia]: r.comptes};
+        if (r.message) note(r.message, false, quoi === 'choisir');
+      } catch (err) { note(err.message, true); }
+      await relire(false);
+      suivre();
+      if (ui.claude) chargerClaude();
+      return;
+    }
     // le crédit API de Claude (dernier recours) : créer la clé (la console Anthropic), la coller, la vérifier, la retirer
     const ca = e.target.closest('[data-cx-ca]')?.dataset.cxCa;
     if (ca) {
@@ -6725,8 +7012,15 @@ async function feuilleConnexions() {
           note(r.claude_api?.ok ? 'Clé acceptée par Anthropic : ton crédit API est prêt, en dernier recours.' : `Clé rangée, mais Anthropic la refuse : ${r.claude_api?.erreur ?? ''}`, !r.claude_api?.ok, !!r.claude_api?.ok);
         } catch (err) { note(err.message, true); }
       };
+      // le crédit de départ (ce que la console affiche) : noté, changé, ou la console ouverte pour le lire
+      if (ca === 'changer-depart' || ca === 'garder-depart') { ui.cxCaDepart = ca === 'changer-depart'; rendre(); if (ui.cxCaDepart) $('#cx-ca-depart', f)?.select(); return; }
       try {
-        if (ca === 'creer') await api('POST', '/api/lien', {url: 'https://console.anthropic.com/settings/keys'});
+        if (ca === 'console') return void await api('POST', '/api/lien', {url: 'https://console.anthropic.com/settings/billing'});
+        if (ca === 'depart') {
+          const r = await api('POST', '/api/connexions/claude-api/depart', {usd: $('#cx-ca-depart', f)?.value ?? ''});
+          ui.cxCaDepart = false;
+          note(r.claude_api?.depart_usd != null ? `Noté : ${prixUsd(r.claude_api.depart_usd)}. Dérush en retirera ce qu’il dépense avec ton crédit API.` : 'Plus de crédit noté.');
+        } else if (ca === 'creer') await api('POST', '/api/lien', {url: 'https://console.anthropic.com/settings/keys'});
         else if (ca === 'coller') {
           let v = '';
           try { v = await (NATIF ? demanderNatif('coller') : navigator.clipboard.readText()); } catch { ui.cxCaChamp = true; rendre(); return note('Le presse-papiers ne se lit pas ici : colle ta clé dans le champ.', true); }
@@ -6746,7 +7040,7 @@ async function feuilleConnexions() {
     if (bq) {
       bq.disabled = true;
       bq.textContent = 'Lecture…';
-      try { const r = await api('POST', '/api/connexions/quotas/verifier', {moteur: bq.dataset.cxQuota}); note(r.message ?? 'Quotas relus.'); } catch (err) { note(err.message, true); }
+      try { const r = await api('POST', '/api/connexions/quotas/verifier', {moteur: bq.dataset.cxQuota, ...(bq.dataset.compte ? {compte: bq.dataset.compte} : {})}); note(r.message ?? 'Quotas relus.'); } catch (err) { note(err.message, true); }
       await relire(false);
       if (ui.claude) chargerClaude();
       return;

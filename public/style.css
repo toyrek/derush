@@ -1732,3 +1732,98 @@ body.tire-col iframe, body.tire-lig iframe, body.tire-col video, body.tire-lig v
 .cl-lien-ref { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 7px 8px 7px 10px; border-radius: 10px; font-size: 11.5px; color: var(--texte); background: rgba(255, 159, 10, .08); border: 1px solid rgba(255, 159, 10, .25); }
 .cl-lien-ref > span { flex: 1; min-width: 0; }
 .cl-lien-ref .btn { white-space: nowrap; }
+
+/* ——— Mode Hollywood : l'équipe (le réalisateur, le monteur, le graphiste) ——— */
+.pile-equipe { display: inline-flex; align-items: center; }
+.pile-equipe .logo + .logo { margin-left: -5px; }
+.pile-equipe .logo { box-shadow: 0 0 0 1.5px var(--panneau-2), 0 2px 6px rgba(0, 0, 0, .35); }
+.cl-equipe { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 5px; border-radius: 13px; border: 1px solid rgba(155, 114, 203, .35); background: linear-gradient(135deg, rgba(66, 133, 244, .14), rgba(155, 114, 203, .12)); color: var(--texte); font-size: 11.5px; font-weight: 600; transition: border-color .15s, transform .16s var(--ressort); }
+.cl-equipe:hover { border-color: rgba(155, 114, 203, .7); transform: translateY(-1px); }
+.cl-equipe-faite { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 9px; font-size: 11px; color: var(--dim); }
+.cl-equipe-faite span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cl-relais { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 11.5px; color: var(--texte); padding: 7px 10px; border-radius: 9px; background: rgba(66, 133, 244, .1); border: 1px solid rgba(66, 133, 244, .28); }
+.cl-relais .ic { width: 14px; height: 14px; flex: none; color: var(--cyan); }
+.feuille.equipe { width: min(700px, calc(100vw - 32px)); }
+.eq-cartes { display: grid; gap: 10px; margin-top: 4px; }
+.eq-carte { display: flex; gap: 14px; align-items: flex-start; padding: 14px; border-radius: 15px; border: 1.5px solid var(--ligne-forte); background: rgba(255, 255, 255, .03); animation: apparait .3s ease-out both; }
+.eq-carte:nth-child(2) { animation-delay: .05s; } .eq-carte:nth-child(3) { animation-delay: .1s; }
+.eq-corps { display: grid; gap: 5px; min-width: 0; flex: 1; }
+.eq-corps > b { font-size: 15px; } .eq-corps > b span { color: var(--dim); font-weight: 500; }
+.eq-corps > small { font-size: 11.5px; line-height: 1.4; color: var(--dim); }
+.eq-corps > small.ok { color: var(--vert); } .eq-corps > small.attention { color: var(--orange); }
+.eq-corps > small .ic { width: 12px; height: 12px; vertical-align: -2px; margin-right: 4px; }
+.eq-modele, .eq-bascule { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--dim); }
+.eq-modele span { width: 58px; flex: none; }
+.eq-bascule > span:first-child { flex: none; white-space: nowrap; }
+.eq-modele select { flex: 1; min-width: 0; max-width: 360px; background: rgba(0, 0, 0, .28); border: 1px solid var(--ligne-forte); border-radius: 8px; padding: 6px 9px; color: var(--texte); font-size: 12.5px; outline: none; }
+.eq-modele select:focus { border-color: var(--bleu); box-shadow: 0 0 0 3px rgba(10, 132, 255, .25); }
+.eq-corps .lien-btn { justify-self: start; }
+.eq-phrase { display: flex; gap: 8px; align-items: flex-start; margin: 14px 2px 0; font-size: 12.5px; line-height: 1.45; color: var(--texte); }
+.eq-phrase .ic { width: 15px; height: 15px; flex: none; margin-top: 1px; color: var(--violet); }
+.cx-qualite [data-cx-equipe] { display: inline-flex; align-items: center; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { .eq-carte { animation: none; } }
+.eq-corps .lien-btn { border: 0; background: none; padding: 0; color: var(--bleu); font-size: 11.5px; font-weight: 600; }
+.eq-corps .lien-btn:hover { text-decoration: underline; }
+
+/* ——— Les styles vidéo (recettes adaptées d'OpenMotion) : la feuille de choix ——— */
+.feuille.styles { width: min(860px, calc(100vw - 32px)); }
+.st-familles { flex-wrap: wrap; margin: 2px 0 4px; }
+.st-familles button { white-space: nowrap; }
+.st-aide { margin: 6px 2px 0; font-size: 12px; color: var(--dim); }
+.st-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 12px; max-height: min(56vh, 520px); overflow: auto; padding: 2px; }
+.st-carte { position: relative; display: grid; gap: 4px; align-content: start; text-align: left; padding: 11px 12px; border-radius: 12px; border: 1.5px solid var(--ligne-forte); background: rgba(255, 255, 255, .03); color: var(--texte); transition: border-color .15s, background .15s, transform .16s var(--ressort); }
+.st-carte:hover { transform: translateY(-1px); border-color: rgba(255, 255, 255, .3); }
+.st-carte b { font-size: 13px; padding-right: 18px; }
+.st-carte small { font-size: 11px; line-height: 1.35; color: var(--dim); }
+.st-carte.choisi { border-color: var(--braise-2); background: rgba(255, 122, 60, .1); }
+.st-carte .coche { position: absolute; top: 9px; right: 9px; color: var(--braise-2); }
+.st-carte .coche .ic { width: 14px; height: 14px; }
+.st-source { margin: 10px 2px 0; font-size: 10.5px; color: var(--dim-2); }
+
+/* ——— plusieurs comptes par IA (lib/comptes.mjs) : la liste sur la carte de ChatGPT et de Claude ——— */
+.comptes { display: grid; gap: 6px; margin-top: 10px; font-size: 11.5px; }
+.comptes.seul { margin-top: 7px; }
+.comptes .cpt-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 2px 8px; flex-wrap: wrap; }
+.comptes .cpt-tete b { font-size: 11.5px; font-weight: 600; color: var(--texte); }
+.comptes .cpt-tete small { font-size: 10.5px; color: var(--dim); }
+.comptes .lien-btn { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; color: var(--bleu); font-size: 11px; font-weight: 600; cursor: pointer; }
+.comptes .lien-btn:hover { text-decoration: underline; }
+.comptes .lien-btn.discret { color: var(--dim); font-weight: 500; }
+.comptes .lien-btn .ic { width: 12px; height: 12px; }
+.comptes .cpt-ajouter { justify-self: start; }
+.cpt { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 2px 8px; padding: 7px 9px; border-radius: 9px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .07); }
+.cpt.actif { background: rgba(48, 209, 88, .07); border-color: rgba(48, 209, 88, .3); }
+.cpt-point { width: 7px; height: 7px; margin-top: 4px; border-radius: 50%; background: rgba(255, 255, 255, .32); }
+.cpt.actif .cpt-point { background: #30d158; box-shadow: 0 0 0 3px rgba(48, 209, 88, .18); }
+.cpt.manque .cpt-point { background: #ff9f0a; }
+.cpt-txt { display: grid; gap: 2px; min-width: 0; }
+.cpt-nom { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.cpt-nom > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--texte); }
+.cpt-nom .tg-cle { margin-top: 0; flex: 1; }
+.cpt-txt > small { font-size: 10.5px; line-height: 1.4; color: var(--dim); }
+.cpt-txt > small.attention { color: #ffb0a8; }
+.cpt-act { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 3px; }
+.cpt-act:empty { display: none; }
+.cpt-act .btn.petit { padding: 3px 10px; font-size: 11px; }
+.cpt-nouveau { display: grid; gap: 5px; }
+.cpt-nouveau .tg-cle { margin-top: 0; align-items: center; }
+.cpt-nouveau > small { font-size: 10.5px; line-height: 1.45; }
+.cl-relais .lien-btn { margin-left: auto; border: 0; background: none; padding: 0; color: var(--bleu); font-size: 11px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.cl-relais .lien-btn:hover { text-decoration: underline; }
+/* le crédit API : ce qui reste, d'après le crédit noté par la personne */
+.ca-reste { display: grid; gap: 4px; margin-top: 9px; padding: 8px 10px; border-radius: 9px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .07); }
+.ca-reste > b { font-size: 13px; font-weight: 650; color: var(--texte); font-variant-numeric: tabular-nums; }
+.ca-reste > small { font-size: 10.5px; line-height: 1.45; color: var(--dim); }
+.ca-reste > span { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.ca-reste .tg-cle { margin-top: 2px; }
+.ca-reste .lien-btn { justify-self: start; border: 0; background: none; padding: 0; color: var(--bleu); font-size: 11px; font-weight: 600; cursor: pointer; }
+.ca-reste .lien-btn:hover { text-decoration: underline; }
+/* une carte avec quelque chose dessous, sur toute sa largeur (les comptes d'une IA) */
+.cx-carte.a-bas { flex-wrap: wrap; }
+.cx-bas { flex: 0 0 100%; min-width: 0; }
+.cx-bas > .comptes { margin-top: 2px; }
+.cx-carte.a-bas > .cx-act { align-self: flex-start; }
+.cpt-nouveau .tg-cle { flex-wrap: wrap; row-gap: 5px; }
+.cpt-nouveau .tg-cle input { flex: 1 1 110px; }
+/* le forfait à bout au moment d'envoyer : les choix passent à la ligne au lieu de déborder */
+.feuille.forfait .pied { flex-wrap: wrap; justify-content: flex-start; row-gap: 8px; }

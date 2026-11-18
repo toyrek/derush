@@ -36,7 +36,7 @@ Object.assign(process.env, {DERUSH_SUPPORT: SUPPORT, DERUSH_BIBLIOTHEQUE: BIBLIO
   DERUSH_TREG_BASE: 'http://127.0.0.1:9', TMPDIR: path.join(T, 'tmp'), TEMP: path.join(T, 'tmp'), TMP: path.join(T, 'tmp'),
   // un Drive d'essai (absent tant que l'essai du Drive ne le crée pas) : jamais ~/Library/CloudStorage
   DERUSH_DRIVE: path.join(T, 'faux-drive')});
-for (const k of ['TREG_TOKEN', 'ELEVENLABS_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY']) delete process.env[k];
+for (const k of ['TREG_TOKEN', 'ELEVENLABS_API_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME']) delete process.env[k];
 
 // ——— les faux : un Claude qui parle comme le vrai, et les modules remplacés ———
 const B = path.join(T, 'bouchons');
@@ -49,7 +49,7 @@ import path from 'node:path';
 const noter = (x) => fs.appendFileSync(process.env.FAUX_JOURNAL, JSON.stringify({pid: process.pid, ...x}) + '\\n');
 const out = (o) => process.stdout.write(JSON.stringify(o) + '\\n');
 const a = process.argv;
-noter({quoi: 'lance', cwd: path.basename(process.cwd()), reprise: a.includes('--resume') ? a[a.indexOf('--resume') + 1] : null, treg: 'TREG_TOKEN' in process.env});
+noter({quoi: 'lance', cwd: path.basename(process.cwd()), reprise: a.includes('--resume') ? a[a.indexOf('--resume') + 1] : null, treg: 'TREG_TOKEN' in process.env, graphiste: process.env.DERUSH_GRAPHISTE ?? null, dossier: process.env.CLAUDE_CONFIG_DIR ?? null});
 out({type: 'system', subtype: 'init', session_id: 'faux-' + process.pid, mcp_servers: []});
 if (process.env.FAUX_MODE === 'casse') setTimeout(() => { fs.chmodSync(process.env.FAUX_DOSSIER_ETAT, 0o555); process.exit(1); }, 300);
 let tampon = '';
@@ -67,23 +67,48 @@ process.stdin.on('data', (d) => {
       fs.writeFileSync('voix-off/questions.json', JSON.stringify({fil: 'Une journée à Kyoto, du matin au soir.', questions: [{texte: 'Où étais-tu à ce moment-là ?', medias: ['M1'], debut: 2, fin: 6, pourquoi: 'le lieu'}, {texte: 'Qu’as-tu ressenti en arrivant ?', medias: ['M1'], debut: 8, fin: 12, pourquoi: 'l’émotion'}]}));
       fs.writeFileSync('voix-off/texte.json', JSON.stringify({titre: 'Vendredi à Kyoto', moments: [{debut: 0, fin: 6, plans: 'la rue', texte: 'Ce matin-là, Kyoto se réveillait à peine.'}]}));
     }
+    // un forfait épuisé en route : Claude Code le dit dans son résultat (l'heure de recharge après la barre)
+    if (process.env.FAUX_MODE === 'quota') { setTimeout(() => out({type: 'result', result: 'Claude AI usage limit reached|' + Math.round(Date.now() / 1000 + 3600), is_error: true}), 300); continue; }
     setTimeout(() => { out({type: 'assistant', message: {content: [{type: 'text', text: 'Réponse du faux Claude.'}]}}); out({type: 'result', result: 'Réponse du faux Claude.', is_error: false}); }, 300);
   }
 });
 process.stdin.on('end', () => setTimeout(() => process.exit(0), 50));
+`);
+// un faux Codex (le monteur qui prend la suite en Mode Hollywood) : il lit la demande, répond, et note ce qu'il a reçu
+const FAUX_CODEX = path.join(B, 'faux-codex.mjs');
+fs.writeFileSync(FAUX_CODEX, `import fs from 'node:fs';
+const noter = (x) => fs.appendFileSync(process.env.FAUX_JOURNAL, JSON.stringify({pid: process.pid, ...x}) + '\\n');
+const out = (o) => process.stdout.write(JSON.stringify(o) + '\\n');
+if (process.argv.includes('app-server')) process.exit(0); // la lecture des quotas : rien à dire
+let demande = '';
+process.stdin.on('data', (d) => { demande += d; });
+process.stdin.on('end', () => {
+  noter({quoi: 'codex', texte: demande, images: process.argv.includes('features.image_generation=false') ? 'coupees' : 'ouvertes', home: process.env.CODEX_HOME ?? null, reprise: process.argv.includes('resume'), coupes: process.argv.filter((x) => x.startsWith('mcp_servers.') && x.endsWith('.enabled=false'))});
+  out({type: 'thread.started', thread_id: 'faux-codex-' + process.pid});
+  out({type: 'item.completed', item: {type: 'agent_message', text: 'Réponse du faux Codex.'}});
+  out({type: 'turn.completed', usage: {}});
+});
 `);
 const vrai = (f) => `${pathToFileURL(path.join(D, 'lib', f)).href}?vrai`;
 fs.writeFileSync(path.join(B, 'faux-ia.mjs'), `export * from '${vrai('ia.mjs')}';
 export const FAUX = true;
 export async function etatIA() {
   await new Promise((r) => setTimeout(r, Number(process.env.DELAI_ETAT ?? 0)));
-  return {claude: {ok: true, chemin: ${JSON.stringify(FAUX_CLAUDE)}, version: '0.0.0', modeles: []}, codex: {ok: false, pourquoi: 'absent (essai)'}, gemini: {ok: false, pourquoi: 'absent (essai)'}, choisi: 'claude'};
+  return {claude: {ok: true, chemin: ${JSON.stringify(FAUX_CLAUDE)}, version: '0.0.0', modeles: []},
+    codex: process.env.FAUX_CODEX_OK === '1' ? {ok: true, chemin: ${JSON.stringify(FAUX_CODEX)}, version: '0.0.0', modeles: []} : {ok: false, pourquoi: 'absent (essai)'}, gemini: {ok: false, pourquoi: 'absent (essai)'}, choisi: 'claude'};
 }
-// jamais un autre programme que le faux Claude
+// jamais un autre programme que le faux Claude (et le faux Codex)
 export function commandeLancement(chemin) {
-  if (chemin !== ${JSON.stringify(FAUX_CLAUDE)}) throw new Error('essai : programme inattendu ' + chemin);
+  if (chemin !== ${JSON.stringify(FAUX_CLAUDE)} && chemin !== ${JSON.stringify(FAUX_CODEX)}) throw new Error('essai : programme inattendu ' + chemin);
   return {cmd: process.execPath, prefixe: [chemin]};
 }
+`);
+// le Mode Hollywood (lib/gemini-api.mjs) : allumé par FAUX_HOLLYWOOD, sans jamais appeler Gemini (aucun rush regardé)
+fs.writeFileSync(path.join(B, 'faux-gemini-api.mjs'), `export * from '${vrai('gemini-api.mjs')}';
+export const hollywoodActif = () => process.env.FAUX_HOLLYWOOD === '1';
+export const etatGeminiCle = () => ({prete: process.env.FAUX_HOLLYWOOD === '1', hollywood: process.env.FAUX_HOLLYWOOD === '1', voies: process.env.FAUX_HOLLYWOOD === '1' ? ['commande'] : [], nom_oeil: 'Gemini 4 Hydrogen'});
+export async function regarderPourMontage() { return {rushes: 0, restants: 0, erreurs: [], arret: null}; }
+export function lancerAvisGemini() {}
 `);
 fs.writeFileSync(path.join(B, 'faux-sons.mjs'), `export * from '${vrai('sons.mjs')}';
 export async function installerSons(atelier, noter = () => {}) {
@@ -110,7 +135,7 @@ fs.writeFileSync(path.join(B, 'faux-disque.mjs'), `import {verifierPlace as vrai
 export * from '${vrai('disque.mjs')}';
 export function verifierPlace(dossier, o = {}) { return vraie(dossier, {...o, lire: () => Number(process.env.FAUX_PLACE ?? 50 * 1024 ** 3)}); }
 `);
-const remplaces = Object.fromEntries(['ia', 'sons', 'rendu', 'pack', 'disque'].map((n) => [pathToFileURL(path.join(D, 'lib', `${n}.mjs`)).href, pathToFileURL(path.join(B, `faux-${n}.mjs`)).href]));
+const remplaces = Object.fromEntries(['ia', 'sons', 'rendu', 'pack', 'disque', 'gemini-api'].map((n) => [pathToFileURL(path.join(D, 'lib', `${n}.mjs`)).href, pathToFileURL(path.join(B, `faux-${n}.mjs`)).href]));
 fs.writeFileSync(path.join(B, 'crochets.mjs'), `const R = ${JSON.stringify(remplaces)};
 export async function resolve(specifier, context, next) {
   const r = await next(specifier, context);
@@ -355,6 +380,139 @@ await attendre(() => !C.claudeTravaille());
 changerReglages({drive_claude: false});
 consignes = lireConsignes(P);
 await essai('Drive donné : l’IA ne copie pas les rushes du Drive par lots, elle envoie vers « Depuis mon Drive »', () => /ne les copie pas toi-même par lots depuis drive\/\. Dis-lui d’utiliser « Depuis mon Drive »/.test(consignes) || consignes.slice(-2000));
+
+// ——— le Mode Hollywood à trois IA (lib/equipe.mjs) : le graphiste, et le relais quand un quota est à bout ———
+console.log('— Le Mode Hollywood : l’équipe, le graphiste, le relais à court de quota (un faux Codex) —');
+const Q = await import(`${D}/lib/quotas.mjs`);
+const fichierQuotas = path.join(SUPPORT, 'quotas.json');
+const finEquipe = () => { delete process.env.FAUX_HOLLYWOOD; delete process.env.FAUX_CODEX_OK; fs.rmSync(fichierQuotas, {force: true}); };
+const codexLances = () => journal().filter((x) => x.quoi === 'codex');
+
+nouvelEssai();
+Object.assign(process.env, {FAUX_HOLLYWOOD: '1', FAUX_CODEX_OK: '1'});
+P = projet('hollywood-trois');
+await C.demander(P, {message: 'Monte mes rushes'});
+await attendre(() => !C.claudeTravaille());
+consignes = lireConsignes(P);
+let ech = lireEtat(P).echanges;
+await essai('les trois IA : Claude monte, avec le chemin de ChatGPT pour derush-image, et la consigne du graphiste', () => (lancements()[0]?.graphiste && /derush-image "ce qu'il faut dessiner" --transparent/.test(consignes) && ech.at(-1)?.equipe?.monteur === 'claude' && !codexLances().length) || {lance: lancements()[0], consigne: /derush-image/.test(consignes), equipe: ech.at(-1)?.equipe});
+await essai('OUTILS.md présente derush-image au monteur', () => /`derush-image` \(ChatGPT, le graphiste de l'équipe/.test(fs.readFileSync(path.join(P.racine, lireEtat(P).atelier, 'OUTILS.md'), 'utf8')));
+
+nouvelEssai();
+Object.assign(process.env, {FAUX_HOLLYWOOD: '1', FAUX_CODEX_OK: '1'});
+Q.noterQuotaAtteint('claude', {recharge: Math.round(Date.now() / 1000 + 3600)});
+P = projet('hollywood-quota-au-depart');
+await C.demander(P, {message: 'Monte mes rushes'});
+await attendre(() => !C.claudeTravaille());
+ech = lireEtat(P).echanges;
+await essai('Claude à bout de quota au départ : Codex monte à sa place, sans rien demander (et sans le crédit API)', () => (!lancements().length && codexLances().length === 1 && ech.at(-1)?.moteur === 'codex' && ech.at(-1)?.equipe?.relais === 'claude' && ech.at(-1)?.texte === 'Réponse du faux Codex.') || {claude: lancements().length, codex: codexLances().length, dernier: ech.at(-1)});
+await essai('… et ce Codex passe par derush-image (son propre outil d’images coupé), par le relais', () => (codexLances()[0]?.images === 'coupees' && /derush-image/.test(lireConsignes(P))) || codexLances()[0]);
+finEquipe();
+
+nouvelEssai();
+Object.assign(process.env, {FAUX_HOLLYWOOD: '1', FAUX_CODEX_OK: '1', FAUX_MODE: 'quota'});
+P = projet('hollywood-quota-en-route');
+await C.demander(P, {message: 'Monte mes rushes en 30 secondes'});
+await attendre(() => !C.claudeTravaille() && codexLances().length > 0, 30000);
+await attendre(() => !C.claudeTravaille(), 30000);
+ech = lireEtat(P).echanges;
+const relaye = codexLances()[0]?.texte ?? '';
+await essai('forfait épuisé en plein travail : la réponse de Claude le dit, et Codex prend la suite tout de suite', () => (ech.length === 3 && ech[1].moteur === 'claude' && ech[1].quota_atteint?.relais === 'codex' && /Ton forfait Claude est épuisé : Claude s’est arrêté en route/.test(ech[1].texte) && ech[2].moteur === 'codex' && ech[2].equipe?.relais === 'claude') || ech.map((x) => ({moteur: x.moteur, texte: x.texte?.slice(0, 80), qa: x.quota_atteint, eq: x.equipe})));
+await essai('… Codex reçoit la demande d’origine, avec ce qui s’est passé, dans le même dossier de travail', () => (/s’est arrêté en route : son forfait est épuisé/.test(relaye) && /Monte mes rushes en 30 secondes/.test(relaye) && lireEtat(P).atelier === 'exports/pack-essai') || relaye.slice(0, 600));
+await essai('… et le quota de Claude est noté (l’équipe le sait pour la prochaine demande)', () => Q.quotaAtteint('claude').atteint === true);
+finEquipe();
+
+nouvelEssai();
+Object.assign(process.env, {FAUX_CODEX_OK: '1', FAUX_MODE: 'quota'});
+P = projet('classique-quota');
+await C.demander(P, {message: 'Monte mes rushes'});
+await attendre(() => !C.claudeTravaille());
+ech = lireEtat(P).echanges;
+await essai('en mode Classique, pas de relais : la suite au choix reste à la personne (une autre IA, le crédit API)', () => (!codexLances().length && ech.at(-1)?.quota_atteint && !ech.at(-1).quota_atteint.relais && !ech.at(-1).equipe && !lancements()[0]?.graphiste) || {codex: codexLances().length, dernier: ech.at(-1)});
+finEquipe();
+
+// ——— plusieurs comptes (lib/comptes.mjs) : l'IA lancée avec le dossier du compte choisi, sa conversation à lui ———
+console.log('— Plusieurs comptes : le compte choisi, sa conversation, son quota (un faux Claude, un faux Codex) —');
+const Co = await import(`${D}/lib/comptes.mjs`);
+nouvelEssai();
+P = projet('compte-claude', {etat: {sessions: {claude: 'session-du-principal'}}});
+const pro = Co.ajouterCompte('claude', 'Pro');
+Co.choisirCompte('claude', pro.id);
+await C.demander(P, {message: 'Raccourcis la fin'});
+await attendre(() => !C.claudeTravaille());
+let et = lireEtat(P);
+await essai('un autre compte Claude choisi : Claude Code est lancé avec son dossier (CLAUDE_CONFIG_DIR)', () => lancements()[0]?.dossier === Co.dossierCompte('claude', pro.id) || lancements()[0]);
+await essai('… la conversation du compte principal n’est pas reprise (elle n’existe pas dans ce compte) ; la sienne est notée', () => (lancements()[0]?.reprise === null && et.comptes_sessions?.claude === pro.id && /^faux-/.test(et.sessions.claude ?? '')) || {l: lancements()[0], s: et.sessions, c: et.comptes_sessions});
+nouvelEssai();
+await C.demander(P, {message: 'Et ajoute un titre'});
+await attendre(() => !C.claudeTravaille());
+await essai('… à la demande suivante, avec le même compte, sa conversation est reprise', () => lancements()[0]?.reprise === et.sessions.claude || {l: lancements()[0], s: et.sessions});
+Co.choisirCompte('claude', 'principal');
+nouvelEssai();
+await C.demander(P, {message: 'Encore un détail'});
+await attendre(() => !C.claudeTravaille());
+await essai('… revenu au principal : ni son dossier, ni la conversation de l’autre compte', () => (lancements()[0]?.reprise === null && lancements()[0]?.dossier === null && lireEtat(P).comptes_sessions?.claude === 'principal') || {l: lancements()[0], c: lireEtat(P).comptes_sessions});
+nouvelEssai();
+process.env.FAUX_MODE = 'quota';
+Co.choisirCompte('claude', pro.id);
+P = projet('compte-quota');
+await C.demander(P, {message: 'Monte mes rushes'});
+await attendre(() => !C.claudeTravaille());
+ech = lireEtat(P).echanges;
+await essai('un forfait à bout avec ce compte : noté pour lui seul, la réponse dit lequel, et Dérush ne change pas de compte tout seul', () => (ech.at(-1)?.quota_atteint?.compte === pro.id && Q.quotaAtteint('claude', pro.id).atteint && !Q.quotaAtteint('claude', 'principal').atteint && Co.compteActif('claude').id === pro.id) || {qa: ech.at(-1)?.quota_atteint, actif: Co.compteActif('claude')});
+Co.choisirCompte('claude', 'principal');
+finEquipe();
+nouvelEssai();
+process.env.FAUX_CODEX_OK = '1';
+process.env.CODEX_HOME = path.join(T, 'codex-principal'); // le dossier Codex « de l'ordinateur », pour l'essai
+fs.mkdirSync(process.env.CODEX_HOME, {recursive: true});
+fs.writeFileSync(path.join(process.env.CODEX_HOME, 'config.toml'), '[mcp_servers.perso]\ncommand = "perso"\n');
+const asso = Co.ajouterCompte('codex', 'Asso');
+Co.choisirCompte('codex', asso.id);
+P = projet('compte-codex');
+await C.demander(P, {message: 'Monte mes rushes', moteur: 'codex'});
+await attendre(() => !C.claudeTravaille());
+await essai('Codex avec un autre compte : lancé avec son dossier (CODEX_HOME), sans couper les connecteurs du principal, qu’il n’a pas (Codex refuserait de démarrer)', () => (codexLances()[0]?.home === Co.dossierCompte('codex', asso.id) && codexLances()[0]?.coupes.length === 0) || (({home, coupes, reprise}) => ({home, coupes, reprise}))(codexLances()[0] ?? {}));
+Co.choisirCompte('codex', 'principal');
+nouvelEssai();
+P = projet('compte-codex-principal');
+await C.demander(P, {message: 'Monte mes rushes', moteur: 'codex'});
+await attendre(() => !C.claudeTravaille());
+await essai('… avec le principal : son dossier à lui, et ses connecteurs coupés', () => (codexLances()[0]?.home === process.env.CODEX_HOME && codexLances()[0]?.coupes.join() === 'mcp_servers.perso.enabled=false') || (({home, coupes, reprise}) => ({home, coupes, reprise, attendu: process.env.CODEX_HOME}))(codexLances()[0] ?? {}));
+delete process.env.CODEX_HOME;
+finEquipe();
+
+// ——— les styles vidéo (competences/styles-video) et « Comme cette vidéo » d'après un Motion.md (lib/styles.mjs) ———
+console.log('— Les styles vidéo et le Motion.md (un faux Claude) —');
+nouvelEssai();
+P = projet('style-choisi');
+await C.demander(P, {message: 'Style : Autocollants qui rebondissent\nFais une pub de 10 secondes pour l’atelier du samedi'});
+await attendre(() => !C.claudeTravaille());
+consignes = lireConsignes(P);
+await essai('« Style : … » dans la demande : la consigne donne la recette à lire, et elle est bien là dans le dossier de travail', () => (/Style choisi par la personne : « Autocollants qui rebondissent » \(sa recette : \.claude\/skills\/styles-video\/recettes\/sticker-bounce\.md\)/.test(consignes)
+  && dansAtelier(P, '.claude/skills/styles-video/recettes/sticker-bounce.md')) || consignes.slice(-1200));
+const {ajouterPieces} = await import(`${D}/lib/pieces.mjs`);
+nouvelEssai();
+P = projet('motion-md');
+const fMotion = path.join(T, 'Dia launch motion.md');
+fs.writeFileSync(fMotion, '# Dia launch\n\n## Keep\nThe glowing shape becomes the send arrow.\n\n## Replace\nThe brand copy.\n');
+const pj = ajouterPieces(P, [fMotion]).ajoutees.map((x) => x.id);
+await C.demander(P, {message: 'Fais comme ça, avec mes rushes', pieces: pj});
+await attendre(() => !C.claudeTravaille());
+consignes = lireConsignes(P);
+await essai('un Motion.md joint (rôle Référence) : le monteur le lit lui-même et reprend son style, sans ses images ni ses textes de marque', () => (pj.length === 1 && /« Comme cette vidéo » d'après un Motion\.md : la personne a joint « Dia launch motion\.md »/.test(consignes) && /n'en reprends aucun/.test(consignes)) || {pj, consignes: consignes.slice(-1200)});
+nouvelEssai();
+process.env.FAUX_HOLLYWOOD = '1';
+P = projet('motion-md-hollywood');
+const pjH = ajouterPieces(P, [fMotion]).ajoutees.map((x) => x.id);
+await C.demander(P, {message: 'Fais comme ça, avec mes rushes', pieces: pjH});
+await attendre(() => !C.claudeTravaille());
+delete process.env.FAUX_HOLLYWOOD;
+consignes = lireConsignes(P);
+let refH = '';
+try { refH = fs.readFileSync(path.join(P.racine, lireEtat(P).atelier, 'contexte', 'gemini', 'REFERENCE.md'), 'utf8'); } catch { /* absent */ }
+await essai('… en Mode Hollywood, il part chez le réalisateur (REFERENCE.md), et le monteur n’a qu’une consigne, celle du réalisateur', () => (/# Le Motion\.md joint par la personne : « Dia launch motion\.md »/.test(refH) && /The glowing shape becomes the send arrow/.test(refH)
+  && /contexte\/gemini\/REFERENCE\.md/.test(consignes) && !/d'après un Motion\.md : la personne a joint/.test(consignes)) || {refH: refH.slice(0, 300), consignes: consignes.slice(-900)});
 
 // la fin : seul le dossier que cet essai a créé est effacé (gardé si un essai a échoué, pour regarder)
 const tousBons = resultats.every(Boolean);

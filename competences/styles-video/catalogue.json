@@ -1,0 +1,839 @@
+{
+ "version": 1,
+ "source": {
+  "depot": "https://github.com/nexu-io/openmotion",
+  "commit": "2b57cf6908af2a31380955380f5a30eb1857a9c1",
+  "licence": "Apache-2.0"
+ },
+ "categories": [
+  {
+   "id": "face-camera",
+   "nom": "Face caméra",
+   "aide": "Habiller une vidéo où quelqu'un parle à la caméra."
+  },
+  {
+   "id": "explications",
+   "nom": "Explications racontées",
+   "aide": "Expliquer une idée, une histoire ou un sujet avec une voix."
+  },
+  {
+   "id": "promos",
+   "nom": "Promos de produit ou d'appli",
+   "aide": "Présenter un produit, une appli, un site ou un événement."
+  },
+  {
+   "id": "pubs-produit",
+   "nom": "Pubs produit",
+   "aide": "Mettre en valeur un objet : boisson, cosmétique, vêtement, outil."
+  },
+  {
+   "id": "logos-affiches",
+   "nom": "Logos et affiches",
+   "aide": "Faire apparaître un logo, une affiche, une couverture."
+  },
+  {
+   "id": "effets",
+   "nom": "Effets de transition",
+   "aide": "Passer d'une scène à l'autre avec un effet marquant."
+  },
+  {
+   "id": "methodes",
+   "nom": "Méthodes de montage",
+   "aide": "Une façon de monter : des Shorts tirés d'un long, des sous-titres, un multicaméra."
+  }
+ ],
+ "styles": [
+  {
+   "id": "highlighter-notes",
+   "nom": "Notes surlignées",
+   "categorie": "face-camera",
+   "description": "Des fiches papier, un texte anthracite et un trait de surligneur jaune sur la phrase clé, autour de la personne.",
+   "nom_origine": "Highlighter Notes",
+   "fichier": "recettes/highlighter-notes.md"
+  },
+  {
+   "id": "whiteboard-marker",
+   "nom": "Tableau blanc au feutre",
+   "categorie": "face-camera",
+   "description": "Des mots écrits au feutre bleu et corail, et des flèches qui relient les idées au moment où elles sont dites.",
+   "nom_origine": "Whiteboard Marker",
+   "fichier": "recettes/whiteboard-marker.md"
+  },
+  {
+   "id": "spec-sheet",
+   "nom": "Fiche technique",
+   "categorie": "face-camera",
+   "description": "Un tableau à points noirs, la ligne en rouge sur la caractéristique dont on parle : pour un test ou un comparatif.",
+   "nom_origine": "Spec Sheet",
+   "fichier": "recettes/spec-sheet.md"
+  },
+  {
+   "id": "red-pen-archive",
+   "nom": "Archives au stylo rouge",
+   "categorie": "face-camera",
+   "description": "Du papier d'archive où un stylo rouge entoure, barre et corrige les affirmations, sources à l'appui.",
+   "nom_origine": "Red-Pen Archive",
+   "fichier": "recettes/red-pen-archive.md"
+  },
+  {
+   "id": "editorial-explainer",
+   "nom": "Explication façon journal",
+   "categorie": "face-camera",
+   "description": "Un sommaire sur carnet ligné, des graphiques sur papier gris, de grands chiffres et un seul accent jaune.",
+   "nom_origine": "Editorial Explainer",
+   "fichier": "recettes/editorial-explainer.md"
+  },
+  {
+   "id": "electric-impact-type",
+   "nom": "Gros chiffres électriques",
+   "categorie": "face-camera",
+   "description": "Un fond bleu nuit, des chiffres géants qui s'allument en blanc puis en rouge, des barres qui montent et une phrase choc.",
+   "nom_origine": "Electric Impact Type",
+   "fichier": "recettes/electric-impact-type.md"
+  },
+  {
+   "id": "orange-unfiltered",
+   "nom": "Mots orange bruts",
+   "categorie": "face-camera",
+   "description": "De gros mots orange tapés lettre par lettre autour du visage, sans cadre ni panneau.",
+   "nom_origine": "Orange Unfiltered",
+   "fichier": "recettes/orange-unfiltered.md"
+  },
+  {
+   "id": "runway-rebel",
+   "nom": "Défilé rebelle",
+   "categorie": "face-camera",
+   "description": "De grands mots blancs en capitales, des chiffres fins en jaune, et de temps en temps un écran jaune plein.",
+   "nom_origine": "Runway Rebel",
+   "fichier": "recettes/runway-rebel.md"
+  },
+  {
+   "id": "wireframe-style",
+   "nom": "Filaire rouge",
+   "categorie": "face-camera",
+   "description": "Des mots-clés rouges lettre par lettre et des dessins en fil de fer des objets dont on parle.",
+   "nom_origine": "Wireframe Style",
+   "fichier": "recettes/wireframe-style.md"
+  },
+  {
+   "id": "monochrome-magazine",
+   "nom": "Magazine noir et blanc",
+   "categorie": "face-camera",
+   "description": "Des pages noires et blanc cassé en alternance, des mots géants qui encadrent la personne.",
+   "nom_origine": "Monochrome Magazine",
+   "fichier": "recettes/monochrome-magazine.md"
+  },
+  {
+   "id": "presenter-listicle",
+   "nom": "Liste face caméra",
+   "categorie": "face-camera",
+   "description": "Pour chaque idée : la personne la dit, un grand mot-clé numéroté la nomme, une carte ou une capture la prouve.",
+   "nom_origine": "Presenter listicle",
+   "fichier": "recettes/presenter-listicle.md"
+  },
+  {
+   "id": "workflow-demo",
+   "nom": "Démo d'outils, face caméra",
+   "categorie": "face-camera",
+   "description": "La personne explique sa méthode, en alternant avec ses outils et ses documents à l'écran.",
+   "nom_origine": "Workflow demonstration",
+   "fichier": "recettes/workflow-demo.md"
+  },
+  {
+   "id": "product-walkthrough",
+   "nom": "Visite d'un produit, face caméra",
+   "categorie": "face-camera",
+   "description": "Un problème, la personne qui utilise le produit, le résultat, puis sa conclusion ; l'écran annoté.",
+   "nom_origine": "Product walkthrough",
+   "fichier": "recettes/product-walkthrough.md"
+  },
+  {
+   "id": "paper-collage-explainer",
+   "nom": "Collage de papier",
+   "categorie": "explications",
+   "description": "Une explication ou une pub racontée en grands collages de papier découpé, assemblés au rythme de la voix.",
+   "nom_origine": "Paper Collage Explainer",
+   "fichier": "recettes/paper-collage-explainer.md"
+  },
+  {
+   "id": "whiteboard-doodle",
+   "nom": "Dessins au tableau blanc",
+   "categorie": "explications",
+   "description": "Des dessins au trait qui se tracent en même temps que la voix, sur un long tableau que la caméra longe.",
+   "nom_origine": "Whiteboard Doodle Explainer",
+   "fichier": "recettes/whiteboard-doodle.md"
+  },
+  {
+   "id": "paper-map-journey",
+   "nom": "Voyage sur carte en papier",
+   "categorie": "explications",
+   "description": "Une carte en papier découpé, un trajet rouge d'étape en étape, des lieux qui se dressent et un fait par étape.",
+   "nom_origine": "Paper Map Journey",
+   "fichier": "recettes/paper-map-journey.md"
+  },
+  {
+   "id": "archive-collage",
+   "nom": "Collage d'archives",
+   "categorie": "explications",
+   "description": "Une biographie rétro : marionnettes de papier, photos d'archives, grands chiffres et notes scotchées.",
+   "nom_origine": "Archive Collage",
+   "fichier": "recettes/archive-collage.md"
+  },
+  {
+   "id": "hand-drawn-explainer",
+   "nom": "Dessin animé au trait",
+   "categorie": "explications",
+   "description": "Des scènes en noir et blanc au trait, des personnages simples, des zooms sur le détail qui compte.",
+   "nom_origine": "Hand-Drawn Explainer",
+   "fichier": "recettes/hand-drawn-explainer.md"
+  },
+  {
+   "id": "pastel-flat-2d",
+   "nom": "Aplats pastel",
+   "categorie": "explications",
+   "description": "Des scènes 2D en couleurs pastel, des formes arrondies, de petits gestes des personnages et des étiquettes en capitales.",
+   "nom_origine": "Pastel Flat 2D",
+   "fichier": "recettes/pastel-flat-2d.md"
+  },
+  {
+   "id": "paper-diorama",
+   "nom": "Diorama de papier",
+   "categorie": "explications",
+   "description": "Une histoire en scènes de papier découpé superposées ; la caméra avance lentement entre les plans.",
+   "nom_origine": "Paper Diorama",
+   "fichier": "recettes/paper-diorama.md"
+  },
+  {
+   "id": "pixel-art-explainer",
+   "nom": "Jeu vidéo en pixel art",
+   "categorie": "explications",
+   "description": "Un sujet expliqué comme une scène de jeu rétro : un personnage, une bulle de dialogue, un compteur de faits.",
+   "nom_origine": "Pixel Art Explainer",
+   "fichier": "recettes/pixel-art-explainer.md"
+  },
+  {
+   "id": "editorial-webinar",
+   "nom": "Cours en diapos papier",
+   "categorie": "explications",
+   "description": "Des diapos de cours texture papier, en lettres de machine à écrire, avec frises, comparaisons et la personne dans une bulle.",
+   "nom_origine": "Editorial Webinar",
+   "fichier": "recettes/editorial-webinar.md"
+  },
+  {
+   "id": "clay-explainer",
+   "nom": "Pâte à modeler",
+   "categorie": "explications",
+   "description": "Une idée de science ou une histoire avec des personnages en pâte à modeler, animés image par image.",
+   "nom_origine": "Clay Explainer",
+   "fichier": "recettes/clay-explainer.md"
+  },
+  {
+   "id": "storybook-myth",
+   "nom": "Livre de contes",
+   "categorie": "explications",
+   "description": "Une fable, un mythe ou une légende en scènes peintes de livre illustré, avec une page de parchemin.",
+   "nom_origine": "Storybook Myth",
+   "fichier": "recettes/storybook-myth.md"
+  },
+  {
+   "id": "felt-stop-motion",
+   "nom": "Feutrine animée",
+   "categorie": "explications",
+   "description": "Des décors chaleureux en feutrine cousue, des accessoires douillets et un petit tremblé image par image.",
+   "nom_origine": "Felt Stop Motion",
+   "fichier": "recettes/felt-stop-motion.md"
+  },
+  {
+   "id": "paper-stop-motion",
+   "nom": "Papier découpé animé",
+   "categorie": "explications",
+   "description": "Comment ça marche, avec des pièces de papier, des post-it et des notes au feutre rouge, bougés image par image.",
+   "nom_origine": "Paper Stop Motion",
+   "fichier": "recettes/paper-stop-motion.md"
+  },
+  {
+   "id": "article-illustrations",
+   "nom": "Article illustré",
+   "categorie": "explications",
+   "description": "Les idées clés d'un article en cartes dessinées au trait, avec une petite mascotte et des légendes à la main.",
+   "nom_origine": "Article Illustrations",
+   "fichier": "recettes/article-illustrations.md"
+  },
+  {
+   "id": "footage-to-handpainted",
+   "nom": "Rushes peints à la main",
+   "categorie": "explications",
+   "description": "Tes vrais plans s'ouvrent en version peinte au pinceau, avec un titre en capitales et italiques.",
+   "nom_origine": "Footage to Handpainted",
+   "fichier": "recettes/footage-to-handpainted.md"
+  },
+  {
+   "id": "website-launch",
+   "nom": "Lancement d'un site",
+   "categorie": "promos",
+   "description": "Un film de 15 à 30 secondes tiré du site : son vrai logo, ses couleurs, ses textes et ses captures.",
+   "nom_origine": "Website Launch Film",
+   "fichier": "recettes/website-launch.md"
+  },
+  {
+   "id": "echo-stack-type",
+   "nom": "Mot en écho",
+   "categorie": "promos",
+   "description": "Un mot répété en lignes pleines et en contours qui se décalent sur le rythme, puis le logo.",
+   "nom_origine": "Echo Stack Type",
+   "fichier": "recettes/echo-stack-type.md"
+  },
+  {
+   "id": "split-slot-type",
+   "nom": "Machine à sous",
+   "categorie": "promos",
+   "description": "Des mots coupés en tranches qui glissent et se recollent, et une colonne qui tourne pour changer un mot.",
+   "nom_origine": "Split Slot Type",
+   "fichier": "recettes/split-slot-type.md"
+  },
+  {
+   "id": "giant-flip-type",
+   "nom": "Panneau à volets",
+   "categorie": "promos",
+   "description": "Des capitales et des chiffres géants qui basculent comme un panneau d'affichage de gare.",
+   "nom_origine": "Giant Flip Type",
+   "fichier": "recettes/giant-flip-type.md"
+  },
+  {
+   "id": "isometric-card-flight",
+   "nom": "Cartes en vol 3D",
+   "categorie": "promos",
+   "description": "Des captures du produit qui volent en cartes inclinées dans un espace 3D, puis se posent sur l'écran clé.",
+   "nom_origine": "Isometric Card Flight",
+   "fichier": "recettes/isometric-card-flight.md"
+  },
+  {
+   "id": "card-carousel",
+   "nom": "Carrousel de cartes",
+   "categorie": "promos",
+   "description": "Une rangée de cartes de couleur qui défilent, chacune avec une icône et deux ou trois mots.",
+   "nom_origine": "Card Carousel",
+   "fichier": "recettes/card-carousel.md"
+  },
+  {
+   "id": "chalk-blueprint",
+   "nom": "Plan à la craie",
+   "categorie": "promos",
+   "description": "Le produit dessiné à la craie blanche sur une grille bleue, les parties clés allumées en cyan, puis le logo.",
+   "nom_origine": "Chalk Blueprint",
+   "fichier": "recettes/chalk-blueprint.md"
+  },
+  {
+   "id": "one-bit-dither",
+   "nom": "Pixels deux couleurs",
+   "categorie": "promos",
+   "description": "Des trames de pixels en deux couleurs qui forment des formes, l'interface du produit et les titres.",
+   "nom_origine": "One Bit Dither",
+   "fichier": "recettes/one-bit-dither.md"
+  },
+  {
+   "id": "neon-outline-type",
+   "nom": "Néon",
+   "categorie": "promos",
+   "description": "Sur fond sombre, des mots en contour qui s'allument et se remplissent lettre par lettre.",
+   "nom_origine": "Neon Outline Type",
+   "fichier": "recettes/neon-outline-type.md"
+  },
+  {
+   "id": "ring-mask-reveal",
+   "nom": "Formes qui dévoilent",
+   "categorie": "promos",
+   "description": "Des cercles, des pilules et des barres qui s'ouvrent comme des caches et portent les mots d'une scène à l'autre.",
+   "nom_origine": "Ring Mask Reveal",
+   "fichier": "recettes/ring-mask-reveal.md"
+  },
+  {
+   "id": "velocity-lines",
+   "nom": "Lignes de vitesse",
+   "categorie": "promos",
+   "description": "Des traînées bleues, des mots flous de vitesse et des anneaux qui pulsent, pour vendre la rapidité.",
+   "nom_origine": "Velocity Lines",
+   "fichier": "recettes/velocity-lines.md"
+  },
+  {
+   "id": "retro-flat-scene",
+   "nom": "Illustration rétro",
+   "categorie": "promos",
+   "description": "Une histoire en aplats deux tons sur fond orange : un personnage à son ordinateur, des gros plans, puis le produit.",
+   "nom_origine": "Retro Flat Scene",
+   "fichier": "recettes/retro-flat-scene.md"
+  },
+  {
+   "id": "aurora-gradient",
+   "nom": "Aurore",
+   "categorie": "promos",
+   "description": "Sur fond sombre, des nappes de couleur lumineuses, un titre court et le tableau de bord du produit qui s'incline.",
+   "nom_origine": "Aurora Gradient",
+   "fichier": "recettes/aurora-gradient.md"
+  },
+  {
+   "id": "ink-ribbon",
+   "nom": "Ruban d'encre",
+   "categorie": "promos",
+   "description": "Un ruban brillant traverse l'image et relie des mots en contour, des étapes en icônes et le nom du produit.",
+   "nom_origine": "Ink Ribbon",
+   "fichier": "recettes/ink-ribbon.md"
+  },
+  {
+   "id": "sticker-bounce",
+   "nom": "Autocollants qui rebondissent",
+   "categorie": "promos",
+   "description": "Les avantages arrivent en autocollants à bord blanc et ombre décalée, qui rebondissent, s'empilent et frétillent.",
+   "nom_origine": "Sticker Bounce",
+   "fichier": "recettes/sticker-bounce.md"
+  },
+  {
+   "id": "folder-pop",
+   "nom": "Dossier qui s'ouvre",
+   "categorie": "promos",
+   "description": "Les icônes des fonctions jaillissent d'un dossier et se rangent en cercle autour du logo.",
+   "nom_origine": "Folder Pop",
+   "fichier": "recettes/folder-pop.md"
+  },
+  {
+   "id": "corner-frames",
+   "nom": "Coins de visée",
+   "categorie": "promos",
+   "description": "Quatre coins glissent de cible en cible : le titre, la carte du produit, le chiffre clé, le logo.",
+   "nom_origine": "Corner Frames",
+   "fichier": "recettes/corner-frames.md"
+  },
+  {
+   "id": "shutter-bands",
+   "nom": "Bandes de volet",
+   "categorie": "promos",
+   "description": "Des bandes de couleur glissent comme un volet pour passer d'un grand mot à l'autre.",
+   "nom_origine": "Shutter Bands",
+   "fichier": "recettes/shutter-bands.md"
+  },
+  {
+   "id": "liquid-blob",
+   "nom": "Goutte liquide",
+   "categorie": "promos",
+   "description": "Une forme de couleur se divise, s'étire, remplit l'écran et fond dans la scène suivante, puis dans l'icône.",
+   "nom_origine": "Liquid Blob",
+   "fichier": "recettes/liquid-blob.md"
+  },
+  {
+   "id": "manifesto-pop",
+   "nom": "Manifeste pop",
+   "categorie": "promos",
+   "description": "Des points pop art flous sur papier chaud, puis de gros mots empilés jusqu'à la révélation du produit.",
+   "nom_origine": "Manifesto Pop",
+   "fichier": "recettes/manifesto-pop.md"
+  },
+  {
+   "id": "flat-card-explainer",
+   "nom": "Cartes d'interface",
+   "categorie": "promos",
+   "description": "Des fenêtres éparpillées montrent le problème, un curseur les range, un tableau montre le produit qui marche.",
+   "nom_origine": "Flat Card Explainer",
+   "fichier": "recettes/flat-card-explainer.md"
+  },
+  {
+   "id": "ai-assistant-tour",
+   "nom": "Visite d'un assistant IA",
+   "categorie": "promos",
+   "description": "Une sphère d'ouverture, une vraie demande tapée, une réponse qui s'écrit sur une carte, puis les actions.",
+   "nom_origine": "AI Assistant Tour",
+   "fichier": "recettes/ai-assistant-tour.md"
+  },
+  {
+   "id": "coral-title-cards",
+   "nom": "Titres corail",
+   "categorie": "promos",
+   "description": "Des écrans corail pleins avec le titre, en alternance avec la vraie appli dans un téléphone.",
+   "nom_origine": "Coral Title Cards",
+   "fichier": "recettes/coral-title-cards.md"
+  },
+  {
+   "id": "translucent-glass",
+   "nom": "Verre dépoli",
+   "categorie": "promos",
+   "description": "Des rubans de dégradé translucides, une carte en verre dépoli et des phrases courtes qui changent une à une.",
+   "nom_origine": "Translucent Glass",
+   "fichier": "recettes/translucent-glass.md"
+  },
+  {
+   "id": "adaptive-layout",
+   "nom": "Mise en page adaptable",
+   "categorie": "promos",
+   "description": "Les mêmes arguments se réorganisent entre ordinateur, tablette et téléphone.",
+   "nom_origine": "Adaptive Layout",
+   "fichier": "recettes/adaptive-layout.md"
+  },
+  {
+   "id": "bubble-field",
+   "nom": "Champ de bulles",
+   "categorie": "promos",
+   "description": "Des bulles de couleur qui flottent, s'écartent pour les titres, et une bulle qui finit par envahir l'écran.",
+   "nom_origine": "Bubble Field",
+   "fichier": "recettes/bubble-field.md"
+  },
+  {
+   "id": "cards-and-text",
+   "nom": "Cartes photo et texte",
+   "categorie": "promos",
+   "description": "Des phrases courtes en alternance avec des piles de photos deux tons qui s'étalent et encadrent un chiffre.",
+   "nom_origine": "Cards And Text",
+   "fichier": "recettes/cards-and-text.md"
+  },
+  {
+   "id": "flat-beat",
+   "nom": "Couleurs sur le rythme",
+   "categorie": "promos",
+   "description": "Des aplats de couleur coupés net sur chaque temps de la musique, un mot ou une forme par plan, puis le logo.",
+   "nom_origine": "Flat Beat",
+   "fichier": "recettes/flat-beat.md"
+  },
+  {
+   "id": "magnet-particles",
+   "nom": "Points aimantés",
+   "categorie": "promos",
+   "description": "Un nuage de points attiré en une ligne de texte, dispersé en orbite, puis attiré de nouveau en logo.",
+   "nom_origine": "Magnet Particles",
+   "fichier": "recettes/magnet-particles.md"
+  },
+  {
+   "id": "nova-intro",
+   "nom": "Ouverture nébuleuse",
+   "categorie": "promos",
+   "description": "Un ciel de nébuleuse, des étoiles qui forment un anneau lumineux, le nom du produit au centre.",
+   "nom_origine": "Nova Intro",
+   "fichier": "recettes/nova-intro.md"
+  },
+  {
+   "id": "premium-halo",
+   "nom": "Halo premium",
+   "categorie": "promos",
+   "description": "Sur bleu profond, une comète trace un halo autour du titre, qui devient un sol de lumière où le produit apparaît.",
+   "nom_origine": "Premium Halo",
+   "fichier": "recettes/premium-halo.md"
+  },
+  {
+   "id": "push-in-type",
+   "nom": "Plongée dans les mots",
+   "categorie": "promos",
+   "description": "La caméra avance sans s'arrêter à travers des couches de grands mots, jusqu'au logo.",
+   "nom_origine": "Push-In Type",
+   "fichier": "recettes/push-in-type.md"
+  },
+  {
+   "id": "relight-reveal",
+   "nom": "Révélation à la lumière",
+   "categorie": "promos",
+   "description": "Le produit dans le noir, balayé par des faisceaux de lumière, puis éclairé en entier.",
+   "nom_origine": "Relight Reveal",
+   "fichier": "recettes/relight-reveal.md"
+  },
+  {
+   "id": "smooth-wipes",
+   "nom": "Volets arrondis",
+   "categorie": "promos",
+   "description": "Des panneaux de couleur aux coins arrondis qui balaient l'image entre deux grands mots.",
+   "nom_origine": "Smooth Wipes",
+   "fichier": "recettes/smooth-wipes.md"
+  },
+  {
+   "id": "quantum-particles",
+   "nom": "Particules",
+   "categorie": "promos",
+   "description": "Des milliers de fines particules dérivent, forment des figures, tourbillonnent, puis dessinent le logo.",
+   "nom_origine": "Quantum Particles",
+   "fichier": "recettes/quantum-particles.md"
+  },
+  {
+   "id": "light-shadow-product",
+   "nom": "Ombre et lumière",
+   "categorie": "pubs-produit",
+   "description": "Le produit dans une lumière chaude, des ombres de store et de feuilles qui passent, la caméra qui avance doucement.",
+   "nom_origine": "Light Shadow Product",
+   "fichier": "recettes/light-shadow-product.md"
+  },
+  {
+   "id": "splash-float-product",
+   "nom": "Éclaboussure en suspens",
+   "categorie": "pubs-produit",
+   "description": "Le produit éclate en éclaboussure, ses ingrédients (fruits, glaçons, feuilles, gouttes) flottent autour de lui.",
+   "nom_origine": "Splash Float Product",
+   "fichier": "recettes/splash-float-product.md"
+  },
+  {
+   "id": "flat-lay-product",
+   "nom": "Vue de dessus",
+   "categorie": "pubs-produit",
+   "description": "Chaque article tombe en rythme sur une surface colorée, vu d'en haut, puis l'étiquette et le prix se posent.",
+   "nom_origine": "Flat Lay Product",
+   "fichier": "recettes/flat-lay-product.md"
+  },
+  {
+   "id": "in-hand-product",
+   "nom": "Produit en main",
+   "categorie": "pubs-produit",
+   "description": "Une main présente le produit sur un fond uni, il tourne doucement, et de petites étiquettes d'avantages apparaissent.",
+   "nom_origine": "In-Hand Product",
+   "fichier": "recettes/in-hand-product.md"
+  },
+  {
+   "id": "dark-premium-poster",
+   "nom": "Affiche noire premium",
+   "categorie": "pubs-produit",
+   "description": "Une scène presque noire, un projecteur, le produit révélé par un balayage de lumière, des lettres fines.",
+   "nom_origine": "Dark Premium Poster",
+   "fichier": "recettes/dark-premium-poster.md"
+  },
+  {
+   "id": "surreal-3d-poster",
+   "nom": "Affiche 3D surréaliste",
+   "categorie": "pubs-produit",
+   "description": "Le produit dans un monde de formes douces (tubes, arches, objets qui flottent), une seule palette, un grand texte derrière.",
+   "nom_origine": "Surreal 3D Poster",
+   "fichier": "recettes/surreal-3d-poster.md"
+  },
+  {
+   "id": "color-pop-poster",
+   "nom": "Affiche pop couleurs",
+   "categorie": "pubs-produit",
+   "description": "Deux couleurs vives qui claquent, un titre énorme qui tombe, le produit au centre et des flèches.",
+   "nom_origine": "Color Pop Poster",
+   "fichier": "recettes/color-pop-poster.md"
+  },
+  {
+   "id": "juicy-splash-poster",
+   "nom": "Affiche juteuse",
+   "categorie": "pubs-produit",
+   "description": "Du liquide jaillit autour d'une boisson ou d'un paquet, des fruits volent, les gouttes se figent, le parfum s'affiche.",
+   "nom_origine": "Juicy Splash Poster",
+   "fichier": "recettes/juicy-splash-poster.md"
+  },
+  {
+   "id": "before-after",
+   "nom": "Avant / après",
+   "categorie": "pubs-produit",
+   "description": "Le problème, le produit utilisé, puis le résultat visible, avec un volet qui partage l'image et des étiquettes claires.",
+   "nom_origine": "Before and After",
+   "fichier": "recettes/before-after.md"
+  },
+  {
+   "id": "hidden-feature-demo",
+   "nom": "Astuce cachée",
+   "categorie": "pubs-produit",
+   "description": "Une accroche « tu savais ? », un gros plan sur le geste exact, et une étiquette qui nomme le résultat.",
+   "nom_origine": "Hidden Feature Demo",
+   "fichier": "recettes/hidden-feature-demo.md"
+  },
+  {
+   "id": "step-by-step-tutorial",
+   "nom": "Tuto pas à pas",
+   "categorie": "pubs-produit",
+   "description": "Un gros plan par étape, un grand numéro, une légende courte et une barre de progression.",
+   "nom_origine": "Step By Step Tutorial",
+   "fichier": "recettes/step-by-step-tutorial.md"
+  },
+  {
+   "id": "mystery-box-reveal",
+   "nom": "Boîte mystère",
+   "categorie": "pubs-produit",
+   "description": "Choisir une boîte, la secouer, ouvrir le couvercle et sortir le produit avec son nom et son prix.",
+   "nom_origine": "Mystery Box Reveal",
+   "fichier": "recettes/mystery-box-reveal.md"
+  },
+  {
+   "id": "glitch-logo-sting",
+   "nom": "Logo glitch",
+   "categorie": "logos-affiches",
+   "description": "Une apparition de logo de 2 à 4 secondes, avec des couleurs qui se décalent et des tranches qui sautent.",
+   "nom_origine": "Glitch Logo Sting",
+   "fichier": "recettes/glitch-logo-sting.md"
+  },
+  {
+   "id": "bold-type-poster",
+   "nom": "Affiche au mot géant",
+   "categorie": "logos-affiches",
+   "description": "Un mot ou un chiffre énorme, le produit qui le chevauche, et sa version animée de 3 à 6 secondes.",
+   "nom_origine": "Bold Type Poster",
+   "fichier": "recettes/bold-type-poster.md"
+  },
+  {
+   "id": "liquid-glass-logo",
+   "nom": "Logo en verre liquide",
+   "categorie": "logos-affiches",
+   "description": "Une icône en verre brillant ondule jusqu'à la netteté, puis glisse pour laisser la place au nom.",
+   "nom_origine": "Liquid Glass Logo",
+   "fichier": "recettes/liquid-glass-logo.md"
+  },
+  {
+   "id": "liquid-logo",
+   "nom": "Logo liquide",
+   "categorie": "logos-affiches",
+   "description": "Des gouttes brillantes coulent, se rejoignent et se figent en logo.",
+   "nom_origine": "Liquid Logo",
+   "fichier": "recettes/liquid-logo.md"
+  },
+  {
+   "id": "cinematic-logo",
+   "nom": "Logo de cinéma",
+   "categorie": "logos-affiches",
+   "description": "Comme le générique d'un studio de cinéma : rayons de lumière chaude, poussière, logo métallique et caméra qui recule.",
+   "nom_origine": "Cinematic Logo",
+   "fichier": "recettes/cinematic-logo.md"
+  },
+  {
+   "id": "editorial-poster",
+   "nom": "Affiche magazine",
+   "categorie": "logos-affiches",
+   "description": "Beaucoup de blanc, un seul objet, un grand mot élégant et une petite grille de texte, animés en courte série.",
+   "nom_origine": "Editorial Poster",
+   "fichier": "recettes/editorial-poster.md"
+  },
+  {
+   "id": "retro-print-poster",
+   "nom": "Affiche risographie",
+   "categorie": "logos-affiches",
+   "description": "Papier crème, deux encres, trames et grain ; chaque encre s'imprime à son tour, avec un léger décalage.",
+   "nom_origine": "Retro Print Poster",
+   "fichier": "recettes/retro-print-poster.md"
+  },
+  {
+   "id": "doc-promo",
+   "nom": "Mini-documentaire de marque",
+   "categorie": "logos-affiches",
+   "description": "Une vraie personne, un moment précis, des sous-titres honnêtes, le produit qui fait son travail, une fin sobre.",
+   "nom_origine": "Doc Promo",
+   "fichier": "recettes/doc-promo.md"
+  },
+  {
+   "id": "pop-style",
+   "nom": "Pop art",
+   "categorie": "logos-affiches",
+   "description": "Des aplats de couleurs primaires, des trames de points, de gros contours noirs, des bulles et une coupe par seconde.",
+   "nom_origine": "Pop Style",
+   "fichier": "recettes/pop-style.md"
+  },
+  {
+   "id": "content-cover",
+   "nom": "Couverture de vidéo",
+   "categorie": "logos-affiches",
+   "description": "Lire une vidéo ou un article, en tirer la phrase la plus forte, et proposer plusieurs couvertures.",
+   "nom_origine": "Content Cover",
+   "fichier": "recettes/content-cover.md"
+  },
+  {
+   "id": "sticker-peel",
+   "nom": "Autocollant qui se décolle",
+   "categorie": "effets",
+   "description": "Chaque scène se décolle comme un autocollant pour révéler la suivante.",
+   "nom_origine": "Sticker Peel",
+   "fichier": "recettes/sticker-peel.md"
+  },
+  {
+   "id": "time-freeze",
+   "nom": "Temps figé",
+   "categorie": "effets",
+   "description": "Un moment fort se fige (gouttes, feuilles, gens en l'air) pendant que la caméra tourne autour, puis le temps repart.",
+   "nom_origine": "Time Freeze",
+   "fichier": "recettes/time-freeze.md"
+  },
+  {
+   "id": "shortlist-shorts",
+   "nom": "Shorts tirés d'un long",
+   "categorie": "methodes",
+   "description": "D'un long podcast, d'une interview ou d'un live : une liste notée des meilleurs passages, un premier Short à valider, puis les autres.",
+   "nom_origine": "Shortlist Shorts",
+   "fichier": "recettes/shortlist-shorts.md"
+  },
+  {
+   "id": "edit-to-script",
+   "nom": "Montage d'après un texte",
+   "categorie": "methodes",
+   "description": "Un premier montage des prises, ligne par ligne, d'après le texte prévu.",
+   "nom_origine": "Edit To Script",
+   "fichier": "recettes/edit-to-script.md"
+  },
+  {
+   "id": "multi-clips-to-reels",
+   "nom": "Plein de clips en un Reel",
+   "categorie": "methodes",
+   "description": "Regarder tous les clips, écarter les faibles, ordonner les bons et les couper sur le rythme, avec un titre court.",
+   "nom_origine": "Multi Clips To Reels",
+   "fichier": "recettes/multi-clips-to-reels.md"
+  },
+  {
+   "id": "caption-styling",
+   "nom": "Styles de sous-titres",
+   "categorie": "methodes",
+   "description": "Plusieurs looks de sous-titres à comparer : phrases sobres, mots qui claquent, ou mot clé surligné.",
+   "nom_origine": "Caption Styling",
+   "fichier": "recettes/caption-styling.md"
+  },
+  {
+   "id": "bilingual-captions",
+   "nom": "Sous-titres bilingues",
+   "categorie": "methodes",
+   "description": "Deux lignes : ce qui est dit en haut, sa traduction en dessous, synchronisées comme une seule paire.",
+   "nom_origine": "Bilingual Captions",
+   "fichier": "recettes/bilingual-captions.md"
+  },
+  {
+   "id": "storyboard-to-motion",
+   "nom": "Storyboard animé",
+   "categorie": "methodes",
+   "description": "Un storyboard fixe validé devient une vidéo en plusieurs plans, chacun finissant exactement sur son image.",
+   "nom_origine": "Storyboard To Motion",
+   "fichier": "recettes/storyboard-to-motion.md"
+  },
+  {
+   "id": "shot-breakdown",
+   "nom": "Analyse plan par plan",
+   "categorie": "methodes",
+   "description": "Une vidéo de référence décomposée : une fiche par plan (image, temps, cadre, mouvement, pourquoi la coupe).",
+   "nom_origine": "Shot Breakdown",
+   "fichier": "recettes/shot-breakdown.md"
+  },
+  {
+   "id": "ad-script",
+   "nom": "Script de pub qui n'en a pas l'air",
+   "categorie": "methodes",
+   "description": "Un angle, une accroche concrète, le problème, la preuve à l'écran, le bénéfice et un seul appel à l'action.",
+   "nom_origine": "Ad Script",
+   "fichier": "recettes/ad-script.md"
+  },
+  {
+   "id": "motion-graphic-placement",
+   "nom": "Où mettre les animations",
+   "categorie": "methodes",
+   "description": "Dans une vidéo face caméra, une animation seulement sur la phrase qui la mérite : un chiffre, une liste, une citation.",
+   "nom_origine": "Motion Graphic Placement",
+   "fichier": "recettes/motion-graphic-placement.md"
+  },
+  {
+   "id": "talking-head-recreation",
+   "nom": "Face caméra comme une référence",
+   "categorie": "methodes",
+   "description": "Remonter tes propres prises avec le rythme et l'habillage d'une vidéo que tu aimes : zooms, sous-titres, cartons.",
+   "nom_origine": "Talking Head Recreation",
+   "fichier": "recettes/talking-head-recreation.md"
+  },
+  {
+   "id": "livestream-clips",
+   "nom": "Clips d'un live de vente",
+   "categorie": "methodes",
+   "description": "Un produit par clip : une vraie accroche, la preuve, l'offre et un seul appel à l'action.",
+   "nom_origine": "Livestream Clips",
+   "fichier": "recettes/livestream-clips.md"
+  },
+  {
+   "id": "multicam-edit",
+   "nom": "Montage multicaméra",
+   "categorie": "methodes",
+   "description": "Synchroniser plusieurs caméras et suivre qui parle ; un plan large quand tout le monde parle, des réactions courtes.",
+   "nom_origine": "Multicam Edit",
+   "fichier": "recettes/multicam-edit.md"
+  }
+ ]
+}
