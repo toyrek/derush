@@ -1,5 +1,9 @@
 # Dérush — ce qui est nouveau, version après version
 
+**11.4.1 — En Mode Hollywood, ton crédit API t'est proposé quand Claude est à bout.** Avant, Codex prenait sa place sans te demander, même avec ton crédit API prêt.
+- **Le choix à l'envoi.** Quand le forfait de Claude est épuisé, une fenêtre te laisse choisir : Codex monte à sa place, ton autre compte Claude, ou Claude avec ton crédit API (payé à l'usage, pour cette demande seulement). Choisi, Claude reste le monteur de l'équipe : Gemini réalise et ChatGPT dessine toujours.
+- **C'est dit clairement.** « Qui monte ? » et « Équipe » disent qui monte à la place de Claude, et que ton crédit API peut être choisi à l'envoi. En plein travail, Codex reprend tout seul comme avant, pour que ta vidéo ne reste pas en plan.
+
 **11.4 — Le Mode Hollywood à trois IA : Gemini réalise, ton IA monte, ChatGPT dessine.** Ton équipe Hollywood gagne un graphiste, chaque IA a son modèle, les deux autres continuent quand l'une n'a plus de quota, 99 styles se choisissent d'un clic, et tu peux brancher plusieurs comptes ChatGPT et Claude.
 - **ChatGPT, le graphiste.** Quand ton montage a besoin d'une image qui n'existe pas dans tes rushes (un autocollant, une illustration, un fond, un objet, un personnage), ton IA la demande à ChatGPT, avec ton forfait ChatGPT : aucune clé. Dérush efface le voile autour du dessin et le recadre, prêt à poser sur la vidéo, et tu vois chaque dessin arriver pendant le travail.
 - **Des personnages qui bougent.** ChatGPT dessine une planche de 2 à 16 images d'un mouvement (un chat qui saute, un renard qui court, un cœur qui bat) ; Dérush la découpe en images de même taille et en GIF en boucle, prêts pour le montage.

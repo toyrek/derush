@@ -49,7 +49,7 @@ import path from 'node:path';
 const noter = (x) => fs.appendFileSync(process.env.FAUX_JOURNAL, JSON.stringify({pid: process.pid, ...x}) + '\\n');
 const out = (o) => process.stdout.write(JSON.stringify(o) + '\\n');
 const a = process.argv;
-noter({quoi: 'lance', cwd: path.basename(process.cwd()), reprise: a.includes('--resume') ? a[a.indexOf('--resume') + 1] : null, treg: 'TREG_TOKEN' in process.env, graphiste: process.env.DERUSH_GRAPHISTE ?? null, dossier: process.env.CLAUDE_CONFIG_DIR ?? null});
+noter({quoi: 'lance', cwd: path.basename(process.cwd()), reprise: a.includes('--resume') ? a[a.indexOf('--resume') + 1] : null, treg: 'TREG_TOKEN' in process.env, graphiste: process.env.DERUSH_GRAPHISTE ?? null, dossier: process.env.CLAUDE_CONFIG_DIR ?? null, api: 'ANTHROPIC_API_KEY' in process.env});
 out({type: 'system', subtype: 'init', session_id: 'faux-' + process.pid, mcp_servers: []});
 if (process.env.FAUX_MODE === 'casse') setTimeout(() => { fs.chmodSync(process.env.FAUX_DOSSIER_ETAT, 0o555); process.exit(1); }, 300);
 let tampon = '';
@@ -407,6 +407,20 @@ await attendre(() => !C.claudeTravaille());
 ech = lireEtat(P).echanges;
 await essai('Claude à bout de quota au départ : Codex monte à sa place, sans rien demander (et sans le crédit API)', () => (!lancements().length && codexLances().length === 1 && ech.at(-1)?.moteur === 'codex' && ech.at(-1)?.equipe?.relais === 'claude' && ech.at(-1)?.texte === 'Réponse du faux Codex.') || {claude: lancements().length, codex: codexLances().length, dernier: ech.at(-1)});
 await essai('… et ce Codex passe par derush-image (son propre outil d’images coupé), par le relais', () => (codexLances()[0]?.images === 'coupees' && /derush-image/.test(lireConsignes(P))) || codexLances()[0]);
+finEquipe();
+
+// le crédit API choisi à l'envoi (« Claude, avec mon crédit API ») : Claude monte malgré son forfait, et Codex ne le remplace pas
+// (une fausse clé, qui n'a pas la forme d'une vraie : Dérush la lit telle quelle dans .env.local)
+nouvelEssai();
+Object.assign(process.env, {FAUX_HOLLYWOOD: '1', FAUX_CODEX_OK: '1'});
+Q.noterQuotaAtteint('claude', {recharge: Math.round(Date.now() / 1000 + 3600)});
+fs.writeFileSync(path.join(SUPPORT, '.env.local'), 'DERUSH_CLAUDE_API_CLE=fausse-cle-d-essai-pas-une-vraie\n', {mode: 0o600});
+P = projet('hollywood-quota-credit-api');
+await C.demander(P, {message: 'Monte mes rushes', credit_api: true});
+await attendre(() => !C.claudeTravaille());
+ech = lireEtat(P).echanges;
+fs.rmSync(path.join(SUPPORT, '.env.local'), {force: true});
+await essai('Hollywood, Claude à bout, le crédit API choisi : Claude monte avec la clé, Codex ne prend pas sa place, et l’équipe reste entière', () => (lancements().length === 1 && lancements()[0].api === true && !codexLances().length && ech.at(-1)?.moteur === 'claude' && !!ech.at(-1)?.credit_api && ech.at(-1)?.equipe?.monteur === 'claude' && !ech.at(-1)?.equipe?.relais && !!lancements()[0].graphiste) || {claude: lancements(), codex: codexLances().length, dernier: ech.at(-1)});
 finEquipe();
 
 nouvelEssai();

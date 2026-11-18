@@ -5367,10 +5367,11 @@ function choixForfaitEpuise(m = 'claude', {relais = null} = {}) {
     const dispo = comptesDispo(c.comptes, m).slice(0, 3);
     let choix = null;
     const options = [dispo.length ? `continuer avec ton compte ${dispo.map((k) => `« ${k.nom} »`).join(' ou ')}` : null, relais ? `laisser ${nomIA(relais)} monter (Mode Hollywood)` : null,
-      api ? 'continuer avec ton crédit API (payé à l’usage, pour cette demande seulement)' : null, relais ? null : 'choisir une autre IA', relais ? null : 'envoyer quand même'].filter(Boolean);
+      api ? (relais ? `faire monter ${nomIA(m)} avec ton crédit API (payé à l’usage, pour cette demande seulement)` : 'continuer avec ton crédit API (payé à l’usage, pour cette demande seulement)') : null,
+      relais ? null : 'choisir une autre IA', relais ? null : 'envoyer quand même'].filter(Boolean);
     const phrase = options.length > 1 ? `Tu peux ${options.slice(0, -1).join(', ')} ou ${options.at(-1)}.` : `Tu peux ${options[0]}.`;
     const f = feuille(`<h3>${esc(`Ton forfait ${nomIA(m)} est épuisé`)}</h3><p class="sous-titre">${esc(q.recharge ? `Il se recharge ${quandRecharge(q.recharge)}.` : 'Il se recharge bientôt.')} ${esc(phrase)}</p>
-      <div class="pied">${dispo.map((k) => `<button class="btn bleu" data-choix="compte:${k.id}">${ic('prise')}${esc(`Avec « ${k.nom} »`)}</button>`).join('')}${relais ? `<button class="btn${dispo.length ? '' : ' bleu'}" data-choix="relais">${esc(`${nomIA(relais)} monte`)}</button>` : ''}${api ? `<button class="btn${dispo.length || relais ? '' : ' bleu'}" data-choix="api">${ic('etincelle', 'plein')}Avec mon crédit API</button>` : ''}${relais ? '' : `<button class="btn" data-choix="autre">${ic('prise')}Une autre IA</button><span class="espace"></span><button class="btn" data-choix="envoyer">Envoyer quand même</button>`}</div>`);
+      <div class="pied">${dispo.map((k) => `<button class="btn bleu" data-choix="compte:${k.id}">${ic('prise')}${esc(`Avec « ${k.nom} »`)}</button>`).join('')}${relais ? `<button class="btn${dispo.length ? '' : ' bleu'}" data-choix="relais">${esc(`${nomIA(relais)} monte`)}</button>` : ''}${api ? `<button class="btn${dispo.length || relais ? '' : ' bleu'}" data-choix="api" title="Payé à l’usage, pour cette demande seulement">${ic('etincelle', 'plein')}${esc(relais ? `${nomIA(m)}, avec mon crédit API` : 'Avec mon crédit API')}</button>` : ''}${relais ? '' : `<button class="btn" data-choix="autre">${ic('prise')}Une autre IA</button><span class="espace"></span><button class="btn" data-choix="envoyer">Envoyer quand même</button>`}</div>`);
     f.classList.add('forfait');
     f.avantFermeture = () => { ok(choix); };
     f.addEventListener('click', (e) => { const k = e.target.closest('[data-choix]')?.dataset.choix; if (!k) return; choix = k; fermerFeuille(); });
@@ -5977,7 +5978,7 @@ function bulleClaude(x, c) {
   // (plusieurs comptes : « Continuer avec « Compte 2 » », au clic ; après un relais, passer à l'autre compte pour la suite)
   const derniereBulle = x === c.echanges.at(-1) && !c.en_cours;
   const passer = x.quota_atteint?.relais && derniereBulle ? comptesDispo(c.comptes, x.quota_atteint.moteur, x.quota_atteint.compte ?? 'principal')[0] : null;
-  const relaisQuota = x.quota_atteint?.relais ? `<small class="cl-relais">${ic('relais')}${esc(`${nomIA(x.quota_atteint.relais)} a pris la suite, là où ${nomIA(x.quota_atteint.moteur)} s’était arrêté (Mode Hollywood).`)}${passer ? `<button class="lien-btn" data-cl="passer-compte" data-ia="${x.quota_atteint.moteur}" data-id="${passer.id}" title="${esc(`Tes prochaines demandes à ${nomIA(x.quota_atteint.moteur)} partiront avec ce compte`)}">${esc(`Passer à ton compte « ${passer.nom} »`)}</button>` : ''}</small>` : '';
+  const relaisQuota = x.quota_atteint?.relais ? `<small class="cl-relais">${ic('relais')}${esc(`${nomIA(x.quota_atteint.relais)} a pris la suite, là où ${nomIA(x.quota_atteint.moteur)} s’était arrêté (Mode Hollywood).${x.quota_atteint.moteur === 'claude' && c.claude_api?.ok && !passer ? ' À ta prochaine demande, tu pourras choisir Claude avec ton crédit API.' : ''}`)}${passer ? `<button class="lien-btn" data-cl="passer-compte" data-ia="${x.quota_atteint.moteur}" data-id="${passer.id}" title="${esc(`Tes prochaines demandes à ${nomIA(x.quota_atteint.moteur)} partiront avec ce compte`)}">${esc(`Passer à ton compte « ${passer.nom} »`)}</button>` : ''}</small>` : '';
   const qa = x.quota_atteint && !x.quota_atteint.relais && derniereBulle ? x.quota_atteint : null;
   const autres = qa ? ['claude', 'codex', 'gemini'].filter((k) => k !== qa.moteur && c[k]?.ok && c.quotas?.[k]?.statut !== 'atteint') : [];
   const dispo = qa ? comptesDispo(c.comptes, qa.moteur, qa.compte ?? 'principal').slice(0, 2) : [];
@@ -6310,7 +6311,10 @@ async function envoyerDemande() {
   const mi = moteurIA();
   const relaisEquipe = c.hollywood?.ok && c.hollywood?.actif && c.equipe?.monteur?.ia === mi ? c.equipe.monteur.remplace_par : null;
   const forfaitABout = ['claude', 'codex'].includes(mi) && c.quotas?.[mi]?.statut === 'atteint';
-  if (forfaitABout && (comptesDispo(c.comptes, mi).length || (!relaisEquipe && mi === 'claude'))) {
+  // En Mode Hollywood aussi, Claude à bout : ton crédit API t'est proposé à côté de l'IA qui le remplacerait (choisi,
+  // Claude reste le monteur ; sinon, le relais de l'équipe)
+  const creditPossible = mi === 'claude' && !!c.claude_api?.ok;
+  if (forfaitABout && (comptesDispo(c.comptes, mi).length || (mi === 'claude' && (!relaisEquipe || creditPossible)))) {
     const choix = await choixForfaitEpuise(mi, {relais: relaisEquipe});
     if (choix === 'autre') return feuilleChoixIA();
     if (choix?.startsWith('compte:')) {
@@ -7126,7 +7130,10 @@ function feuilleChoixIA() {
   const carte = (m) => {
     const x = c[m] ?? {};
     const choisi = moteurIA() === m;
-    return `<button class="ia-carte${choisi ? ' choisie' : ''}${x.ok ? '' : ' pas-prete'}" data-moteur="${m}">${logo(m, 44)}<span><b>${nomIA(m)}</b><small>${esc(c.ia?.noms?.[m]?.compte ?? '')}</small><small class="${x.ok ? 'ok' : 'attention'}">${esc(x.ok ? 'Prête' : x.pourquoi ?? '')}</small>${x.ok ? blocQuota(c.quotas?.[m], m) : ''}</span>${choisi ? `<i class="coche">${ic('coche')}</i>` : ''}</button>`;
+    // en Mode Hollywood, l'IA choisie à bout de forfait : qui monte à sa place, et le crédit API qu'on peut choisir à l'envoi
+    const eq = choisi && c.hollywood?.ok && c.hollywood?.actif && c.equipe?.monteur?.ia === m && c.equipe.monteur.a_bout ? c.equipe.monteur : null;
+    const hollywood = eq ? `<small class="attention">${esc(eq.remplace_par ? `Mode Hollywood : ${nomIA(eq.remplace_par)} monte à sa place${eq.api_possible ? `, ou ${nomIA(m)} avec ton crédit API, au choix à l’envoi` : ''}.` : `Mode Hollywood : aucune autre IA ne peut monter à sa place${eq.api_possible ? ` ; ton crédit API, au choix à l’envoi` : ''}.`)}</small>` : '';
+    return `<button class="ia-carte${choisi ? ' choisie' : ''}${x.ok ? '' : ' pas-prete'}" data-moteur="${m}">${logo(m, 44)}<span><b>${nomIA(m)}</b><small>${esc(c.ia?.noms?.[m]?.compte ?? '')}</small><small class="${x.ok ? 'ok' : 'attention'}">${esc(x.ok ? 'Prête' : x.pourquoi ?? '')}</small>${x.ok ? blocQuota(c.quotas?.[m], m) : ''}${hollywood}</span>${choisi ? `<i class="coche">${ic('coche')}</i>` : ''}</button>`;
   };
   const f = feuille(`<h3>Qui monte ta vidéo ?</h3><p class="sous-titre">Choisis ton IA et le niveau de soin. Tu peux changer à tout moment : la conversation continue avec la nouvelle.</p>
     <div class="ia-cartes trois">${carte('claude')}${carte('codex')}${carte('gemini')}</div>

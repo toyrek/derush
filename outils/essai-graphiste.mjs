@@ -238,6 +238,15 @@ e = E.composerEquipe({etats: prets, moteur: 'codex', gemini: {voies: ['commande'
 essai('une recharge passée ne compte plus ; Codex monte et dessine', !E.aBout('claude', q({claude: atteint(new Date(Date.now() - 60e3).toISOString())})) && e.phrase === 'Gemini réalise, Codex monte et ChatGPT dessine.', e.phrase);
 e = E.composerEquipe({etats: prets, moteur: 'claude', gemini: {voies: ['commande']}, reglages: {hollywood_graphiste: false}, q: q()});
 essai('le graphiste coupé : Gemini réalise et Claude monte, sans rien dire de ChatGPT', !e.graphiste.pret && e.phrase === 'Gemini réalise et Claude monte.', e.phrase);
+// le crédit API de Claude : proposé (jamais pris tout seul), et quand la personne le choisit, Claude reste le monteur
+e = E.composerEquipe({etats: prets, moteur: 'claude', gemini: {voies: ['commande']}, reglages: reg, q: q({claude: atteint()}), api: true});
+essai('Claude à bout, son crédit API prêt : Codex monte à sa place, et la phrase dit que le crédit se choisit à l’envoi', e.monteur.remplace_par === 'codex' && e.monteur.api_possible === true && /Codex monte à sa place, ou Claude avec ton crédit API si tu le choisis à l’envoi\./.test(e.phrase), e.phrase);
+e = E.composerEquipe({etats: prets, moteur: 'claude', gemini: {voies: ['commande']}, reglages: reg, q: q({claude: atteint()}), api: true, creditApi: true});
+essai('… le crédit API choisi pour cette demande : Claude reste le monteur, personne ne le remplace', e.monteur.remplace_par === null && e.monteur.credit_api === true && e.monteur_effectif === 'claude' && JSON.stringify(e.membres) === '["gemini","claude","chatgpt"]' && /il monte avec ton crédit API, comme tu l’as choisi/.test(e.phrase), e);
+e = E.composerEquipe({etats: prets, moteur: 'codex', gemini: {voies: ['commande']}, reglages: reg, q: q({codex: atteint()}), api: true, creditApi: true});
+essai('… seulement pour Claude : Codex à bout est remplacé, sans parler de crédit API', e.monteur.remplace_par === 'claude' && !e.monteur.credit_api && !e.monteur.api_possible && !/crédit API/.test(e.phrase), e.phrase);
+e = E.composerEquipe({etats: prets, moteur: 'claude', gemini: {voies: ['commande']}, reglages: reg, q: q({claude: atteint()})});
+essai('… sans crédit API prêt (aucune clé dans ce Dérush d’essai), la phrase n’en parle pas', !e.monteur.api_possible && !/crédit API/.test(e.phrase), e.phrase);
 essai('l’ordre du relais : Claude, Codex, puis Gemini', E.remplacant('codex', prets, q()) === 'claude' && E.remplacant('claude', prets, q()) === 'codex' && E.remplacant('claude', {...prets, codex: {ok: false}}, q()) === 'gemini');
 
 console.log('Les modèles de l’équipe');
