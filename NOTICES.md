@@ -27,7 +27,8 @@ et sous quelle licence.
 | Compétences `bang-motion` (ouvertures, typographie animée, motion design) et `lottie` (animations Lottie) | `competences/` | Bang Tutorial ; Diffusion Studio Inc. | MIT |
 | Compétence `styles-video` : 96 recettes de style et 3 guides face caméra (adaptés : en-tête et outils de Dérush, noms et index en français, liens vers des vidéos d'autres créateurs retirés) | `competences/styles-video/` | nexu-io, OpenDesign (OpenMotion, commit 2b57cf6) | Apache-2.0 |
 | Icône d'HyperFrames | `public/logos/hyperframes.png` | HeyGen, Inc. (dépôt sous Apache-2.0) | montrée seulement pour dire quel moteur Dérush installe |
-| Logo IABAI | `public/marque/` | IABAI / YABAÏ | tous droits réservés |
+| Logos IABAI, Dérush et YABAÏ | `public/marque/`, `public/icone.svg` | IABAI / YABAÏ | marques de l'association : la licence GPL-3.0 de Dérush ne donne pas de droit sur elles |
+| Compétence `genres-video` : 42 fiches de montage par genre (adaptées : en-tête de Dérush, noms et index en français, moteur et habillages d'origine non repris) | `competences/` | Viprasol Tech (Claude Video Editing Skills) | MIT |
 
 Le détail compétence par compétence (source, version, ce qui a été retiré) est dans
 [competences/LICENCES.md](competences/LICENCES.md), avec le texte des licences dans `competences/licences/`.

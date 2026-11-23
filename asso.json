@@ -1,0 +1,58 @@
+{
+  "v": 1,
+  "nom": "YABAÏ",
+  "devise": "Culture, Création, Connexion",
+  "accroche": "Rendre possible l’impossible",
+  "lieu": "Persan, Val-d’Oise",
+  "rna": "W953013841",
+  "site": "https://www.yabai.fr",
+  "contact": "contact@yabai.fr",
+  "depot": "https://github.com/toyrek/derush",
+  "histoire": [
+    "Dérush est né dans l’association YABAÏ, à Persan, dans le Val-d’Oise. Les jeunes qu’elle accompagne l’ont imaginé pour monter leurs propres vidéos : leurs voyages au Japon, leurs projets, leurs histoires.",
+    "Aujourd’hui, il est à tout le monde : gratuit, et son code est ouvert. Si Dérush t’aide, aide à ton tour les jeunes qui l’ont rêvé."
+  ],
+  "mission": "YABAÏ donne confiance à la jeunesse des quartiers, la met au premier plan et lui fait vivre des choses extraordinaires : l’entrepreneuriat, la création de contenu et les échanges entre la France et le Japon.",
+  "reperes": [
+    {"chiffre": "2025", "texte": "nos jeunes à l’Exposition universelle d’Osaka"},
+    {"chiffre": "13", "texte": "jeunes ont construit et financé leur voyage au Japon en 2026"},
+    {"chiffre": "66 %", "texte": "de ton don déductible de tes impôts"}
+  ],
+  "fiscal": "Chaque don donne droit à un reçu fiscal : 66 % du montant est déductible de tes impôts. Un don de 50 € te coûte 17 €.",
+  "paiement": "Le paiement se fait sur la page sécurisée de HelloAsso, dans ton navigateur. HelloAsso ne prend aucun frais et reverse tout à l’association. Dérush ne voit ni ton nom ni ta carte.",
+  "dons": {
+    "asso": {
+      "titre": "L’association YABAÏ",
+      "texte": "Un don libre, du montant que tu veux, pour faire vivre l’association et les projets des jeunes.",
+      "bouton": "Faire un don libre",
+      "lien": "https://www.helloasso.com/associations/yabai/formulaires/2"
+    },
+    "projets": [
+      {
+        "slug": "la-6t-a-tottori-former-fabriquer-partir",
+        "titre": "La 6T à Tottori : former, fabriquer, partir",
+        "texte": "Quatre jeunes de notre quartier partent à Tottori, au Japon rural, pour fabriquer un outil qui aidera Farid dans sa rizière. Ton don finance le séjour, la formation et le matériel.",
+        "bouton": "Participer à la cagnotte",
+        "lien": "https://www.helloasso.com/associations/yabai/collectes/la-6t-a-tottori-former-fabriquer-partir",
+        "objectif": 10000,
+        "fin": "2027-01-30"
+      }
+    ]
+  },
+  "reseaux": [
+    {"id": "instagram", "nom": "Instagram", "compte": "@la.6t.a.tokyo", "lien": "https://www.instagram.com/la.6t.a.tokyo"},
+    {"id": "tiktok", "nom": "TikTok", "compte": "@la.6t.a.tokyo", "lien": "https://www.tiktok.com/@la.6t.a.tokyo"},
+    {"id": "youtube", "nom": "YouTube", "compte": "La 6T à Tokyo", "lien": "https://www.youtube.com/@YABA%C3%8FLa6TaTokyo"},
+    {"id": "linkedin", "nom": "LinkedIn", "compte": "YABAÏ", "lien": "https://www.linkedin.com/company/yaba%C3%AF-%E2%80%93-culture-cr%C3%A9ation-connexion/"}
+  ],
+  "photos": [
+    {"src": "https://www.yabai.fr/images/home/japon-1280.webp", "legende": "Le groupe YABAÏ en tenue japonaise, dans une rue commerçante au Japon"},
+    {"src": "https://www.yabai.fr/images/tokyo-2026/1019-dotonbori-640.webp", "legende": "Le canal de Dōtonbori, à Osaka"},
+    {"src": "https://www.yabai.fr/images/home/dojo-1280.webp", "legende": "Le collectif sur scène, au YABAÏ Dojo"},
+    {"src": "https://www.yabai.fr/images/tokyo-2026/1025-sensoji-640.webp", "legende": "La grande porte de Sensō-ji, à Tokyo"},
+    {"src": "https://www.yabai.fr/images/home/photobooth-1280.webp", "legende": "Un jeune présente le photobooth en bois et son torii rouge, au FacLab"},
+    {"src": "https://www.yabai.fr/images/tokyo-2026/1026-torii-640.webp", "legende": "Le grand torii de Meiji-jingū"},
+    {"src": "https://www.yabai.fr/images/tokyo-2026/1027-zojoji-tokyo-tower-640.webp", "legende": "Le temple Zōjō-ji et la Tokyo Tower"},
+    {"src": "https://www.yabai.fr/images/tokyo-2026/1025-akihabara-640.webp", "legende": "Akihabara, côté enseignes"}
+  ]
+}

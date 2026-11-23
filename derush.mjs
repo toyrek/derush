@@ -290,7 +290,7 @@ if (commande !== 'ouvrir') {
 // ——— Interface ———
 // Dernier filet : une promesse oubliée quelque part (un travail de fond qui échoue) est notée au journal, au lieu
 // d'arrêter tout Dérush, la fenêtre et le travail en cours avec lui.
-process.on('unhandledRejection', (e) => console.error('Promesse rejetée sans suite :', e));
+process.on('unhandledRejection', (e) => { console.error('Promesse rejetée sans suite :', e); import('./lib/journal.mjs').then((J) => J.noterErreur({source: 'programme', message: `Promesse rejetée : ${e?.message ?? e}`, detail: String(e?.stack ?? '').split('\n').slice(1, 5).join('\n')})).catch(() => {}); });
 // Sur Mac, une ancienne installation (fenêtre de Chrome) devient l'app native à son premier lancement.
 if (MAC && modeApp && !modeCoque) {
   try {

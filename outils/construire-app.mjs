@@ -153,7 +153,7 @@ function fabriquer(dossier, tmp, {surPlace = false} = {}) {
   // le programme : copié dans l'app (app à partager), ou laissé à sa place (copie GitHub, mise à jour par git pull)
   if (!surPlace) {
     fs.mkdirSync(prog, {recursive: true});
-    for (const f of ['derush.mjs', 'package.json', 'README.md', 'INSTALLER.md', 'LICENCE.md', 'NOTICES.md', 'AGENTS.md', 'CLAUDE.md']) if (fs.existsSync(path.join(RACINE, f))) fs.copyFileSync(path.join(RACINE, f), path.join(prog, f));
+    for (const f of ['derush.mjs', 'package.json', 'asso.json', 'README.md', 'INSTALLER.md', 'LICENCE.md', 'LICENSE', 'NOTICES.md', 'AGENTS.md', 'CLAUDE.md']) if (fs.existsSync(path.join(RACINE, f))) fs.copyFileSync(path.join(RACINE, f), path.join(prog, f));
     for (const d of ['lib', 'public', 'outils', 'modeles', 'bin', 'competences', 'docs']) if (fs.existsSync(path.join(RACINE, d))) fs.cpSync(path.join(RACINE, d), path.join(prog, d), {recursive: true, filter: (src) => path.basename(src) !== '__pycache__'});
   }
   // l'icône

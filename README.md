@@ -296,6 +296,12 @@ Rien d'autre n'est installé ailleurs, sauf ce que tu acceptes (FFmpeg, Blender,
 - [Le guide d'installation](INSTALLER.md), celui que ton IA suit.
 - [Les repères du dépôt](AGENTS.md), pour qui veut modifier Dérush.
 
+## Soutenir l'association
+
+Dérush est gratuit et libre. Il est fait avec l'association **YABAÏ**, à Persan (Val-d'Oise), qui donne confiance à la jeunesse des quartiers par la création, l'entrepreneuriat et les échanges entre la France et le Japon : ce sont les jeunes qu'elle accompagne qui l'ont imaginé, pour monter leurs propres vidéos.
+
+Si Dérush t'aide, tu peux les aider à ton tour : le cœur, en haut de Dérush, ouvre la page de l'association (son histoire, ses projets en cours, un don du montant que tu veux). Ou directement : [les projets de YABAÏ sur HelloAsso](https://www.helloasso.com/associations/yabai) · [yabai.fr](https://www.yabai.fr) · contact@yabai.fr.
+
 ## Licences
 
-Dérush est © 2026 IABAI (association YABAÏ) — bêta test, voir [LICENCE.md](LICENCE.md). Les composants d'autres auteurs gardent leurs licences : [NOTICES.md](NOTICES.md).
+Dérush est un logiciel libre, sous licence **GPL-3.0** : © 2026 IABAI (association YABAÏ), voir [LICENCE.md](LICENCE.md) et [LICENSE](LICENSE). Les composants d'autres auteurs gardent leurs licences : [NOTICES.md](NOTICES.md).

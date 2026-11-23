@@ -1827,3 +1827,89 @@ body.tire-col iframe, body.tire-lig iframe, body.tire-col video, body.tire-lig v
 .cpt-nouveau .tg-cle input { flex: 1 1 110px; }
 /* le forfait à bout au moment d'envoyer : les choix passent à la ligne au lieu de déborder */
 .feuille.forfait .pied { flex-wrap: wrap; justify-content: flex-start; row-gap: 8px; }
+
+/* =====================================================================
+   11.5 — la passe de design : les défauts relevés écran par écran, et plus de place pour ton IA
+   ===================================================================== */
+
+/* — La colonne de droite (ton IA, ou la fiche d'un plan) prend toute la hauteur de la fenêtre : la conversation a de la
+   place, la timeline s'arrête à son bord. Rien ne bouge dans la page : .atelier n'occupe plus que la gauche, et #cote,
+   toujours son enfant, se pose à sa droite, dans la colonne que la grille lui garde, jusqu'en bas. — */
+.editeur { grid-template-columns: minmax(0, 1fr) var(--l-d, 344px); }
+.editeur > .barre { grid-column: 1 / -1; }
+.editeur > .atelier { grid-column: 1; grid-template-columns: var(--l-g, 300px) minmax(0, 1fr); }
+.editeur > #chronologie { grid-column: 1; }
+.editeur #cote { position: absolute; top: 0; left: 100%; width: var(--l-d, 344px); height: calc(100vh - 50px); z-index: 5; }
+.editeur .bord-dispo.col.d { right: -5px; bottom: auto; height: calc(100vh - 50px); }
+/* la zone d'écriture ne mange jamais plus de la moitié de la colonne, même avec des pièces jointes */
+.cl-pied:not(.attente) { max-height: 52%; }
+
+/* — Classique / Hollywood : ces deux boutons gardaient l'allure d'un bouton de navigateur (bord blanc, fond gris) — */
+.cl-mode button { border: 0; background: none; cursor: default; }
+.cl-mode { flex: none; }
+/* « Pour : Moi » : sa précision, coupée en « t… », ne disait rien ; elle reste dans l'infobulle */
+.cl-pour-rang .cl-pour small { display: none; }
+.cl-pour-rang { flex-wrap: nowrap; }
+
+/* — Les boutons : une seule couleur d'action par fenêtre. Le rouge confirme, la braise appelle ton IA ; le bleu, lui,
+   reste la couleur de ce qui est choisi (un plan, un format) et du champ où l'on écrit. Les anciens boutons bleus
+   deviennent des boutons calmes, juste plus présents que les autres. — */
+.btn.bleu { background: rgba(255, 255, 255, .16); color: #fff; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13); }
+.btn.bleu:hover { background: rgba(255, 255, 255, .24); }
+
+/* — Connexions : les trois cartes des IA. Le logo, le nom et le bouton sur une ligne ; le reste dessous, sur toute la
+   largeur (le texte ne passe plus dans une colonne de 100 px, le bouton ne flotte plus au milieu de la carte). — */
+.cx-grille.trois .cx-carte { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 7px 11px; align-items: center; align-content: start; }
+.cx-grille.trois .cx-txt { display: contents; }
+.cx-grille.trois .cx-txt > b { grid-column: 2; grid-row: 1; }
+.cx-grille.trois .cx-act { grid-column: 3; grid-row: 1; align-self: center; }
+.cx-grille.trois .cx-txt > :not(b), .cx-grille.trois .cx-bas { grid-column: 1 / -1; }
+.cx-grille.trois .cx-txt > small { margin-top: 0; }
+.cx-txt > small [title] { cursor: help; border-bottom: 1px dotted var(--dim-2); }
+
+/* — Les notes en bas à droite : plus petites, trois au plus, et elles partent en douceur — */
+.note { max-width: 330px; padding: 8px 12px; border-radius: 11px; font-size: 12.5px; line-height: 1.4; transition: opacity .2s, transform .2s; }
+.note .ic { width: 15px; height: 15px; }
+.note.part { opacity: 0; transform: translateX(10px); }
+.notes { gap: 6px; }
+
+/* — L'onglet Texte : le compte des mots ne touche plus le bord, les mots collés (« aujourd'hui ») le restent à l'œil — */
+.texte-outils { padding-right: 2px; }
+.texte-outils #texte-info { flex: none; font-size: 11.5px; white-space: nowrap; }
+.texte-outils input { min-width: 0; }
+.m.suite { margin-left: -2px; padding-left: 0; }
+
+/* — Les onglets de gauche : cinq onglets tiennent dans la colonne sans que le dernier touche le bord — */
+.onglets-gauche { gap: 2px; padding-left: 6px; padding-right: 6px; }
+.onglets-gauche button { flex: 1 1 0; min-width: 0; padding-left: 2px; padding-right: 2px; }
+.onglets-gauche button span { font-size: 11px; letter-spacing: -.01em; white-space: nowrap; }
+
+/* — Médias : un projet qui a déjà des médias n'a plus besoin de trois grands cadres pour en ajouter. Ils deviennent
+   trois boutons sur une ligne, et la grille remonte. (.a-medias est posé par l'interface quand le projet a des médias.) — */
+#p-medias.a-medias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: min-content; gap: 6px; align-content: start; }
+#p-medias.a-medias > .importer-grand { margin: 0; padding: 8px 6px 7px; flex-direction: column; gap: 4px; text-align: center; border-style: solid; border-width: 1px; border-color: var(--ligne); border-radius: 11px; }
+#p-medias.a-medias > .importer-grand .ic { width: 19px; height: 19px; }
+#p-medias.a-medias > .importer-grand .logo { --t: 20px !important; }
+#p-medias.a-medias > .importer-grand b { font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+#p-medias.a-medias > .importer-grand small { display: none; }
+#p-medias.a-medias > .importer-grand .long { display: none; }
+.importer-grand .long { font-style: normal; }
+#p-medias.a-medias > :not(.importer-grand) { grid-column: 1 / -1; }
+
+/* — L'accueil : le slogan tient sur une ligne, les trois gestes occupent toute la largeur, alignés par le haut — */
+.biblio-interieur { max-width: 1290px; }
+.biblio-tete > div { flex: none; }
+.biblio-tete p { white-space: nowrap; }
+.biblio-guide .guide .geste { flex: 1 1 0; max-width: none; align-items: start; align-content: center; padding: 10px 16px 10px 10px; }
+.biblio-guide .guide .geste > svg { align-self: center; }
+.biblio-pied { margin-top: 30px; }
+/* fenêtre étroite : les boutons de l'en-tête gardent leur icône seule, tout reste sur une ligne */
+@media (max-width: 1100px) { .biblio-tete p { white-space: normal; } .biblio-tete .bouton-cx > span:last-child { display: none; } .biblio-tete .bouton-cx { padding: 0 9px; } .biblio-tete > div { flex: 0 1 auto; min-width: 0; } }
+@media (max-width: 900px) { .biblio-guide .guide { flex-wrap: wrap; } .biblio-guide .guide .fleche { display: none; } .biblio-guide .guide .geste { flex: 1 1 240px; } .don-banniere { flex-wrap: wrap; } .don-b-txt { flex: 1 1 60%; } }
+
+/* — Les fenêtres : un choix fait dans une rangée de cartes occupe la rangée (plus de carte seule à gauche d'un vide) — */
+.feuille .pied .btn.principal, .feuille .pied .btn.claude { min-width: 86px; }
+/* Exporter : une seule source (ta timeline, sans vidéo de l'IA) occupe la rangée entière */
+#ex-sources > .ex-source:only-child { grid-column: 1 / -1; }
+/* « Pour qui est ce projet ? » : les cartes se partagent la largeur (plus de vide à droite ni de texte coupé) */
+.feuille .esp-choix-grille { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }

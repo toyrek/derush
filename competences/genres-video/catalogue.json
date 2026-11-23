@@ -1,0 +1,300 @@
+{
+ "source": "https://github.com/Viprasol-Tech/claude-video-editing-skills",
+ "commit": "0212f770474a2e72031335a52a2e0fc794686f9d",
+ "familles": [
+  {
+   "nom": "Réseaux et formats courts",
+   "resume": "Des vidéos verticales faites pour être regardées jusqu’au bout.",
+   "genres": [
+    {
+     "id": "retention-reel",
+     "nom": "Reel face caméra qui retient",
+     "resume": "Un face caméra de 15 à 60 s : l’accroche à l’écran tout de suite, les blancs coupés, l’œil relancé sans arrêt.",
+     "fiche": "fiches/retention-reel.md"
+    },
+    {
+     "id": "clip-miner-pro",
+     "nom": "Extraits tirés d’un long",
+     "resume": "Les 5 à 15 meilleurs moments d’un long enregistrement (podcast, live, conférence), chacun compréhensible seul.",
+     "fiche": "fiches/clip-miner-pro.md"
+    },
+    {
+     "id": "reaction-duet",
+     "nom": "Réaction, duo, stitch",
+     "resume": "Une vidéo source et la réaction du créateur, en incrustation ou en écran partagé, bien synchronisées.",
+     "fiche": "fiches/reaction-duet.md"
+    },
+    {
+     "id": "vox-pop",
+     "nom": "Micro-trottoir",
+     "resume": "La question à l’écran, puis des réponses courtes, groupées par sens.",
+     "fiche": "fiches/vox-pop.md"
+    },
+    {
+     "id": "micro-drama",
+     "nom": "Mini-série verticale",
+     "resume": "Des épisodes de 60 à 120 s en 9:16 : un rappel ou un conflit d’entrée, une montée, un retournement.",
+     "fiche": "fiches/micro-drama.md"
+    },
+    {
+     "id": "gaming-vod",
+     "nom": "Meilleurs moments d’un live de jeu",
+     "resume": "Les moments les plus forts d’un long live, chacun en clip 9:16 percutant.",
+     "fiche": "fiches/gaming-vod.md"
+    },
+    {
+     "id": "recipe-video",
+     "nom": "Recette",
+     "resume": "Un reel vertical de 30 à 60 s qui ouvre sur le plat fini, puis déroule les étapes.",
+     "fiche": "fiches/recipe-video.md"
+    },
+    {
+     "id": "fitness-video",
+     "nom": "Sport, entraînement",
+     "resume": "Un reel vertical de 30 à 90 s ou une séance à suivre, avec compteurs de répétitions et minuteurs.",
+     "fiche": "fiches/fitness-video.md"
+    },
+    {
+     "id": "fashion-lookbook",
+     "nom": "Lookbook, tenues",
+     "resume": "Défilé, studio ou rue montés sur le rythme, 15 à 60 s, avec des transitions de changement de tenue.",
+     "fiche": "fiches/fashion-lookbook.md"
+    }
+   ]
+  },
+  {
+   "nom": "YouTube et formats longs",
+   "resume": "Des vidéos qui racontent, expliquent ou font parler.",
+   "genres": [
+    {
+     "id": "vlog",
+     "nom": "Vlog",
+     "resume": "Une journée d’images devient une histoire : le meilleur moment en ouverture, puis le fil de la journée.",
+     "fiche": "fiches/vlog.md"
+    },
+    {
+     "id": "longform-retention",
+     "nom": "Long format YouTube qui retient",
+     "resume": "La promesse du titre tenue dès la première minute, puis des relances régulières.",
+     "fiche": "fiches/longform-retention.md"
+    },
+    {
+     "id": "video-essay",
+     "nom": "Essai vidéo",
+     "resume": "Un texte et une voix off d’abord, puis archives, citations, cartes, frises et graphiques.",
+     "fiche": "fiches/video-essay.md"
+    },
+    {
+     "id": "podcast-episode",
+     "nom": "Épisode de podcast filmé",
+     "resume": "2 à 4 caméras alternées selon qui parle, les hésitations allégées sans dénaturer les voix.",
+     "fiche": "fiches/podcast-episode.md"
+    },
+    {
+     "id": "interview-doc",
+     "nom": "Documentaire, interview",
+     "resume": "Le récit d’abord au son (montage papier, montage radio), puis des images sur chaque coupe.",
+     "fiche": "fiches/interview-doc.md"
+    },
+    {
+     "id": "conference-talk",
+     "nom": "Conférence, table ronde",
+     "resume": "Une prise de parole (orateur et diapos) devient une vidéo 16:9 propre, avec carton de titre.",
+     "fiche": "fiches/conference-talk.md"
+    },
+    {
+     "id": "product-review",
+     "nom": "Test de produit",
+     "resume": "Le verdict annoncé d’entrée, le prix, des fiches lisibles, des gros plans, les plus et les moins.",
+     "fiche": "fiches/product-review.md"
+    },
+    {
+     "id": "news-explainer",
+     "nom": "Actu expliquée",
+     "resume": "Le fait principal d’abord, puis pourquoi il compte, le contexte et les chiffres, avec les sources.",
+     "fiche": "fiches/news-explainer.md"
+    },
+    {
+     "id": "faceless-explainer",
+     "nom": "Explication sans visage",
+     "resume": "Un texte ou une voix off devient une explication complète, sans personne à l’écran.",
+     "fiche": "fiches/faceless-explainer.md"
+    }
+   ]
+  },
+  {
+   "nom": "Apprendre",
+   "resume": "Des vidéos pour montrer comment faire.",
+   "genres": [
+    {
+     "id": "tutorial-screen",
+     "nom": "Tuto à l’écran",
+     "resume": "La promesse, les prérequis, des étapes numérotées, un récapitulatif ; les attentes et la frappe coupées.",
+     "fiche": "fiches/tutorial-screen.md"
+    },
+    {
+     "id": "course-module",
+     "nom": "Leçon de cours en ligne",
+     "resume": "Un enregistrement de prof devient une leçon de 3 à 10 min : un objectif, des étapes numérotées.",
+     "fiche": "fiches/course-module.md"
+    },
+    {
+     "id": "kids-content",
+     "nom": "Vidéo pour enfants",
+     "resume": "Chansons, histoires et petites leçons en vidéos claires et simples de 2 à 10 min.",
+     "fiche": "fiches/kids-content.md"
+    }
+   ]
+  },
+  {
+   "nom": "Marques, produits, pubs",
+   "resume": "Des films qui présentent, prouvent ou vendent.",
+   "genres": [
+    {
+     "id": "brand-film",
+     "nom": "Film de marque",
+     "resume": "Interviews du fondateur et de l’équipe, images du lieu et du produit : un film de 2 à 3 min et ses versions courtes.",
+     "fiche": "fiches/brand-film.md"
+    },
+    {
+     "id": "testimonial-film",
+     "nom": "Témoignage client",
+     "resume": "Une interview de client devient un film de 60 à 150 s : le résultat, le problème, la solution, les chiffres.",
+     "fiche": "fiches/testimonial-film.md"
+    },
+    {
+     "id": "saas-launch-demo",
+     "nom": "Lancement ou démo d’un logiciel",
+     "resume": "Un enregistrement d’écran devient une démo de 60 à 180 s : le résultat, le problème, la visite.",
+     "fiche": "fiches/saas-launch-demo.md"
+    },
+    {
+     "id": "ad-ladder",
+     "nom": "Campagne de pub en déclinaisons",
+     "resume": "Un tournage de pub devient un film de 60 ou 30 s et toutes ses versions courtes.",
+     "fiche": "fiches/ad-ladder.md"
+    },
+    {
+     "id": "ugc-ad-matrix",
+     "nom": "Pubs façon créateur, en variantes",
+     "resume": "3 à 5 accroches, un corps, un ou deux appels à l’action : des variantes à tester.",
+     "fiche": "fiches/ugc-ad-matrix.md"
+    },
+    {
+     "id": "real-estate-tour",
+     "nom": "Visite d’un bien immobilier",
+     "resume": "60 à 120 s dans l’ordre d’une vraie visite : extérieur, entrée, séjour, cuisine…",
+     "fiche": "fiches/real-estate-tour.md"
+    },
+    {
+     "id": "trailer-teaser",
+     "nom": "Bande-annonce, teaser",
+     "resume": "Trois actes en accéléré, des cartons entre les actes, un montage porté par la musique.",
+     "fiche": "fiches/trailer-teaser.md"
+    }
+   ]
+  },
+  {
+   "nom": "Événements et souvenirs",
+   "resume": "Des moments vécus, à revivre ou à partager.",
+   "genres": [
+    {
+     "id": "event-recap",
+     "nom": "Retour en images d’un événement",
+     "resume": "60 à 120 s montées sur le rythme, avec des phrases des intervenants.",
+     "fiche": "fiches/event-recap.md"
+    },
+    {
+     "id": "travel-cinematic",
+     "nom": "Film de voyage",
+     "resume": "1 à 3 min portées par la musique et un teaser vertical, avec des raccords de mouvement.",
+     "fiche": "fiches/travel-cinematic.md"
+    },
+    {
+     "id": "sports-highlight",
+     "nom": "Meilleurs moments d’un match",
+     "resume": "Les grands moments repérés aux réactions du public et du commentaire, du plus fort au moins fort ou dans l’ordre.",
+     "fiche": "fiches/sports-highlight.md"
+    },
+    {
+     "id": "wedding-highlight",
+     "nom": "Film de mariage",
+     "resume": "Une journée de mariage en un film de 3 à 5 min et un teaser vertical de 60 s.",
+     "fiche": "fiches/wedding-highlight.md"
+    },
+    {
+     "id": "wedding-india",
+     "nom": "Mariage indien",
+     "resume": "Plusieurs jours de fête rangés par cérémonie, pour un film de 3 à 7 min.",
+     "fiche": "fiches/wedding-india.md"
+    },
+    {
+     "id": "memorial-tribute",
+     "nom": "Hommage, souvenir",
+     "resume": "Les photos et vidéos d’une vie, dans l’ordre, du portrait d’ouverture aux dernières années.",
+     "fiche": "fiches/memorial-tribute.md"
+    },
+    {
+     "id": "regional-devotional",
+     "nom": "Chant et cérémonie religieuse",
+     "resume": "Chants, prières et fêtes religieuses filmés, montés avec respect.",
+     "fiche": "fiches/regional-devotional.md"
+    }
+   ]
+  },
+  {
+   "nom": "Musique et fiction",
+   "resume": "Des films où le son ou le jeu mène le montage.",
+   "genres": [
+    {
+     "id": "music-video",
+     "nom": "Clip musical",
+     "resume": "Chaque prise calée sur le morceau, la performance et l’histoire alternées, coupées sur les temps forts.",
+     "fiche": "fiches/music-video.md"
+    },
+    {
+     "id": "lyric-video",
+     "nom": "Clip de paroles",
+     "resume": "Chaque ligne de paroles calée sur la voix chantée, affichée au moment où elle est chantée.",
+     "fiche": "fiches/lyric-video.md"
+    },
+    {
+     "id": "concert-multicam",
+     "nom": "Concert à plusieurs caméras",
+     "resume": "2 à 4 angles d’un concert, alignés et alternés sur la musique.",
+     "fiche": "fiches/concert-multicam.md"
+    },
+    {
+     "id": "scene-editor",
+     "nom": "Scène de fiction",
+     "resume": "Toutes les prises d’une scène sous plusieurs angles : la meilleure interprétation pour chaque réplique.",
+     "fiche": "fiches/scene-editor.md"
+    },
+    {
+     "id": "short-film-finisher",
+     "nom": "Finition d’un court métrage",
+     "resume": "Un film déjà monté : couleur plan par plan, look, texture, mixage des dialogues et de la musique.",
+     "fiche": "fiches/short-film-finisher.md"
+    },
+    {
+     "id": "asmr-video",
+     "nom": "ASMR",
+     "resume": "De longs enregistrements de sons doux deviennent une vidéo calme, en plans longs.",
+     "fiche": "fiches/asmr-video.md"
+    }
+   ]
+  },
+  {
+   "nom": "Autres langues",
+   "resume": "Refaire une vidéo finie pour un autre public.",
+   "genres": [
+    {
+     "id": "localise-dub",
+     "nom": "Version dans une autre langue",
+     "resume": "Une vidéo finie devient une version traduite : texte, traduction, sous-titres par langue, doublage.",
+     "fiche": "fiches/localise-dub.md"
+    }
+   ]
+  }
+ ]
+}

@@ -19,6 +19,7 @@ import {creerEspaces} from '/espaces.js';
 import {creerCompetences} from '/competences.js';
 import {creerDrive} from '/drive.js';
 import {creerSequences} from '/sequences.js';
+import {creerAsso} from '/asso.js';
 
 const JETON = document.querySelector('meta[name="derush-jeton"]').content;
 // Chaque fenêtre a son identifiant : le serveur sait laquelle est la principale, et quand la dernière se ferme.
@@ -74,7 +75,8 @@ async function api(methode, url, corps) {
   const j = await r.json().catch(() => ({}));
   if (r.status === 409 && j.remplacee) mettreEnPause();
   else if (r.status === 403 && /jeton/i.test(j.erreur ?? '')) voileArret('relance'); // Dérush a redémarré entre-temps
-  if (!r.ok) throw new Error(j.erreur || `Erreur ${r.status}`);
+  // une erreur peut dire comment faire autrement (« repli » : une adresse où écrire, une page où aller)
+  if (!r.ok) throw Object.assign(new Error(j.erreur || `Erreur ${r.status}`), j.repli ? {repli: j.repli} : {});
   return j;
 }
 
@@ -154,8 +156,16 @@ function note(texte, erreur = false, fete = false) {
   const n = document.createElement('div');
   n.className = `note${erreur ? ' erreur' : ''}${fete ? ' fete' : ''}`;
   n.innerHTML = `${ic(erreur ? 'attention' : fete ? 'etincelle' : 'ok', fete ? 'plein' : '')}<span>${esc(texte)}</span>`;
-  $('#notes').append(n);
-  setTimeout(() => n.remove(), erreur || fete ? 7000 : 3500);
+  const pile = $('#notes');
+  // dans le montage, la colonne de droite va jusqu'en bas (la zone d'écriture de l'IA est dans ce coin) : les notes se
+  // posent à sa gauche, au-dessus de la timeline, jamais sur ce qu'on est en train d'écrire
+  const cote = document.getElementById('cote');
+  pile.style.right = `${cote && cote.offsetParent !== null ? Math.round(cote.getBoundingClientRect().width) + 16 : 18}px`;
+  // la même phrase déjà à l'écran : elle ne s'empile pas ; au-delà de trois, les plus anciennes s'en vont
+  for (const x of [...pile.children]) if (x.textContent === n.textContent) x.remove();
+  while (pile.children.length >= 3) pile.firstElementChild.remove();
+  pile.append(n);
+  setTimeout(() => { n.classList.add('part'); setTimeout(() => n.remove(), 220); }, erreur || fete ? 7000 : 3500);
 }
 function bulle(ev, texte) {
   const b = $('#bulle');
@@ -268,6 +278,8 @@ async function afficherBibliotheque() {
   let d;
   let esp;
   try { [d, esp] = await Promise.all([api('GET', '/api/bibliotheque'), listeEspaces()]); } catch (e) { return note(e.message, true); }
+  // la bannière de l'association (lib/asso.mjs) : lue sur l'ordinateur, sans rien demander à internet
+  const don = await api('GET', '/api/asso/banniere').catch(() => null);
   ui.biblio = {d, espaces: esp?.espaces ?? d.espaces ?? []};
   B.innerHTML = `<div class="biblio-interieur">
     <div class="biblio-tete"><img src="/icone.svg" alt=""><div><h1 class="marque">Dérush <small>par</small> <img class="iabai" src="/marque/iabai.png" alt="IABAI"></h1><p>Tu donnes la matière. Ton IA fait le montage. <span class="beta">Bêta test</span></p></div><span class="espace"></span>
@@ -275,17 +287,29 @@ async function afficherBibliotheque() {
       <button class="btn bouton-cx" data-b="connexions" title="Ton IA, ElevenLabs, Google Drive, Treg, Blender">${logo('claude', 18)}${logo('codex', 18)}${logo('gemini', 18)}${logo('treg', 18)}<span>Connexions</span></button>
       <button class="btn bouton-cx" data-b="profil" title="Mon profil de créateur : ce que ton IA a appris de tes comptes">${ic('profil')}<span>Mon profil</span></button>
       <button class="btn bouton-cx" data-b="accueil" title="Mise en route : ton IA, tes réseaux, ton profil">${ic('drapeau')}<span>Mise en route</span></button>
+      <button class="icone-btn coeur" data-don="ouvrir" title="Dérush est gratuit : découvre l’association qui le fait, et soutiens-la">${ic('coeur')}</button>
       <button class="icone-btn" data-b="tutoriel" title="Revoir le tutoriel">${ic('aide')}</button>
       <button class="icone-btn" data-b="reglages" title="Réglages et moteurs">${ic('reglages')}</button>
       <button class="icone-btn" data-b="quitter" title="Quitter Dérush">${ic('quitter')}</button></div>
+    ${ASSO.htmlBanniere(don)}
     ${d.projets.length < 3 ? `<div class="biblio-guide">${guideGestes()}</div>` : ''}
     <div id="biblio-projets"></div>
-    <div class="biblio-pied">${ic('dossier')}<span>Projets rangés dans ${esc(d.racine)}</span><span class="espace"></span><button class="btn petit" data-b="autre">Ouvrir un autre dossier…</button></div>
+    <div class="biblio-pied">${ic('dossier')}<span class="biblio-chemin" title="${esc(d.racine)}">Projets rangés dans <b>${esc(cheminCourt(d.racine))}</b></span><span class="espace"></span><button class="btn petit" data-b="autre">Ouvrir un autre dossier…</button></div>
+    ${ASSO.htmlPied()}
   </div>`;
+  if (!B.dataset.asso) { B.dataset.asso = '1'; ASSO.ecouter(B); }
   rendreProjetsBiblio();
   // première ouverture : le tutoriel animé, puis la mise en route (ton IA, tes réseaux, ton profil), une fois
   if (!SRV.reglages?.tuto_vu && !ui.tutoMontre) return tutoriel(true);
   proposerConnexions();
+}
+/** Un chemin lisible : sans le dossier personnel, et le milieu d'un très long chemin replié (le chemin entier reste en infobulle). */
+function cheminCourt(chemin) {
+  const c = String(chemin ?? '').replace(/^\/Users\/[^/]+|^\/home\/[^/]+|^[A-Za-z]:\\Users\\[^\\]+/, '~');
+  if (c.length <= 64) return c;
+  const s = c.includes('\\') ? '\\' : '/';
+  const parts = c.split(s);
+  return parts.length > 4 ? [parts[0], parts[1], '…', ...parts.slice(-2)].join(s) : `${c.slice(0, 30)}…${c.slice(-30)}`;
 }
 /** La mise en route s'ouvre une fois, depuis la bibliothèque : à la première ouverture, ou tant qu'aucune IA n'est branchée. */
 function proposerConnexions() {
@@ -998,6 +1022,8 @@ function dessinerDeLIA(liste) {
 function rendreRushes() {
   const L = $('#grille-medias');
   if (ui.glisseMedia) return; // pas de réaffichage pendant qu'on glisse une vignette
+  // un projet qui a déjà des médias : « Importer », « Enregistrer » et « Drive » passent sur une ligne (style.css, 11.5)
+  $('#p-medias').classList.toggle('a-medias', !!P?.medias?.length);
   if (P) setTimeout(() => chargerDeLIA(), 0);
   if (P && ui.introuvablesCle !== P.medias.map((m) => m.id).join(',')) setTimeout(() => verifierIntrouvables(), 0);
   const enCours = SRV.file?.en_cours;
@@ -2072,7 +2098,7 @@ function rendreTexteMontage() {
       const k = ui.motsMontage.length;
       ui.motsMontage.push({plan: s.it.id, i, w, t: s.debut + Math.max(0, w.d - s.it.entree)});
       const colle = !prec || /^[,.…)\]%'’]/.test(w.t) || /['’([]$/.test(prec.t);
-      html += `${colle ? '' : ' '}<span class="m${w.ev ? ' ev' : ''}" data-k="${k}">${esc(w.t)}</span>`;
+      html += `${colle ? '' : ' '}<span class="m${w.ev ? ' ev' : ''}${colle && prec ? ' suite' : ''}" data-k="${k}">${esc(w.t)}</span>`;
       prec = w;
     }
     html += '</p>';
@@ -2276,7 +2302,7 @@ function rendreTexteMedia() {
       html += `<p><span class="t-heure">${tc(w.d, f).slice(0, 8)}</span>${w.loc && (!prec || w.loc !== prec.loc) ? `<span class="loc">${esc(w.loc)}</span>` : ''}`;
     }
     const colle = nouveau || /^[,.…)\]%'’]/.test(w.t) || /['’([]$/.test(prec?.t ?? '');
-    html += `${colle ? '' : ' '}<span class="m${w.ev ? ' ev' : ''}" data-i="${i}">${esc(w.t)}</span>`;
+    html += `${colle ? '' : ' '}<span class="m${w.ev ? ' ev' : ''}${colle && !nouveau ? ' suite' : ''}" data-i="${i}">${esc(w.t)}</span>`;
     prec = w;
   });
   box.innerHTML = `${html}</p><p class="dim" style="font-size:11.5px;margin-top:18px">Clique un mot pour l’écouter. Glisse sur des mots pour choisir un passage, puis « Ajouter au montage ».</p>`;
@@ -4012,6 +4038,8 @@ async function feuilleReglages() {
     ${P ? `<h3 style="font-size:15px;margin:18px 0 10px">Dossier de montage</h3>
     <div class="deux"><label class="champ"><span>Marge autour des plans (s)</span><input type="number" min="0" max="5" step="0.1" data-export="poignees_s" value="${P.export.poignees_s}"></label>
     <div class="champ"><span>Contenu</span><label class="rangee" style="gap:7px"><input type="checkbox" data-export="kit_remotion"${P.export.kit_remotion !== false ? ' checked' : ''}> Kit de départ Remotion</label><label class="rangee" style="gap:7px"><input type="checkbox" data-export="rushes_complets"${P.export.rushes_complets ? ' checked' : ''}> Rushes complets</label><label class="rangee" style="gap:7px"><input type="checkbox" data-export="zip"${P.export.zip ? ' checked' : ''}> Créer aussi un .zip</label></div></div>` : ''}
+    <h3 style="font-size:15px;margin:18px 0 10px">Dérush et l’association</h3>
+    <div class="moteur"><span class="don-b-logo"><img src="/marque/yabai.webp" alt="YABAÏ" draggable="false"></span><div class="desc"><b>Dérush est gratuit et open source</b><small>Il est fait avec l’association YABAÏ, par et pour des jeunes qui créent (licence GPL-3.0). Un don, un message, un bug : tout part d’ici.</small></div><span class="reglages-asso"><button class="btn claude petit" data-asso="soutenir">${ic('coeur', 'plein')}Soutenir</button><button class="btn petit" data-asso="contact">Nous écrire</button><button class="btn petit" data-asso="bug">Signaler un bug</button></span></div>
     <div class="pied"><span class="dim" style="font-size:12px">Dérush ${esc(SRV.version ?? '')}</span><span class="espace"></span><button class="btn principal" data-fermer>OK</button></div>`);
   f.addEventListener('input', (e) => {
     const t = e.target;
@@ -4022,6 +4050,8 @@ async function feuilleReglages() {
     if (e.target.closest('[data-connexions]')) return feuilleConnexions();
     if (e.target.closest('[data-carnet]')) return feuilleCarnet(ui.ecran === 'montage' ? (ui.espace?.id ?? 'moi') : 'moi');
     if (e.target.closest('[data-espaces]')) return ESP.feuilleEspaces();
+    const asso = e.target.closest('[data-asso]')?.dataset.asso;
+    if (asso) return ASSO[asso]?.();
     const inst = e.target.closest('[data-installer]')?.dataset.installer;
     if (inst) {
       try { await api('POST', '/api/moteurs/installer', {nom: inst}); note('Installation lancée : suis-la en haut de la fenêtre.'); fermerFeuille(); suivreFile(); } catch (err) { note(err.message, true); }
@@ -5987,7 +6017,7 @@ function bulleClaude(x, c) {
   const cout = x.credit_api ? `<small class="cl-cout">${ic('etincelle', 'plein')}Payé avec ton crédit API${x.credit_api.usd != null ? ` : ${prixUsd(x.credit_api.usd)}` : ''}</small>` : '';
   // le Mode Hollywood : qui a réalisé, monté et dessiné cette vidéo
   const equipeFaite = x.equipe && (x.version || x.equipe.dessins || x.equipe.relais) ? ligneEquipe(x.equipe) : '';
-  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}${x.texte ? boutonCopier(x) : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${repondre}${relaisQuota}${suiteQuota}${cout}${equipeFaite}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
+  return `<div class="cl-b claude${x.erreur ? ' erreur' : ''}${x.arret ? ' arret' : ''}"><div class="qui">${logo(m, 16)}<span>${nomIA(m)}</span>${x.duree_s ? `<small>${esc(dureeLisible(x.duree_s))}</small>` : ''}${x.texte ? boutonCopier(x) : ''}</div><div class="cl-texte-b${long ? ' coupe' : ''}">${mdLeger(x.texte)}</div>${long ? '<button class="cl-lien" data-cl="deplier">Tout lire</button>' : ''}${x.erreur && !qa && !x.arret ? `<button class="cl-lien cl-signaler" data-cl="signaler-bug" data-texte="${esc(String(x.texte ?? '').slice(0, 300))}" title="Dérush joint son diagnostic : tu vois tout avant d’envoyer">Signaler ce bug à l’équipe</button>` : ''}${repondre}${relaisQuota}${suiteQuota}${cout}${equipeFaite}${v ? cartesVideos(v) + annexesHtml(v) : ''}${x.publications?.length && !v ? publicationsHtml(x.publications) : ''}${x.credits_sons?.texte ? creditsHtml(x.credits_sons) : ''}</div>`;
 }
 /** La bulle de l'IA au travail : la bobine tourne, une ligne dit ce qu'elle fait, son rendu passe en petit ; le détail se déplie. */
 // Ce qu'une demande dure d'ordinaire à chaque niveau (avant que cet ordinateur en ait mesuré une lui-même)
@@ -6643,6 +6673,7 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'voir-direct') return montrerVue('direct');
     if (act === 'arreter') { await api('POST', '/api/claude/arreter'); note(`Arrêt demandé : ${nomIA(c.en_cours?.moteur)} termine son geste en cours.`); return chargerClaude(); }
     if (act === 'deplier') { const t = e.target.previousElementSibling; e.target.textContent = t.classList.toggle('coupe') ? 'Tout lire' : 'Réduire'; return; }
+    if (act === 'signaler-bug') return ASSO.bug(`${nomIA()} s’est arrêté avec ce message : « ${e.target.closest('[data-texte]')?.dataset.texte ?? ''} »\n\nCe que je faisais : `);
     if (act === 'studio') return choisirPanneau('creer');
     if (act === 'creer') return feuilleCreer();
     if (act === 'pack') return feuilleEnvoyer();
@@ -6748,10 +6779,12 @@ function carteIA(d, m) {
       : x.installable ? `<button class="btn bleu petit" data-cx="${m}/installer">Installer</button>`
         : x.connectable ? `<button class="btn bleu petit" data-cx="${m}/connecter">Me connecter</button>` : '';
   // Gemini : les modèles que ce compte Google propose (ils changent d'un compte à l'autre)
-  const familles = m === 'gemini' && x.ok ? [...new Set((x.modeles ?? []).map((s) => String(s).replace(/-(low|medium|high|max)$/, '').split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')))].join(', ') : '';
+  const familles = m === 'gemini' && x.ok ? [...new Set((x.modeles ?? []).map((s) => String(s).replace(/-(low|medium|high|xhigh|max)$/, '').split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')))].join(', ') : '';
   // un autre compte que le principal (lib/comptes.mjs) : son nom est dit
   const compte = x.compte && !x.compte.principal ? ` (« ${esc(x.compte.nom)} »)` : '';
-  const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}${compte}${familles ? ` · ${esc(familles)}` : ''}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
+  const liste = familles ? familles.split(', ') : [];
+  const court = liste.length > 3 ? `${liste.slice(0, 3).join(', ')} et ${liste.length - 3} autre${liste.length - 3 > 1 ? 's' : ''}` : familles;
+  const sous = x.ok ? `${esc(x.nom ?? '')} · ${COMPTES_IA[m].relie}${compte}${familles ? ` · <span title="${esc(familles)}">${esc(court)}</span>` : ''}` : `${esc(x.pourquoi ?? '')} ${COMPTES_IA[m].compte}`;
   const aide = m === 'gemini' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google dans la page qui suit, ferme le terminal, puis reviens ici.' : 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.';
   return carteCx({etat: etatCarte(x.ok, occupe), lg: logo(m, 42), titre: nomIA(m), sous, actions, plus: erreurAction(x.action) + (x.connectable && !x.ok ? `<small class="dim">${aide}</small>` : '') + (x.ok ? blocQuota(d.quotas?.[m], m, {verifier: true}) : ''), bas: blocComptes(d, m)});
 }
@@ -8251,6 +8284,10 @@ const VO = creerVoixOff({
   relireMedias: () => rafraichirMedias().catch(() => {}),
   surChangement: () => { if (ui.ecran === 'montage' && P) { rendreClaude(); rendreRushes(); } },
 });
+/** L'association derrière Dérush (public/asso.js) : la bannière, « Soutenir », « Nous écrire », « Signaler un bug ». */
+const ASSO = creerAsso({api, note, esc, ic, logo, feuille, fermerFeuille, copierTexte});
+ASSO.ecouterErreurs();
+$('#b-soutenir').addEventListener('click', () => ASSO.soutenir());
 /** La petite fenêtre des mises à jour (public/maj.js) : une nouvelle version est sortie, ou vient d'être installée. */
 const MAJ = creerMaj({
   api, note, esc, ic,
@@ -8415,6 +8452,7 @@ window.derush = {
     const M = {
       reglages: () => feuilleReglages(), connexions: () => feuilleConnexions(), aide: () => feuilleAide(), tutoriel: () => tutoriel(),
       profil: () => CR.ouvrir(), accueil: () => CR.accueil(),
+      soutenir: () => ASSO.soutenir(), contact: () => ASSO.contact(), bug: () => ASSO.bug(),
       tableau: () => TB.ouvrir({espace: ui.ecran === 'montage' ? (ui.espace?.id ?? P?.espace ?? null) : null}), espaces: () => ESP.feuilleEspaces(), competences: () => CP.ouvrir(),
       nouveau: async () => { if (P) { await sauver(true).catch(() => {}); } feuilleNouveauProjet(); },
       bibliotheque: () => { if (ui.ecran === 'montage') $('#b-biblio').click(); },

@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="/competences.css">
 <link rel="stylesheet" href="/drive.css">
 <link rel="stylesheet" href="/sequences.css">
+<link rel="stylesheet" href="/asso.css">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -32,6 +33,7 @@
   <symbol id="i-ciseaux" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.6"/><circle cx="6.5" cy="17" r="2.6"/><path d="M8.7 8.4L20 17.5"/><path d="M8.7 15.6L20 6.5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-case" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" stroke-dasharray="3.2 2.4"/></symbol>
+  <symbol id="i-coeur" viewBox="0 0 24 24"><path d="M12 20.4s-7.6-4.5-7.6-10.1A4.3 4.3 0 0 1 8.7 6c1.4 0 2.6.7 3.3 1.8.7-1.1 1.9-1.8 3.3-1.8a4.3 4.3 0 0 1 4.3 4.3c0 5.6-7.6 10.1-7.6 10.1z"/></symbol>
   <symbol id="i-drapeau" viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 4.5h11.5l-2.2 4 2.2 4H6"/></symbol>
   <symbol id="i-poubelle" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/></symbol>
   <symbol id="i-annuler" viewBox="0 0 24 24"><path d="M9 9l-4 4 4 4"/><path d="M5 13h9.5a4.5 4.5 0 0 0 0-9H12"/></symbol>
@@ -193,6 +195,7 @@
     <button class="icone-btn" id="b-tableau" title="Tableau de bord : tes vidéos, leurs vues, ce qui marche"><svg class="ic"><use href="#i-tableau"/></svg></button>
     <button class="icone-btn" id="b-connexions" title="Connexions : ton IA, ElevenLabs, Google Drive, Treg, Blender"><svg class="ic"><use href="#i-prise"/></svg></button>
     <button class="icone-btn" id="b-reglages" title="Réglages et moteurs"><svg class="ic"><use href="#i-reglages"/></svg></button>
+    <button class="icone-btn coeur" id="b-soutenir" title="Dérush est gratuit : découvre l’association qui le fait, et soutiens-la"><svg class="ic"><use href="#i-coeur"/></svg></button>
     <button class="btn exporter" id="b-exporter" title="Exporter ta vidéo : ta timeline ou celle de l’IA, en 1080p, 2K ou 4K"><svg class="ic"><use href="#i-rendu"/></svg><span>Exporter</span></button>
     <button class="btn claude" id="b-claude" title="Écris ce que tu veux : ton IA monte la vidéo à partir de tes rushes"><svg class="ic plein"><use href="#i-etincelle"/></svg><span>Demander à l’IA</span></button>
   </header>
@@ -209,7 +212,7 @@
       <div id="p-medias" class="panneau-g">
         <button class="importer-grand" data-a="importer" title="Choisir des vidéos, des sons ou des photos sur ton ordinateur"><svg class="ic"><use href="#i-importer"/></svg><span><b>Importer</b><small>ou glisse tes fichiers ici</small></span></button>
         <button class="importer-grand enregistrer-grand" data-a="enregistrer" title="Enregistrer ta voix (micro) ou te filmer (webcam), sans quitter Dérush"><svg class="ic"><use href="#i-micro"/></svg><span><b>Enregistrer</b><small>ta voix ou ta webcam</small></span></button>
-        <button class="importer-grand drive-grand" data-a="drive" title="Retrouver tes rushes dans ton Google Drive : écris ce que tu cherches (« le vendredi au Japon »), ou choisis dossier par dossier"><span class="logo l-drive" style="--t:26px"><img src="/logos/googledrive.svg" alt="" draggable="false"></span><span><b>Depuis mon Drive</b><small>« le vendredi au Japon »</small></span></button>
+        <button class="importer-grand drive-grand" data-a="drive" title="Retrouver tes rushes dans ton Google Drive : écris ce que tu cherches (« le vendredi au Japon »), ou choisis dossier par dossier"><span class="logo l-drive" style="--t:26px"><img src="/logos/googledrive.svg" alt="" draggable="false"></span><span><b><i class="long">Depuis mon </i>Drive</b><small>« le vendredi au Japon »</small></span></button>
         <div id="grille-medias" class="grille-medias"></div>
       </div>
       <div id="p-texte" class="panneau-g cache">
