@@ -2,7 +2,9 @@
 // Dérush — les essais de la partie « association » (lib/asso.mjs, lib/journal.mjs, lib/qr.mjs) et des fiches de genre
 // (competences/genres-video) :
 //  - asso.json se lit, et rien d'autre qu'une page HelloAsso de l'association n'est accepté comme page de don ;
-//  - le récit donne les sommes réunies par chaque groupe ; l'étape « la suite » s'efface quand aucun projet n'est ouvert ;
+//  - le récit donne les sommes réunies par chaque groupe ; l'étape « la suite » s'efface quand son projet n'est pas ouvert ;
+//  - le projet en cours est illustré (son logo rangé dans l'app, l'affiche et les photos de sa cagnotte, ses dates, ses
+//    vidéos) ; une image, un logo ou une vidéo venus d'ailleurs sont écartés ;
 //  - Revolut : seule une page de don de revolut.com est acceptée, et son code QR est juste (codes relus par un vrai
 //    lecteur, puis épinglés ici) ;
 //  - les cagnottes viennent du site (ici : un faux site, sur cet ordinateur), une cagnotte finie ou une adresse
@@ -76,13 +78,26 @@ const leve = async (f) => { try { await f(); return null; } catch (e) { return e
 
 console.log('asso.json');
 const a = A.lireAsso();
-essai('l’association : son nom, son histoire, sa mission, son site, son adresse', a.nom === 'YABAÏ' && a.histoire.length >= 1 && a.mission.length > 40 && a.site.startsWith('https://www.yabai.fr') && a.contact === 'contact@yabai.fr', a);
+essai('l’association : son nom, sa mission, son site, son adresse', a.nom === 'YABAÏ' && a.mission.length > 40 && a.site.startsWith('https://www.yabai.fr') && a.contact === 'contact@yabai.fr', a);
 essai('le don libre et les projets : des pages HelloAsso de l’association, rien d’autre', a.dons.asso.lien.startsWith(DON) && a.dons.projets.length >= 1 && a.dons.projets.every((p) => p.lien.startsWith(DON) && p.slug && p.titre), a.dons);
 essai('les réseaux : chacun sur son propre site, en https', a.reseaux.length >= 3 && a.reseaux.every((r) => r.lien.startsWith('https://') && new URL(r.lien).hostname.includes(r.id === 'x' ? 'x.com' : r.id)), a.reseaux);
 essai('les photos : seulement celles du site de l’association, avec une légende', a.photos.length >= 6 && a.photos.every((p) => /^https:\/\/(www\.)?yabai\.fr\//.test(p.src) && p.legende), a.photos);
 essai('une photo peut dire où regarder et qui l’a prise, rien de plus', a.photos.every((p) => p.cadre === null || /^\d{1,3}% \d{1,3}%$/.test(p.cadre)) && a.photos.some((p) => p.cadre) && a.photos[0].credit.startsWith('@'), a.photos.map((p) => [p.cadre, p.credit]));
 essai('le récit : un titre, et ce que chaque groupe a réuni, dans l’ordre', a.recit.titre.length > 5 && a.recit.titre_fort.length > 5 && a.recit.intro.length > 80 && a.recit.etapes.map((x) => x.montant).join() === '43000,60000,10000' && a.recit.etapes.every((x) => x.quand && x.mention && x.texte.length > 60), a.recit);
-essai('seule la dernière étape parle de la suite (le projet en cours)', a.recit.etapes.map((x) => x.suite).join() === 'false,false,true' && a.recit.etapes.at(-1).mention === 'à réunir');
+essai('seule la dernière étape parle de la suite, et dit de quel projet', a.recit.etapes.map((x) => x.suite).join() === 'false,false,true' && a.recit.etapes.at(-1).mention === 'à réunir' && a.recit.etapes.at(-1).projet === a.dons.projets[0].slug);
+const vedette = a.dons.projets[0];
+essai('le projet en cours est illustré : son logo est un fichier de l’app, qui existe', vedette.logo === '/marque/la-6t-a-tottori.webp' && fs.statSync(path.join(D, 'public', vedette.logo)).size > 5000 && vedette.devise.length > 5, [vedette.logo, vedette.devise]);
+essai('ses images : l’affiche d’abord (entière, sans zoom), puis des photos ; chez HelloAsso ou dans le dossier du site', vedette.images.length >= 2 && vedette.images[0].affiche === true && vedette.images.slice(1).every((i) => i.affiche === false)
+  && vedette.images.every((i) => i.legende && /^https:\/\/(cdn\.helloasso\.com\/|ik\.imagekit\.io\/tnefgb1lg\/|(www\.)?yabai\.fr\/)/.test(i.src)), vedette.images);
+essai('une image de HelloAsso est demandée allégée (l’affiche pèse sinon près de 2 Mo)', vedette.images.filter((i) => i.src.includes('cdn.helloasso.com')).every((i) => /[?&]width=\d+/.test(i.src) && i.src.includes('img_format=webp')));
+essai('ses faits ont un pictogramme connu, ses vidéos sont sur un réseau', vedette.faits.length >= 2 && vedette.faits.every((x) => ['calendrier', 'lieu', 'avion', 'outil', 'groupe', 'coeur'].includes(x.icone) && x.texte) && vedette.videos.length >= 1 && vedette.videos.every((v) => v.titre && /^https:\/\/www\.instagram\.com\//.test(v.lien)), [vedette.faits, vedette.videos]);
+const louche = A.lireAsso({dons: {projets: [{slug: 'x', titre: 'Un projet', texte: 't', lien: `${DON}collectes/x`,
+  logo: 'https://exemple.test/logo.png', images: [{src: 'https://exemple.test/a.jpg', legende: 'a'}, {src: 'https://ik.imagekit.io/autre-compte/a.jpg', legende: 'b'}, {src: 'http://www.yabai.fr/a.jpg', legende: 'c'}, {src: 'https://www.yabai.fr/ok.webp', legende: 'd', cadre: 'url(x)', affiche: 'oui'}],
+  faits: [{icone: 'onload=alert(1)', texte: 'un fait'}, {icone: 'lieu', texte: ''}], videos: [{titre: 'v', lien: 'https://exemple.test/v'}, {titre: 'w', lien: 'javascript:alert(1)'}, {titre: 'bonne', lien: 'https://www.youtube.com/watch?v=x'}]}]}}).dons.projets[0];
+essai('ce qui vient d’ailleurs est écarté : logo, images, vidéos ; un pictogramme inconnu devient un cœur', louche.logo === null && louche.images.length === 1 && louche.images[0].src === 'https://www.yabai.fr/ok.webp' && louche.images[0].cadre === null && louche.images[0].affiche === false
+  && louche.faits.length === 1 && louche.faits[0].icone === 'coeur' && louche.videos.length === 1 && louche.videos[0].titre === 'bonne', louche);
+essai('un logo de projet : un fichier de public/marque ou une image du site, rien d’autre', A.lireAsso({dons: {projets: [{slug: 'x', titre: 'P', lien: `${DON}collectes/x`, logo: '/marque/../../secret.png'}]}}).dons.projets[0].logo === null
+  && A.lireAsso({dons: {projets: [{slug: 'x', titre: 'P', lien: `${DON}collectes/x`, logo: 'https://www.yabai.fr/images/logo.webp'}]}}).dons.projets[0].logo === 'https://www.yabai.fr/images/logo.webp');
 essai('Revolut : une page de don de revolut.com, et rien d’autre', A.PAGE_REVOLUT.test(a.dons.revolut.lien) && a.dons.revolut.titre.length > 3 && a.dons.revolut.texte.length > 20
   && ['http://revolut.com/app/donations/549cad02-8123-4062-bda1-f84543750d7d', 'https://revolut.com.exemple.test/app/donations/549cad02-8123-4062-bda1-f84543750d7d', 'https://exemple.test/app/donations/549cad02-8123-4062-bda1-f84543750d7d',
     'https://revolut.com/app/donations/549cad02-8123-4062-bda1-f84543750d7d?vers=ailleurs', 'https://revolut.com/app/autre/549cad02-8123-4062-bda1-f84543750d7d', 'https://revolut.com/app/donations/pas-un-identifiant'].every((l) => !A.PAGE_REVOLUT.test(l)), a.dons.revolut);
@@ -113,7 +128,10 @@ essai('« Soutenir » : en direct, les projets ouverts seulement, celui de asso.
 essai('les jours restants sont comptés', s.dons.projets[0].jours === 39 || s.dons.projets[0].jours === 40, s.dons.projets[0].jours);
 essai('une cagnotte ouverte sur HelloAsso apparaît sans mise à jour de Dérush', s.dons.projets[1].titre === 'Une nouvelle cagnotte' && s.dons.projets[1].lien === `${DON}collectes/nouvelle`);
 essai('le don libre reste celui de asso.json tant qu’il est ouvert', s.dons.asso.lien === `${DON}formulaires/2`);
-essai('le récit arrive entier tant qu’un projet est ouvert', s.asso.recit.etapes.length === 3 && s.asso.recit.etapes.at(-1).suite === true, s.asso.recit.etapes.map((x) => x.quand));
+essai('le récit arrive entier tant que son projet est ouvert', s.asso.recit.etapes.length === 3 && s.asso.recit.etapes.at(-1).suite === true, s.asso.recit.etapes.map((x) => x.quand));
+essai('le projet ouvert garde ses illustrations, et la bande de sa cagnotte arrive de HelloAsso, allégée', s.dons.projets[0].logo === vedette.logo && s.dons.projets[0].images.length === vedette.images.length && s.dons.projets[0].faits.length >= 2 && s.dons.projets[0].videos.length >= 1
+  && s.dons.projets[0].image === 'https://cdn.helloasso.com/img/x.png?width=920&img_format=webp&quality=80', s.dons.projets[0]);
+essai('une cagnotte que Dérush ne connaît pas : montrée quand même, sans illustration inventée', s.dons.projets[1].logo === null && s.dons.projets[1].images.length === 0 && s.dons.projets[1].faits.length === 0 && s.dons.projets[1].image === null, s.dons.projets[1]);
 essai('Revolut arrive avec son code QR, prêt à dessiner', s.dons.revolut.lien === a.dons.revolut.lien && s.dons.revolut.qr.taille === 45 && /^(M\d+ \d+h\d+v1h-\d+z)+$/.test(s.dons.revolut.qr.d), s.dons.revolut);
 const avant = site.appels;
 s = await A.soutien();
@@ -128,6 +146,11 @@ site.campagnes = [{slug: '9', title: 'Un autre don libre', description: '', url:
 s = await A.soutien({force: true});
 essai('le don libre a changé sur HelloAsso : Dérush prend celui qui est ouvert', s.dons.asso.lien === `${DON}formulaires/9` && s.dons.projets.length === 0, s.dons);
 essai('plus aucun projet ouvert : le récit s’arrête aux voyages faits', s.asso.recit.etapes.length === 2 && s.asso.recit.etapes.every((x) => !x.suite), s.asso.recit.etapes.map((x) => x.quand));
+site.campagnes = [brut[2]];
+s = await A.soutien({force: true});
+essai('une autre cagnotte ouverte, mais pas celle du récit : l’étape « la suite » s’efface aussi', s.dons.projets.length === 1 && s.dons.projets[0].slug === 'nouvelle' && s.asso.recit.etapes.length === 2, s.asso.recit.etapes.map((x) => x.quand));
+site.campagnes = [{slug: '9', title: 'Un autre don libre', description: '', url: `${DON}formulaires/9`}];
+s = await A.soutien({force: true});
 
 console.log('Le code QR (pour donner avec Revolut depuis son téléphone)');
 // Ces trois codes ont été relus par le lecteur de codes du Mac (Vision) le 23 novembre 2026 : leur empreinte est épinglée.
@@ -175,6 +198,7 @@ site.don = 200;
 console.log('La bannière');
 let b = A.etatBanniere();
 essai('montrée d’abord, avec le projet en cours', b.montrer === true && b.nom === 'YABAÏ' && /Tottori/.test(b.projet?.titre ?? ''), b);
+essai('elle montre le logo du projet rangé dans l’app (aucune image d’internet sur l’accueil)', b.projet.logo === '/marque/la-6t-a-tottori.webp', b.projet);
 b = A.masquerBanniere();
 essai('masquée pour 30 jours', b.montrer === false && Math.abs(Date.parse(JSON.parse(fs.readFileSync(path.join(process.env.DERUSH_SUPPORT, 'reglages.json'), 'utf8')).dons_masque_jusqua) - Date.now() - 30 * 864e5) < 60000);
 

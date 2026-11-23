@@ -17,7 +17,7 @@ Dérush est fourni tel quel, sans aucune garantie (sections 15 et 16 de la licen
 
 ## Ce que cette licence ne couvre pas
 
-- **Les noms et les logos.** « Dérush », « IABAI », « YABAÏ » et leurs logos (`public/marque/`, `public/icone.svg`)
+- **Les noms et les logos.** « Dérush », « IABAI », « YABAÏ », « La 6T à Tottori » et leurs logos (`public/marque/`, `public/icone.svg`)
   restent ceux de l'association : la licence donne des droits sur le code, pas sur ces marques. Une version modifiée
   que tu redistribues doit dire qu'elle n'est pas l'originale.
 - **Ce que d'autres ont écrit** (compétences, logos de marques, polices) garde sa propre licence : voir

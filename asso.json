@@ -1,5 +1,5 @@
 {
-  "v": 2,
+  "v": 3,
   "nom": "YABAÏ",
   "devise": "Culture, Création, Connexion",
   "accroche": "Rendre possible l’impossible",
@@ -15,19 +15,16 @@
     "etapes": [
       {"quand": "2025 · première génération", "montant": 43000, "mention": "réunis", "texte": "Treize jeunes, dix-huit mois de préparation : des sweats à leur marque, des onigiris vendus sur les événements, des pitchs à Japan Expo, une cagnotte, des mécènes et des subventions décrochés un à un. En avril 2025, ils sont à Tokyo."},
       {"quand": "2026 · deuxième génération", "montant": 60000, "mention": "réunis", "texte": "Un an à créer, vendre et organiser : un photobooth conçu, codé et fabriqué par eux, le YABAÏ Dōjō à la tour Eiffel, 48 heures de live pour Brick Matsuri, des prestations de traiteur et d’ateliers. En octobre 2026, treize jours d’Osaka à Tokyo."},
-      {"quand": "2027 · le prochain départ", "montant": 10000, "mention": "à réunir", "suite": true, "texte": "Quatre jeunes partent à Tottori, dans la campagne japonaise, concevoir et fabriquer un outil utile à une rizière. EVA Air offre les billets : ton don finance le reste."}
+      {"quand": "2027 · le prochain départ", "montant": 10000, "mention": "à réunir", "suite": true, "projet": "la-6t-a-tottori-former-fabriquer-partir", "texte": "La 6T à Tottori : un outil à concevoir et à fabriquer pour une rizière, dans la campagne japonaise."}
     ]
   },
-  "histoire": [
-    "Dérush est né là : ces jeunes l’ont imaginé pour monter leurs propres vidéos, celles de leurs projets et de leurs voyages. Il est gratuit et son code est ouvert à tous. S’il t’aide, aide-les à ton tour."
-  ],
   "mission": "YABAÏ donne confiance à la jeunesse des quartiers, la met au premier plan et lui fait vivre des choses extraordinaires : l’entrepreneuriat, la création de contenu et les échanges entre la France et le Japon.",
-  "fiscal": "Avec HelloAsso, chaque don donne droit à un reçu fiscal : 66 % du montant est déductible de tes impôts. Un don de 50 € te coûte 17 €.",
-  "paiement": "Tu paies sur la page sécurisée de HelloAsso, dans ton navigateur : ta carte ne passe jamais par Dérush. HelloAsso ne prend aucun frais.",
+  "fiscal": "Avec HelloAsso, chaque don donne droit à un reçu fiscal : 66 % sont déductibles de tes impôts (50 € donnés te coûtent 17 €).",
+  "paiement": "Tu paies sur la page de HelloAsso : ta carte ne passe jamais par Dérush.",
   "dons": {
     "asso": {
-      "titre": "L’association YABAÏ",
-      "texte": "Un don libre, du montant que tu veux, pour faire vivre l’association et les projets des jeunes.",
+      "titre": "Dérush est gratuit. Fais vivre ceux qui l’ont imaginé.",
+      "texte": "Ces jeunes ont imaginé Dérush pour leurs vidéos. Aide-les par un don libre, du montant que tu veux.",
       "bouton": "Faire un don libre",
       "lien": "https://www.helloasso.com/associations/yabai/formulaires/2"
     },
@@ -35,11 +32,26 @@
       {
         "slug": "la-6t-a-tottori-former-fabriquer-partir",
         "titre": "La 6T à Tottori : former, fabriquer, partir",
-        "texte": "Quatre jeunes de notre quartier partent à Tottori, au Japon rural, pour fabriquer un outil qui aidera Farid dans sa rizière. Ton don finance le séjour, la formation et le matériel.",
+        "texte": "Trois jeunes d’un centre social et Reda, un ancien du voyage devenu ambassadeur, partent dans la campagne japonaise concevoir, fabriquer et installer un outil qui aidera Farid à cultiver sa rizière.",
         "bouton": "Participer à la cagnotte",
         "lien": "https://www.helloasso.com/associations/yabai/collectes/la-6t-a-tottori-former-fabriquer-partir",
         "objectif": 10000,
-        "fin": "2027-01-30"
+        "fin": "2027-01-30",
+        "logo": "/marque/la-6t-a-tottori.webp",
+        "devise": "Former, fabriquer, partir",
+        "images": [
+          {"src": "https://cdn.helloasso.com/img/photos/collectes/cropped-image-c0e86ffe95684fd4bb1b225c65a6600b.png?width=920&img_format=webp&quality=80", "legende": "L’affiche du projet : un voyage-défi dans la campagne japonaise.", "affiche": true},
+          {"src": "https://cdn.helloasso.com/img/photos/yabai_jeunes_tottori-364c6fecbd344cb281c30144cf66203f.jpg?width=920&img_format=webp&quality=80", "legende": "Les jeunes du projet Tottori, avec l’équipe.", "cadre": "50% 10%"},
+          {"src": "https://ik.imagekit.io/tnefgb1lg/tr:w-1280,f-auto,q-75/PXL_20250913_020506496_dybypl.jpg", "legende": "Les dunes de Tottori, en septembre 2025."}
+        ],
+        "faits": [
+          {"icone": "calendrier", "texte": "15 – 28 févr. 2027"},
+          {"icone": "avion", "texte": "Billets offerts par EVA Air"}
+        ],
+        "videos": [
+          {"titre": "L’interview de Farid", "lien": "https://www.instagram.com/reel/DQT816tDQWS/"},
+          {"titre": "Tottori en vidéo", "lien": "https://www.instagram.com/reel/DQ7IvbdDW6Q/"}
+        ]
       }
     ],
     "revolut": {

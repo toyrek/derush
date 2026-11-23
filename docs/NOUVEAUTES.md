@@ -1,5 +1,11 @@
 # Dérush — ce qui est nouveau, version après version
 
+**11.5.2 — La 6T à Tottori, en images.** Dans « Soutenir », le projet en cours se voit enfin : son affiche, ses photos, son logo, ses dates.
+- **Le projet en vedette.** En haut de la colonne du don, un carrousel montre l'affiche de la cagnotte (celle de HelloAsso), les jeunes du projet et les dunes de Tottori. Dessous : le logo « La 6T à Tottori », la mission en trois lignes, les dates, les billets offerts par EVA Air, deux vidéos à ouvrir (l'interview de Farid, Tottori en vidéo), et le bouton de la cagnotte.
+- **Sur l'accueil aussi.** La bannière porte le logo du projet en cours.
+- **Une cagnotte que Dérush ne connaît pas encore** s'affiche quand même, avec la bande que HelloAsso lui donne.
+- **Plus léger.** « Dérush est gratuit. Fais vivre ceux qui l'ont imaginé. » devient le titre du don libre, et l'association signe la photo du récit.
+
 **11.5.1 — L'histoire de YABAÏ, mieux racontée.** La fenêtre « Soutenir » dit enfin qui sont les jeunes qui ont imaginé Dérush, et comment ils financent eux-mêmes leurs voyages au Japon.
 - **Le récit.** À Persan, YABAÏ accompagne des jeunes des quartiers populaires : chez eux, le voyage ne s'offre pas, il se construit. La première génération a réuni 43 000 € (sweats à leur marque, onigiris, pitchs, cagnotte, mécènes) et s'est envolée pour Tokyo en avril 2025. La deuxième a réuni 60 000 € (un photobooth conçu, codé et fabriqué par eux, le YABAÏ Dōjō à la tour Eiffel, 48 heures de live pour Brick Matsuri) : treize jours d'Osaka à Tokyo, en octobre 2026. Le prochain départ, c'est Tottori.
 - **Des photos en paysage.** Les photos de l'association s'affichent en grand, en largeur : on voit les groupes en entier. Elles défilent toutes seules, les flèches du clavier passent de l'une à l'autre.

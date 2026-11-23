@@ -1,6 +1,6 @@
 // Dérush — l'association derrière Dérush : la bannière de l'accueil, la fenêtre « Soutenir » (à gauche le récit : les
-// photos en paysage, comment chaque groupe a financé son voyage ; à droite le don : un projet en cours, l'association,
-// Revolut), « Nous écrire » et « Signaler un bug ».
+// photos en paysage, comment chaque groupe a financé son voyage ; à droite le don : le projet en cours, illustré par
+// son affiche, ses photos, son logo et ses dates, puis l'association et Revolut), « Nous écrire » et « Signaler un bug ».
 // Le serveur dit quoi montrer (lib/asso.mjs) : les cagnottes viennent de HelloAsso, par le site de l'association. Le
 // paiement se fait sur la page de HelloAsso, dans le navigateur : aucune carte ne passe par Dérush.
 // Rien ne part sans un clic : le diagnostic d'un bug est montré en entier avant « Envoyer ».
@@ -9,6 +9,13 @@ const COEUR = '<svg class="ic plein" viewBox="0 0 24 24" aria-hidden="true"><pat
 const FLECHE = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16 16 8M9.5 8H16v6.5"/></svg>';
 const INSECTE = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="8" height="11" rx="4"/><path d="M9.500 7.500a2.500 2.500 0 0 1 5 0M4.500 13H8M16 13h3.500M5.500 8.500 8.300 10.500M18.500 8.500l-2.800 2M5.500 18.500l2.800-2M18.500 18.500l-2.800-2M12 12v7"/></svg>';
 const ENVELOPPE = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.500" y="6" width="17" height="12" rx="2.500"/><path d="m4.500 8 7.500 5.500L19.500 8"/></svg>';
+
+const FAITS = {
+  calendrier: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg>',
+  lieu: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6.5-5.6 6.5-11a6.5 6.5 0 0 0-13 0c0 5.4 6.5 11 6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>',
+  avion: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.9 0 1.5.8 1.5 2v4.2l7 4.3v2l-7-2.2v4.200l2 1.500V20.500L12 19.500l-3.500 1V19l2-1.500V13.300l-7 2.200v-2l7-4.300V5c0-1.200.600-2 1.500-2z"/></svg>',
+  groupe: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8.5" r="3"/><path d="M3.5 19c.5-3.200 2.700-5 5.500-5s5 1.800 5.500 5"/><circle cx="17" cy="9.500" r="2.300"/><path d="M16.500 14.200c2.200.200 3.700 1.700 4.100 4.300"/></svg>',
+};
 
 export function creerAsso(o) {
   const {api, note, esc, ic, logo, feuille, fermerFeuille, copierTexte} = o;
@@ -28,6 +35,7 @@ export function creerAsso(o) {
     return `<div class="don-banniere" data-don="ouvrir" role="button" tabindex="0" title="Découvrir l’association et faire un don">
       <span class="don-b-logo"><img src="/marque/yabai.webp" alt="${esc(b.nom)}" draggable="false"></span>
       <span class="don-b-txt"><b>Dérush est gratuit et open source.</b> Il a été imaginé par les jeunes de l’association ${esc(b.nom)}, qui financent eux-mêmes leurs voyages au Japon. ${projet}</span>
+      ${b.projet?.logo ? `<img class="don-b-defi" src="${esc(b.projet.logo)}" alt="" draggable="false">` : ''}
       <button class="btn claude petit" data-don="ouvrir">${COEUR}<span>Soutenir</span></button>
       <button class="icone-btn don-fermer" data-don="masquer" title="Masquer pendant 30 jours (le cœur reste en haut)">${ic('fermer')}</button>
     </div>`;
@@ -57,9 +65,10 @@ export function creerAsso(o) {
 
   // ——— le carrousel de photos (en paysage) ———
   const DUREE_PHOTO = 5200;
-  function carrousel(racine, photos) {
-    const scene = racine.querySelector('.don-photos');
+  /** `scene` : l'élément du carrousel ; `duree` : le temps de chaque photo (deux carrousels ne tournent pas ensemble). */
+  function carrousel(scene, photos, {duree = DUREE_PHOTO} = {}) {
     if (!scene) return {arreter() {}, aller() {}};
+    scene.style.setProperty('--duree', `${duree}ms`);
     const calme = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let vues = []; // les photos qui se sont chargées, dans l'ordre de asso.json
     let i = 0;
@@ -74,6 +83,7 @@ export function creerAsso(o) {
       i = (n + vues.length) % vues.length;
       // la photo qui s'en va garde son mouvement pendant le fondu (sinon elle sauterait)
       vues.forEach((v, k) => { v.el.classList.toggle('sort', v.el === avant && k !== i); v.el.classList.toggle('vue', k === i); });
+      scene.classList.toggle('nue', !!vues[i].affiche); // une affiche porte son propre texte : rien n'est posé dessus
       dire(vues[i]);
       [...points.children].forEach((p, k) => p.classList.toggle('actif', k === i));
     };
@@ -83,7 +93,7 @@ export function creerAsso(o) {
       clearInterval(minuteur);
       const tourne = !ferme && !calme && vues.length > 1;
       cadence(tourne);
-      if (tourne) minuteur = setInterval(() => { montrer(i + 1); cadence(true); }, DUREE_PHOTO);
+      if (tourne) minuteur = setInterval(() => { montrer(i + 1); cadence(true); }, duree);
     };
     const pause = () => { clearInterval(minuteur); cadence(false); };
     photos.forEach((p, rang) => {
@@ -97,7 +107,7 @@ export function creerAsso(o) {
       img.addEventListener('load', () => {
         if (ferme) return;
         const el = document.createElement('div');
-        el.className = `don-photo ${rang % 2 ? 'b' : 'a'}`;
+        el.className = `don-photo ${p.affiche ? 'affiche' : rang % 2 ? 'b' : 'a'}`;
         el.append(img);
         scene.querySelector('.don-piste').append(el);
         const pt = document.createElement('button');
@@ -108,9 +118,10 @@ export function creerAsso(o) {
         const courante = vues[i]?.el ?? null;
         const place = vues.findIndex((v) => v.rang > rang);
         const k = place < 0 ? vues.length : place;
-        vues.splice(k, 0, {el, legende: p.legende, credit: p.credit, rang});
+        vues.splice(k, 0, {el, legende: p.legende, credit: p.credit, affiche: p.affiche, rang});
         points.insertBefore(pt, points.children[k] ?? null);
         scene.classList.add('a-photos');
+        scene.classList.toggle('une-seule', vues.length < 2);
         // la première de la liste prend la main tant que personne n'a rien choisi ; sinon la photo montrée reste
         montrer(courante && rang !== 0 ? vues.findIndex((v) => v.el === courante) : (rang === 0 ? 0 : i));
         relancer();
@@ -237,6 +248,35 @@ export function creerAsso(o) {
       <span class="don-etape-chiffre">${e.montant ? `<b data-compte="${e.montant}">${somme(e.montant)}</b>` : ''}${e.mention ? `<small>${esc(e.mention)}</small>` : ''}</span>
       <span class="don-etape-texte"><small>${esc(e.quand)}</small><span>${esc(e.texte)}</span>${e.suite ? `<button class="btn lien don-vers-projet" data-vers-projet>${COEUR}Les aider à partir</button>` : ''}</span>
     </li>`;
+  /**
+   * Le projet en cours, illustré : ses images (l'affiche de la cagnotte, ses photos) dans un petit carrousel, son logo,
+   * ce qu'il faut savoir en quelques mots, ses vidéos, et le bouton de la cagnotte. Sans images connues, la bande de
+   * la cagnotte (venue de HelloAsso en direct) sert d'illustration.
+   */
+  const vitrine = (p, d) => {
+    const jours = p.jours != null && p.jours >= 0 ? (p.jours === 0 ? 'dernier jour' : `encore ${p.jours} jour${p.jours > 1 ? 's' : ''}`) : null;
+    const vues = p.images?.length ? p.images : (p.image ? [{src: p.image, legende: p.titre, affiche: true}] : []);
+    const bande = !p.images?.length && !!p.image;
+    return `<section class="don-projet">
+      ${vues.length ? `<div class="don-photos don-projet-vues${bande ? ' en-bandeau' : ''}" aria-label="Images du projet" aria-roledescription="carrousel">
+        <div class="don-piste"></div>
+        <div class="don-vide">${p.logo ? `<img class="don-projet-attente" src="${esc(p.logo)}" alt="" draggable="false">` : `<b>${esc(p.titre.split(' : ')[0])}</b>`}</div>
+        ${vues.length > 1 ? `<button class="don-fleche g" data-photo="avant" title="Image d’avant">${ic('prec')}</button><button class="don-fleche d" data-photo="apres" title="Image suivante">${ic('suiv')}</button>` : ''}
+        <div class="don-bas-photo"><span class="don-legende"></span><span class="don-points"></span></div>
+      </div>` : ''}
+      <div class="don-projet-corps">
+        <small class="don-sur">${ic('etincelle', 'plein')}Un projet en cours${jours ? ` · ${jours}` : ''}<span class="don-direct${d.direct ? ' oui' : ''}" title="${d.direct ? 'Ce projet vient de HelloAsso, à l’instant.' : 'Le site de l’association ne répond pas : voici le projet connu de Dérush.'}"><i></i>${d.direct ? 'En direct' : 'Hors ligne'}</span></small>
+        <h4 class="don-projet-titre" data-titre="${esc(p.titre)}">${p.logo ? `<img src="${esc(p.logo)}" alt="${esc(p.titre.split(' : ')[0])}" draggable="false">${p.devise ? `<span>${esc(p.devise)}</span>` : ''}` : esc(p.titre)}</h4>
+        <p>${esc(p.texte)}</p>
+        ${p.faits?.length ? `<ul class="don-faits">${p.faits.map((x) => `<li>${x.icone === 'coeur' ? COEUR : x.icone === 'outil' ? ic('outil') : (FAITS[x.icone] ?? COEUR)}<span>${esc(x.texte)}</span></li>`).join('')}</ul>` : ''}
+        ${p.videos?.length ? `<div class="don-videos">${p.videos.map((v) => `<button class="btn lien don-video" data-lien="${esc(v.lien)}" title="S’ouvre dans ton navigateur">${ic('lire', 'plein')}${esc(v.titre)}</button>`).join('')}</div>` : ''}
+        <div class="don-choix-bas">
+          ${p.objectif ? `<span class="don-objectif">Objectif : ${p.objectif.toLocaleString('fr-FR')} €</span>` : '<span></span>'}
+          <button class="btn claude" data-lien="${esc(p.lien)}">${esc(p.bouton)}${FLECHE}</button>
+        </div>
+      </div>
+    </section>`;
+  };
   /** Revolut : une ligne discrète ; au clic, le code QR à scanner avec le téléphone (le don se fait dans l'app). */
   const ligneRevolut = (r) => (r ? `<div class="don-revolut">
       <button class="don-revolut-tete" data-revolut aria-expanded="false">${logo('revolut', 30)}<span><b>${esc(r.titre)}</b><small>${esc(r.accroche || 'Tu as l’app ? Donne depuis ton téléphone.')}</small></span>${ic('suiv')}</button>
@@ -255,6 +295,7 @@ export function creerAsso(o) {
     const a = d.asso;
     const r = a.recit ?? {};
     const projets = d.dons.projets ?? [];
+    const [vedette, ...autres] = projets; // le premier projet ouvert est mis en avant, illustré
     f.innerHTML = `
       <button class="icone-btn don-clore" data-fermer title="Fermer">${ic('fermer')}</button>
       <div class="don-deux">
@@ -266,30 +307,33 @@ export function creerAsso(o) {
           <div class="don-bas-photo"><span class="don-legende"></span><span class="don-points"></span></div>
         </div>
         <div class="don-texte">
+          <span class="don-b-logo don-signe" title="${esc(`Association ${a.nom} — ${[a.devise, a.lieu].filter(Boolean).join(' · ')}`)}"><img src="/marque/yabai.webp" alt="${esc(`Association ${a.nom}`)}" draggable="false"></span>
           ${r.titre || r.titre_fort ? `<h3 class="don-titre">${esc(r.titre)}${r.titre && r.titre_fort ? '<br>' : ''}${r.titre_fort ? `<em>${esc(r.titre_fort)}</em>` : ''}</h3>` : ''}
           ${r.intro ? `<p class="don-intro">${esc(r.intro)}</p>` : ''}
           ${r.etapes?.length ? `<ol class="don-etapes">${r.etapes.map(etape).join('')}</ol>` : ''}
         </div>
       </div>
       <div class="don-corps">
-        <div class="don-qui"><span class="don-b-logo"><img src="/marque/yabai.webp" alt="${esc(a.nom)}" draggable="false"></span><span><b>Association ${esc(a.nom)}</b><small>${esc([a.devise, a.lieu].filter(Boolean).join(' · '))}</small></span></div>
         <div class="don-page accueil">
-        <h3 class="don-titre second">Dérush est gratuit.<br><em>Fais vivre ceux qui l’ont imaginé.</em></h3>
-        ${a.histoire.map((p) => `<p class="don-histoire">${esc(p)}</p>`).join('')}
-        <h4 class="don-question">Où va ton don ?<span class="don-direct${d.direct ? ' oui' : ''}" title="${d.direct ? 'La liste des projets vient de HelloAsso, à l’instant.' : 'Le site de l’association ne répond pas : voici les projets connus de Dérush.'}"><i></i>${d.direct ? 'En direct de HelloAsso' : 'Hors ligne'}</span></h4>
-        <div class="don-liste">${projets.map((p) => carteDon(p, {projet: true})).join('')}${d.dons.asso ? carteDon(d.dons.asso) : ''}</div>
+        ${vedette ? vitrine(vedette, d) : `<h4 class="don-question">Où va ton don ?<span class="don-direct${d.direct ? ' oui' : ''}"><i></i>${d.direct ? 'En direct de HelloAsso' : 'Hors ligne'}</span></h4>`}
+        <div class="don-liste">${autres.map((p) => carteDon(p, {projet: true})).join('')}${d.dons.asso ? carteDon(d.dons.asso) : ''}</div>
         ${ligneRevolut(d.dons.revolut)}
         <p class="don-note">${ic('cadenas')}<span>${esc(a.fiscal)} ${esc(a.paiement)}</span></p>
         <div class="don-suite">
-          <div class="don-suite-haut"><span class="don-suite-t">Pas de budget ? Les suivre et partager leurs vidéos aide aussi.</span><div class="don-reseaux">${reseaux(d.reseaux)}</div></div>
+          <div class="don-suite-haut"><span class="don-suite-t">Pas de budget ? Les suivre aide aussi.</span><div class="don-reseaux">${reseaux(d.reseaux)}</div></div>
           <div class="don-liens"><button class="btn lien" data-lien="${esc(a.site)}">${ic('globe')}yabai.fr</button><button class="btn lien" data-asso="contact">${ENVELOPPE}Nous écrire</button>${d.depot ? `<button class="btn lien" data-lien="${esc(d.depot)}" title="Dérush est un logiciel libre (licence GPL-3.0) : son code est ouvert à tous">${logo('github', 14)}Code source</button>` : ''}</div>
         </div>
         </div>
         <div class="don-page libre cache">${pageLibre(d)}</div>
       </div>
       </div>`;
+    // un logo de projet qui ne vient pas (une image du site, hors ligne) : le titre en toutes lettres
+    f.querySelector('.don-projet-titre img')?.addEventListener('error', (e) => { const h = e.target.closest('.don-projet-titre'); if (h) h.textContent = h.dataset.titre; });
+    f.querySelector('.don-projet-attente')?.addEventListener('error', (e) => e.target.remove());
     brancherLibre(f, d);
-    const photos = carrousel(f, d.photos ?? []);
+    const photos = carrousel(f.querySelector('.don-recit .don-photos'), d.photos ?? []);
+    const scene = f.querySelector('.don-projet-vues');
+    const vuesProjet = carrousel(scene, vedette?.images?.length ? vedette.images : (vedette?.image ? [{src: vedette.image, legende: vedette.titre, affiche: true}] : []), {duree: 6400});
     const finCompte = compter(f);
     const fleches = (e) => {
       if (!f.isConnected) return arreter(); // la fenêtre a été remplacée par une autre
@@ -297,7 +341,7 @@ export function creerAsso(o) {
       if (!f.querySelector('.don-page.accueil')?.classList.contains('cache')) photos.aller(e.key === 'ArrowLeft' ? -1 : 1);
     };
     document.addEventListener('keydown', fleches);
-    const arreter = () => { photos.arreter(); finCompte(); document.removeEventListener('keydown', fleches); };
+    const arreter = () => { photos.arreter(); vuesProjet.arreter(); finCompte(); document.removeEventListener('keydown', fleches); };
     f.avantFermeture = () => { arreter(); };
     const deux = f.querySelector('.don-deux');
     const corps = f.querySelector('.don-corps');
@@ -312,7 +356,7 @@ export function creerAsso(o) {
       // « Les aider à partir » : montre la carte du projet en cours
       if (e.target.closest('[data-vers-projet]')) {
         if (f.querySelector('.don-page.accueil').classList.contains('cache')) pages(false); else versDon();
-        const carte = f.querySelector('.don-choix.projet');
+        const carte = f.querySelector('.don-projet, .don-choix.projet');
         if (carte) { carte.classList.remove('appel'); void carte.offsetWidth; carte.classList.add('appel'); }
         return;
       }
@@ -328,7 +372,8 @@ export function creerAsso(o) {
       const l = e.target.closest('[data-lien]');
       if (l) {
         lien(l.dataset.lien);
-        if (l.closest('.don-choix')) note('La page de HelloAsso s’ouvre dans ton navigateur. Merci pour eux !', false, true);
+        if (l.classList.contains('don-video')) note('La vidéo s’ouvre dans ton navigateur.');
+        else if (l.closest('.don-choix, .don-projet')) note('La page de HelloAsso s’ouvre dans ton navigateur. Merci pour eux !', false, true);
         else if (l.closest('.don-revolut')) note('La page de Revolut s’ouvre dans ton navigateur. Merci pour eux !', false, true);
         return;
       }

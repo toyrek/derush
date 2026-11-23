@@ -52,4 +52,4 @@ sont citées ci-dessous.
 | `revolut.svg` | Revolut | #191C1F | https://developer.revolut.com/docs/resources/marketing-assets-guidelines/marketing-guidelines |
 | `openverse.svg` | Openverse | #FFE033 (dessiné en noir, pour rester lisible) | https://www.figma.com/file/GIIQ4sDbaToCfFQyKMvzr8/Openverse-Design-Library?node-id=312%3A487 |
 
-Le logo de l'association YABAÏ (`../marque/yabai.webp`, 480 px) vient de son site, yabai.fr : c'est celui de l'association qui fait Dérush. Il est posé sur un fond clair, comme un autocollant, pour rester lisible sur le fond sombre.
+Le logo de l'association YABAÏ (`../marque/yabai.webp`, 480 px) vient de son site, yabai.fr : c'est celui de l'association qui fait Dérush. Celui de son projet en cours, « La 6T à Tottori » (`../marque/la-6t-a-tottori.webp`, 480 px, fond transparent), vient du même site : il illustre l'appel au don du projet, sur l'accueil et dans « Soutenir ». Il est posé sur un fond clair, comme un autocollant, pour rester lisible sur le fond sombre.
