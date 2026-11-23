@@ -49,6 +49,7 @@ sont citées ci-dessous.
 | `figma.svg` | Figma | #F24E1E | https://www.figma.com/using-the-figma-brand/ |
 | `spotify.svg` | Spotify | #1ED760 | https://developer.spotify.com/documentation/general/design-and-branding/#using-our-logo |
 | `soundcloud.svg` | SoundCloud | #FF5500 |  |
+| `revolut.svg` | Revolut | #191C1F | https://developer.revolut.com/docs/resources/marketing-assets-guidelines/marketing-guidelines |
 | `openverse.svg` | Openverse | #FFE033 (dessiné en noir, pour rester lisible) | https://www.figma.com/file/GIIQ4sDbaToCfFQyKMvzr8/Openverse-Design-Library?node-id=312%3A487 |
 
 Le logo de l'association YABAÏ (`../marque/yabai.webp`, 480 px) vient de son site, yabai.fr : c'est celui de l'association qui fait Dérush. Il est posé sur un fond clair, comme un autocollant, pour rester lisible sur le fond sombre.

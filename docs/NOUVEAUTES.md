@@ -1,5 +1,11 @@
 # Dérush — ce qui est nouveau, version après version
 
+**11.5.1 — L'histoire de YABAÏ, mieux racontée.** La fenêtre « Soutenir » dit enfin qui sont les jeunes qui ont imaginé Dérush, et comment ils financent eux-mêmes leurs voyages au Japon.
+- **Le récit.** À Persan, YABAÏ accompagne des jeunes des quartiers populaires : chez eux, le voyage ne s'offre pas, il se construit. La première génération a réuni 43 000 € (sweats à leur marque, onigiris, pitchs, cagnotte, mécènes) et s'est envolée pour Tokyo en avril 2025. La deuxième a réuni 60 000 € (un photobooth conçu, codé et fabriqué par eux, le YABAÏ Dōjō à la tour Eiffel, 48 heures de live pour Brick Matsuri) : treize jours d'Osaka à Tokyo, en octobre 2026. Le prochain départ, c'est Tottori.
+- **Des photos en paysage.** Les photos de l'association s'affichent en grand, en largeur : on voit les groupes en entier. Elles défilent toutes seules, les flèches du clavier passent de l'une à l'autre.
+- **Le récit à gauche, le don à droite.** Tu lis l'histoire, et les deux façons d'aider restent sous tes yeux : le projet en cours (sa cagnotte HelloAsso) ou un don libre à l'association.
+- **Aussi sur Revolut.** YABAÏ est référencée sur Revolut Donations. Une ligne discrète ouvre un code à scanner avec ton téléphone : le don se fait dans l'app Revolut.
+
 **11.5 — Plus simple, plus beau, libre, et un cœur pour l'association.** L'interface a été repassée écran par écran, ton IA prend toute la hauteur de la fenêtre, Dérush devient un logiciel libre et te présente l'association qui le fait.
 - **Ton IA sur toute la hauteur.** La colonne de droite (ta conversation avec ton IA, ou la fiche d'un plan) va du haut de la fenêtre jusqu'en bas : ta demande, sa réponse, la vidéo livrée et la zone d'écriture se voient d'un coup. La timeline s'arrête à son bord.
 - **Des écrans plus nets.** Connexions : les cartes de Claude, Codex et Gemini se lisent d'un coup d'œil, la liste des modèles en court. Médias : « Importer », « Enregistrer » et « Drive » tiennent sur une ligne dès que le projet a des médias. L'accueil : le slogan sur une ligne, les trois gestes alignés, le dossier des projets en court. Les notes en bas à droite sont plus petites et ne s'empilent plus. Classique / Hollywood, l'onglet Texte, « Pour qui est ce projet ? » : corrigés.

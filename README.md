@@ -298,9 +298,11 @@ Rien d'autre n'est installé ailleurs, sauf ce que tu acceptes (FFmpeg, Blender,
 
 ## Soutenir l'association
 
-Dérush est gratuit et libre. Il est fait avec l'association **YABAÏ**, à Persan (Val-d'Oise), qui donne confiance à la jeunesse des quartiers par la création, l'entrepreneuriat et les échanges entre la France et le Japon : ce sont les jeunes qu'elle accompagne qui l'ont imaginé, pour monter leurs propres vidéos.
+Dérush est gratuit et libre. Il est fait avec l'association **YABAÏ**, à Persan (Val-d'Oise), qui accompagne des jeunes des quartiers populaires par la création, l'entrepreneuriat et les échanges entre la France et le Japon : ce sont ces jeunes qui l'ont imaginé, pour monter leurs propres vidéos.
 
-Si Dérush t'aide, tu peux les aider à ton tour : le cœur, en haut de Dérush, ouvre la page de l'association (son histoire, ses projets en cours, un don du montant que tu veux). Ou directement : [les projets de YABAÏ sur HelloAsso](https://www.helloasso.com/associations/yabai) · [yabai.fr](https://www.yabai.fr) · contact@yabai.fr.
+Chez YABAÏ, le voyage au Japon ne s'offre pas : il se construit. Chaque groupe monte ses projets, vend, organise des événements, va convaincre des partenaires, et finance lui-même son départ. La première génération a réuni 43 000 € et s'est envolée pour Tokyo en avril 2025. La deuxième a réuni 60 000 € en un an (un photobooth conçu, codé et fabriqué par eux, le YABAÏ Dōjō à la tour Eiffel, 48 heures de live pour Brick Matsuri) : treize jours d'Osaka à Tokyo, en octobre 2026. Le prochain départ : Tottori, en février 2027.
+
+Si Dérush t'aide, tu peux les aider à ton tour : le cœur, en haut de Dérush, ouvre la page de l'association (son histoire, ses photos, le projet en cours, un don du montant que tu veux). Ou directement : [les projets de YABAÏ sur HelloAsso](https://www.helloasso.com/associations/yabai) · [YABAÏ sur Revolut Donations](https://revolut.com/app/donations/549cad02-8123-4062-bda1-f84543750d7d) (depuis un téléphone) · [yabai.fr](https://www.yabai.fr) · contact@yabai.fr.
 
 ## Licences
 

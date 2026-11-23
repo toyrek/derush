@@ -5246,7 +5246,7 @@ const guideGestes = () => `<div class="guide">${geste('rushes', '01', 'Dépose',
 const LOGOS = {openverse: 'openverse', claude: 'claude', anthropic: 'anthropic', codex: 'openai', openai: 'openai', chatgpt: 'openai', whisper: 'openai', gemini: 'googlegemini', google: 'google',
   elevenlabs: 'elevenlabs', drive: 'googledrive', treg: 'treg', tiktok: 'tiktok', youtube: 'youtubeshorts', instagram: 'instagram', linkedin: 'linkedin', facebook: 'facebook', x: 'x',
   blender: 'blender', hyperframes: 'hyperframes.png', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', macos: 'macos', linux: 'linux', windows: 'windows',
-  premiere: 'adobepremierepro', resolve: 'davinciresolve'};
+  premiere: 'adobepremierepro', resolve: 'davinciresolve', revolut: 'revolut'};
 const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', remotion: 'film', maj: 'maj', competences: 'outil', effaceur: 'baguette'};
 /**
  * Un logo sur sa pastille claire : les logos noirs (TikTok, GitHub…) restent lisibles sur le fond sombre.

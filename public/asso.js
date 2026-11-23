@@ -1,7 +1,8 @@
-// Dérush — l'association derrière Dérush : la bannière de l'accueil, la fenêtre « Soutenir » (l'histoire, le carrousel de
-// photos, le don à un projet en cours ou à l'association, les réseaux), « Nous écrire » et « Signaler un bug ».
+// Dérush — l'association derrière Dérush : la bannière de l'accueil, la fenêtre « Soutenir » (à gauche le récit : les
+// photos en paysage, comment chaque groupe a financé son voyage ; à droite le don : un projet en cours, l'association,
+// Revolut), « Nous écrire » et « Signaler un bug ».
 // Le serveur dit quoi montrer (lib/asso.mjs) : les cagnottes viennent de HelloAsso, par le site de l'association. Le
-// paiement se fait sur la page de HelloAsso, dans le navigateur : rien de la personne ne passe par Dérush.
+// paiement se fait sur la page de HelloAsso, dans le navigateur : aucune carte ne passe par Dérush.
 // Rien ne part sans un clic : le diagnostic d'un bug est montré en entier avant « Envoyer ».
 
 const COEUR = '<svg class="ic plein" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.4s-7.6-4.5-7.6-10.1A4.3 4.3 0 0 1 8.7 6c1.4 0 2.6.7 3.3 1.8C12.700 6.700 13.900 6 15.300 6a4.300 4.300 0 0 1 4.300 4.300c0 5.600-7.600 10.100-7.600 10.100z"/></svg>';
@@ -26,7 +27,7 @@ export function creerAsso(o) {
     const projet = b.projet ? `<span class="don-b-projet">Leur prochain défi : <b>${esc(b.projet.titre.split(' : ')[0])}</b>${b.projet.jours != null && b.projet.jours >= 0 ? `, encore ${b.projet.jours} jour${b.projet.jours > 1 ? 's' : ''} pour les aider.` : '.'}</span>` : '';
     return `<div class="don-banniere" data-don="ouvrir" role="button" tabindex="0" title="Découvrir l’association et faire un don">
       <span class="don-b-logo"><img src="/marque/yabai.webp" alt="${esc(b.nom)}" draggable="false"></span>
-      <span class="don-b-txt"><b>Dérush est gratuit et open source.</b> Il a été imaginé par les jeunes de l’association ${esc(b.nom)}, pour tous ceux qui créent. ${projet}</span>
+      <span class="don-b-txt"><b>Dérush est gratuit et open source.</b> Il a été imaginé par les jeunes de l’association ${esc(b.nom)}, qui financent eux-mêmes leurs voyages au Japon. ${projet}</span>
       <button class="btn claude petit" data-don="ouvrir">${COEUR}<span>Soutenir</span></button>
       <button class="icone-btn don-fermer" data-don="masquer" title="Masquer pendant 30 jours (le cœur reste en haut)">${ic('fermer')}</button>
     </div>`;
@@ -54,45 +55,60 @@ export function creerAsso(o) {
     racine.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('don-banniere')) { e.preventDefault(); soutenir(); } });
   }
 
-  // ——— le carrousel de photos ———
+  // ——— le carrousel de photos (en paysage) ———
+  const DUREE_PHOTO = 5200;
   function carrousel(racine, photos) {
     const scene = racine.querySelector('.don-photos');
-    if (!scene) return () => {};
+    if (!scene) return {arreter() {}, aller() {}};
     const calme = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let vues = []; // les photos qui se sont chargées, dans l'ordre
+    let vues = []; // les photos qui se sont chargées, dans l'ordre de asso.json
     let i = 0;
     let minuteur = null;
     let ferme = false; // la fenêtre est fermée : une photo qui arrive encore ne relance rien
     const points = scene.querySelector('.don-points');
     const legende = scene.querySelector('.don-legende');
+    const dire = (v) => { legende.innerHTML = `${esc(v.legende)}${v.credit ? ` <i>Photo : ${esc(v.credit)}</i>` : ''}`; };
     const montrer = (n) => {
       if (!vues.length) return;
+      const avant = vues[i]?.el;
       i = (n + vues.length) % vues.length;
-      vues.forEach((v, k) => v.el.classList.toggle('vue', k === i));
-      legende.textContent = vues[i].legende;
+      // la photo qui s'en va garde son mouvement pendant le fondu (sinon elle sauterait)
+      vues.forEach((v, k) => { v.el.classList.toggle('sort', v.el === avant && k !== i); v.el.classList.toggle('vue', k === i); });
+      dire(vues[i]);
       [...points.children].forEach((p, k) => p.classList.toggle('actif', k === i));
     };
-    const relancer = () => { clearInterval(minuteur); if (!ferme && !calme && vues.length > 1) minuteur = setInterval(() => montrer(i + 1), 5200); };
+    // le point de la photo montrée se remplit pendant qu'elle reste à l'écran
+    const cadence = (oui) => { points.classList.remove('court'); if (oui) { void points.offsetWidth; points.classList.add('court'); } };
+    const relancer = () => {
+      clearInterval(minuteur);
+      const tourne = !ferme && !calme && vues.length > 1;
+      cadence(tourne);
+      if (tourne) minuteur = setInterval(() => { montrer(i + 1); cadence(true); }, DUREE_PHOTO);
+    };
+    const pause = () => { clearInterval(minuteur); cadence(false); };
     photos.forEach((p, rang) => {
       const img = new Image();
       img.decoding = 'async';
       img.referrerPolicy = 'no-referrer';
       img.alt = p.legende;
       img.draggable = false;
+      if (rang === 0) img.fetchPriority = 'high';
+      if (p.cadre) img.style.objectPosition = p.cadre; // où regarder dans la photo recadrée (validé par le serveur)
       img.addEventListener('load', () => {
         if (ferme) return;
         const el = document.createElement('div');
-        el.className = 'don-photo';
+        el.className = `don-photo ${rang % 2 ? 'b' : 'a'}`;
         el.append(img);
         scene.querySelector('.don-piste').append(el);
         const pt = document.createElement('button');
         pt.title = p.legende;
+        pt.setAttribute('aria-label', p.legende);
         pt.addEventListener('click', () => { montrer(vues.findIndex((v) => v.el === el)); relancer(); });
         // les photos gardent l'ordre de asso.json, quel que soit l'ordre où elles arrivent
         const courante = vues[i]?.el ?? null;
         const place = vues.findIndex((v) => v.rang > rang);
         const k = place < 0 ? vues.length : place;
-        vues.splice(k, 0, {el, legende: p.legende, rang});
+        vues.splice(k, 0, {el, legende: p.legende, credit: p.credit, rang});
         points.insertBefore(pt, points.children[k] ?? null);
         scene.classList.add('a-photos');
         // la première de la liste prend la main tant que personne n'a rien choisi ; sinon la photo montrée reste
@@ -102,15 +118,41 @@ export function creerAsso(o) {
       // une photo qui ne vient pas (hors ligne, retirée du site) est simplement passée
       img.src = p.src;
     });
-    scene.querySelector('[data-photo="avant"]')?.addEventListener('click', () => { montrer(i - 1); relancer(); });
-    scene.querySelector('[data-photo="apres"]')?.addEventListener('click', () => { montrer(i + 1); relancer(); });
-    scene.addEventListener('pointerenter', () => clearInterval(minuteur));
+    const aller = (pas) => { if (vues.length > 1) { montrer(i + pas); relancer(); } };
+    scene.querySelector('[data-photo="avant"]')?.addEventListener('click', () => aller(-1));
+    scene.querySelector('[data-photo="apres"]')?.addEventListener('click', () => aller(1));
+    scene.addEventListener('pointerenter', pause);
     scene.addEventListener('pointerleave', relancer);
-    return () => { ferme = true; clearInterval(minuteur); vues = []; };
+    return {arreter() { ferme = true; clearInterval(minuteur); vues = []; }, aller};
+  }
+
+  // ——— le récit : les sommes réunies, qui se comptent quand elles arrivent à l'écran ———
+  // l'espace des milliers : une espace insécable ordinaire, que toutes les polices ont (l'espace fine manque à certaines)
+  const somme = (n) => `${n.toLocaleString('fr-FR').replace(/[\u202f\u2009 ]/g, '\u00a0')}\u00a0€`;
+  function compter(racine) {
+    const cibles = [...racine.querySelectorAll('[data-compte]')];
+    if (!cibles.length || matchMedia('(prefers-reduced-motion: reduce)').matches || typeof IntersectionObserver !== 'function') return () => {};
+    let ferme = false;
+    const jouer = (el) => {
+      const total = Number(el.dataset.compte);
+      const debut = performance.now();
+      const pas = (t) => {
+        if (ferme || !el.isConnected) return;
+        const p = Math.min(1, (t - debut) / 1100);
+        el.textContent = somme(Math.round(total * (1 - (1 - p) ** 3) / 100) * 100);
+        if (p < 1) requestAnimationFrame(pas); else el.textContent = somme(total);
+      };
+      requestAnimationFrame(pas);
+    };
+    const oeil = new IntersectionObserver((vus) => {
+      for (const v of vus) if (v.isIntersecting) { oeil.unobserve(v.target); jouer(v.target); }
+    }, {threshold: 0.6});
+    cibles.forEach((el) => oeil.observe(el));
+    return () => { ferme = true; oeil.disconnect(); };
   }
 
   // ——— « Soutenir » ———
-  const reseaux = (liste) => liste.map((r) => `<button class="don-reseau" data-lien="${esc(r.lien)}" title="${esc(`${r.nom} : ${r.compte}`)}">${logo(r.id, 30)}<span>${esc(r.nom)}</span></button>`).join('');
+  const reseaux = (liste) => liste.map((r) => `<button class="don-reseau mini" data-lien="${esc(r.lien)}" title="${esc(`${r.nom} : ${r.compte}`)}" aria-label="${esc(`${r.nom} : ${r.compte}`)}">${logo(r.id, 26)}</button>`).join('');
   const carteDon = (d, {projet = false} = {}) => {
     const jours = projet && d.jours != null && d.jours >= 0 ? (d.jours === 0 ? 'dernier jour' : `encore ${d.jours} jour${d.jours > 1 ? 's' : ''}`) : null;
     const objectif = projet && d.objectif ? `Objectif : ${d.objectif.toLocaleString('fr-FR')} €` : null;
@@ -190,6 +232,20 @@ export function creerAsso(o) {
     dire();
   }
 
+  /** Une étape du récit : la somme (comptée à l'écran), quand, et comment ils ont fait. */
+  const etape = (e, k) => `<li class="don-etape${e.suite ? ' suite' : ''}" style="--i:${k}">
+      <span class="don-etape-chiffre">${e.montant ? `<b data-compte="${e.montant}">${somme(e.montant)}</b>` : ''}${e.mention ? `<small>${esc(e.mention)}</small>` : ''}</span>
+      <span class="don-etape-texte"><small>${esc(e.quand)}</small><span>${esc(e.texte)}</span>${e.suite ? `<button class="btn lien don-vers-projet" data-vers-projet>${COEUR}Les aider à partir</button>` : ''}</span>
+    </li>`;
+  /** Revolut : une ligne discrète ; au clic, le code QR à scanner avec le téléphone (le don se fait dans l'app). */
+  const ligneRevolut = (r) => (r ? `<div class="don-revolut">
+      <button class="don-revolut-tete" data-revolut aria-expanded="false">${logo('revolut', 30)}<span><b>${esc(r.titre)}</b><small>${esc(r.accroche || 'Tu as l’app ? Donne depuis ton téléphone.')}</small></span>${ic('suiv')}</button>
+      <div class="don-revolut-detail cache">
+        ${r.qr ? `<svg class="don-qr" viewBox="0 0 ${r.qr.taille} ${r.qr.taille}" role="img" aria-label="Code QR de la page de don de l’association sur Revolut" shape-rendering="crispEdges"><rect width="${r.qr.taille}" height="${r.qr.taille}" fill="#fff"/><path d="${esc(r.qr.d)}" fill="#111"/></svg>` : ''}
+        <span>${r.qr ? '<b>Scanne ce code avec ton téléphone.</b>' : ''}<small>${esc(r.texte)}</small><button class="btn lien" data-lien="${esc(r.lien)}">${esc(r.bouton)}${FLECHE}</button></span>
+      </div>
+    </div>` : '');
+
   async function soutenir() {
     const f = feuille(`<div class="don-attente"><span class="don-b-logo grand"><img src="/marque/yabai.webp" alt="YABAÏ" draggable="false"></span><p class="sous-titre">On va chercher les projets en cours…</p></div>`, true);
     f.classList.add('soutien');
@@ -197,45 +253,87 @@ export function creerAsso(o) {
     try { d = await api('GET', '/api/asso'); } catch (e) { fermerFeuille(); return note(e.message, true); }
     if (!f.isConnected) return;
     const a = d.asso;
+    const r = a.recit ?? {};
     const projets = d.dons.projets ?? [];
     f.innerHTML = `
-      <div class="don-photos" aria-label="Photos de l’association">
-        <div class="don-piste"></div>
-        <div class="don-vide"><span class="don-b-logo grand"><img src="/marque/yabai.webp" alt="" draggable="false"></span><b>${esc(a.accroche || a.devise)}</b></div>
-        <button class="don-fleche g" data-photo="avant" title="Photo d’avant">${ic('prec')}</button><button class="don-fleche d" data-photo="apres" title="Photo suivante">${ic('suiv')}</button>
-        <div class="don-bas-photo"><span class="don-legende"></span><span class="don-points"></span></div>
+      <button class="icone-btn don-clore" data-fermer title="Fermer">${ic('fermer')}</button>
+      <div class="don-deux">
+      <div class="don-recit">
+        <div class="don-photos" aria-label="Photos de l’association" aria-roledescription="carrousel">
+          <div class="don-piste"></div>
+          <div class="don-vide"><span class="don-b-logo grand"><img src="/marque/yabai.webp" alt="" draggable="false"></span><b>${esc(a.accroche || a.devise)}</b></div>
+          <button class="don-fleche g" data-photo="avant" title="Photo d’avant">${ic('prec')}</button><button class="don-fleche d" data-photo="apres" title="Photo suivante">${ic('suiv')}</button>
+          <div class="don-bas-photo"><span class="don-legende"></span><span class="don-points"></span></div>
+        </div>
+        <div class="don-texte">
+          ${r.titre || r.titre_fort ? `<h3 class="don-titre">${esc(r.titre)}${r.titre && r.titre_fort ? '<br>' : ''}${r.titre_fort ? `<em>${esc(r.titre_fort)}</em>` : ''}</h3>` : ''}
+          ${r.intro ? `<p class="don-intro">${esc(r.intro)}</p>` : ''}
+          ${r.etapes?.length ? `<ol class="don-etapes">${r.etapes.map(etape).join('')}</ol>` : ''}
+        </div>
       </div>
       <div class="don-corps">
-        <button class="icone-btn don-clore" data-fermer title="Fermer">${ic('fermer')}</button>
         <div class="don-qui"><span class="don-b-logo"><img src="/marque/yabai.webp" alt="${esc(a.nom)}" draggable="false"></span><span><b>Association ${esc(a.nom)}</b><small>${esc([a.devise, a.lieu].filter(Boolean).join(' · '))}</small></span></div>
         <div class="don-page accueil">
-        <h3 class="don-titre">Dérush est gratuit.<br><em>Fais vivre ceux qui l’ont imaginé.</em></h3>
+        <h3 class="don-titre second">Dérush est gratuit.<br><em>Fais vivre ceux qui l’ont imaginé.</em></h3>
         ${a.histoire.map((p) => `<p class="don-histoire">${esc(p)}</p>`).join('')}
-        ${a.reperes.length ? `<div class="don-reperes">${a.reperes.map((r) => `<span><b>${esc(r.chiffre)}</b><small>${esc(r.texte)}</small></span>`).join('')}</div>` : ''}
         <h4 class="don-question">Où va ton don ?<span class="don-direct${d.direct ? ' oui' : ''}" title="${d.direct ? 'La liste des projets vient de HelloAsso, à l’instant.' : 'Le site de l’association ne répond pas : voici les projets connus de Dérush.'}"><i></i>${d.direct ? 'En direct de HelloAsso' : 'Hors ligne'}</span></h4>
         <div class="don-liste">${projets.map((p) => carteDon(p, {projet: true})).join('')}${d.dons.asso ? carteDon(d.dons.asso) : ''}</div>
+        ${ligneRevolut(d.dons.revolut)}
         <p class="don-note">${ic('cadenas')}<span>${esc(a.fiscal)} ${esc(a.paiement)}</span></p>
         <div class="don-suite">
-          <span class="don-suite-t">Pas de budget ? Un abonnement ou un partage aide aussi.</span>
-          <div class="don-reseaux">${reseaux(d.reseaux)}</div>
-          <div class="don-liens"><button class="btn lien" data-lien="${esc(a.site)}">${ic('globe')}yabai.fr</button><button class="btn lien" data-asso="contact">${ENVELOPPE}Nous écrire</button><button class="btn lien" data-asso="bug">${INSECTE}Signaler un bug</button>${d.depot ? `<button class="btn lien" data-lien="${esc(d.depot)}" title="Dérush est un logiciel libre (licence GPL-3.0) : son code est ouvert à tous">${logo('github', 14)}Code source</button>` : ''}</div>
+          <div class="don-suite-haut"><span class="don-suite-t">Pas de budget ? Les suivre et partager leurs vidéos aide aussi.</span><div class="don-reseaux">${reseaux(d.reseaux)}</div></div>
+          <div class="don-liens"><button class="btn lien" data-lien="${esc(a.site)}">${ic('globe')}yabai.fr</button><button class="btn lien" data-asso="contact">${ENVELOPPE}Nous écrire</button>${d.depot ? `<button class="btn lien" data-lien="${esc(d.depot)}" title="Dérush est un logiciel libre (licence GPL-3.0) : son code est ouvert à tous">${logo('github', 14)}Code source</button>` : ''}</div>
         </div>
         </div>
         <div class="don-page libre cache">${pageLibre(d)}</div>
+      </div>
       </div>`;
     brancherLibre(f, d);
-    const arreter = carrousel(f, d.photos ?? []);
+    const photos = carrousel(f, d.photos ?? []);
+    const finCompte = compter(f);
+    const fleches = (e) => {
+      if (!f.isConnected) return arreter(); // la fenêtre a été remplacée par une autre
+      if (e.target.closest?.('input, textarea, select') || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+      if (!f.querySelector('.don-page.accueil')?.classList.contains('cache')) photos.aller(e.key === 'ArrowLeft' ? -1 : 1);
+    };
+    document.addEventListener('keydown', fleches);
+    const arreter = () => { photos.arreter(); finCompte(); document.removeEventListener('keydown', fleches); };
     f.avantFermeture = () => { arreter(); };
+    const deux = f.querySelector('.don-deux');
+    const corps = f.querySelector('.don-corps');
+    // quand la fenêtre est étroite, tout défile d'un bloc : on amène le don à l'écran
+    const versDon = () => { corps.scrollTop = 0; if (deux.scrollHeight > deux.clientHeight + 4) deux.scrollTo({top: corps.offsetTop, behavior: 'smooth'}); };
     f.addEventListener('click', (e) => {
       if (e.target.closest('[data-fermer]')) return fermerFeuille();
-      // le don libre : la seconde page de la fenêtre, et son retour
-      const pages = (libre) => { f.querySelector('.don-page.accueil').classList.toggle('cache', libre); f.querySelector('.don-page.libre').classList.toggle('cache', !libre); f.querySelector('.don-corps').scrollTop = 0; };
-      if (e.target.closest('[data-libre]')) { pages(true); setTimeout(() => f.querySelector('#don-prenom')?.focus(), 60); return; }
+      // le don libre : la seconde page de la colonne du don, et son retour
+      const pages = (libre) => { f.querySelector('.don-page.accueil').classList.toggle('cache', libre); f.querySelector('.don-page.libre').classList.toggle('cache', !libre); versDon(); };
+      if (e.target.closest('[data-libre]')) { pages(true); setTimeout(() => f.querySelector('#don-prenom')?.focus({preventScroll: true}), 60); return; }
       if (e.target.closest('[data-retour]')) return pages(false);
+      // « Les aider à partir » : montre la carte du projet en cours
+      if (e.target.closest('[data-vers-projet]')) {
+        if (f.querySelector('.don-page.accueil').classList.contains('cache')) pages(false); else versDon();
+        const carte = f.querySelector('.don-choix.projet');
+        if (carte) { carte.classList.remove('appel'); void carte.offsetWidth; carte.classList.add('appel'); }
+        return;
+      }
+      const rv = e.target.closest('[data-revolut]');
+      if (rv) {
+        const detail = rv.parentElement.querySelector('.don-revolut-detail');
+        const ouvert = detail.classList.toggle('cache') === false;
+        rv.setAttribute('aria-expanded', String(ouvert));
+        rv.parentElement.classList.toggle('ouvert', ouvert);
+        if (ouvert) detail.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+        return;
+      }
       const l = e.target.closest('[data-lien]');
-      if (l) { lien(l.dataset.lien); if (l.closest('.don-choix')) note('La page de HelloAsso s’ouvre dans ton navigateur. Merci pour eux !', false, true); return; }
+      if (l) {
+        lien(l.dataset.lien);
+        if (l.closest('.don-choix')) note('La page de HelloAsso s’ouvre dans ton navigateur. Merci pour eux !', false, true);
+        else if (l.closest('.don-revolut')) note('La page de Revolut s’ouvre dans ton navigateur. Merci pour eux !', false, true);
+        return;
+      }
       const autre = e.target.closest('[data-asso]')?.dataset.asso;
-      if (autre === 'contact') { arreter(); contact(); } else if (autre === 'bug') { arreter(); bug(); }
+      if (autre === 'contact') { arreter(); contact(); }
     });
   }
 

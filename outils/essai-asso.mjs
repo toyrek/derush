@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-// Dérush — les essais de la partie « association » (lib/asso.mjs, lib/journal.mjs) et des fiches de genre
+// Dérush — les essais de la partie « association » (lib/asso.mjs, lib/journal.mjs, lib/qr.mjs) et des fiches de genre
 // (competences/genres-video) :
 //  - asso.json se lit, et rien d'autre qu'une page HelloAsso de l'association n'est accepté comme page de don ;
+//  - le récit donne les sommes réunies par chaque groupe ; l'étape « la suite » s'efface quand aucun projet n'est ouvert ;
+//  - Revolut : seule une page de don de revolut.com est acceptée, et son code QR est juste (codes relus par un vrai
+//    lecteur, puis épinglés ici) ;
 //  - les cagnottes viennent du site (ici : un faux site, sur cet ordinateur), une cagnotte finie ou une adresse
 //    étrangère est écartée, la liste est gardée une heure, et sans réponse la dernière liste connue sert ;
 //  - la bannière se masque 30 jours ;
@@ -59,6 +62,8 @@ process.env.DERUSH_ASSO_API = `http://127.0.0.1:${serveur.address().port}/api/tr
 
 const A = await import(pathToFileURL(path.join(D, 'lib', 'asso.mjs')).href);
 const J = await import(pathToFileURL(path.join(D, 'lib', 'journal.mjs')).href);
+const Q = await import(pathToFileURL(path.join(D, 'lib', 'qr.mjs')).href);
+const {createHash} = await import('node:crypto');
 
 // De fausses clés, assemblées ici : ce fichier ne porte aucune chaîne en forme de clé (le contrôle d'avant publication,
 // et celui de GitHub, la prendraient pour une fuite).
@@ -74,7 +79,13 @@ const a = A.lireAsso();
 essai('l’association : son nom, son histoire, sa mission, son site, son adresse', a.nom === 'YABAÏ' && a.histoire.length >= 1 && a.mission.length > 40 && a.site.startsWith('https://www.yabai.fr') && a.contact === 'contact@yabai.fr', a);
 essai('le don libre et les projets : des pages HelloAsso de l’association, rien d’autre', a.dons.asso.lien.startsWith(DON) && a.dons.projets.length >= 1 && a.dons.projets.every((p) => p.lien.startsWith(DON) && p.slug && p.titre), a.dons);
 essai('les réseaux : chacun sur son propre site, en https', a.reseaux.length >= 3 && a.reseaux.every((r) => r.lien.startsWith('https://') && new URL(r.lien).hostname.includes(r.id === 'x' ? 'x.com' : r.id)), a.reseaux);
-essai('les photos : seulement celles du site de l’association, avec une légende', a.photos.length >= 4 && a.photos.every((p) => /^https:\/\/(www\.)?yabai\.fr\//.test(p.src) && p.legende), a.photos);
+essai('les photos : seulement celles du site de l’association, avec une légende', a.photos.length >= 6 && a.photos.every((p) => /^https:\/\/(www\.)?yabai\.fr\//.test(p.src) && p.legende), a.photos);
+essai('une photo peut dire où regarder et qui l’a prise, rien de plus', a.photos.every((p) => p.cadre === null || /^\d{1,3}% \d{1,3}%$/.test(p.cadre)) && a.photos.some((p) => p.cadre) && a.photos[0].credit.startsWith('@'), a.photos.map((p) => [p.cadre, p.credit]));
+essai('le récit : un titre, et ce que chaque groupe a réuni, dans l’ordre', a.recit.titre.length > 5 && a.recit.titre_fort.length > 5 && a.recit.intro.length > 80 && a.recit.etapes.map((x) => x.montant).join() === '43000,60000,10000' && a.recit.etapes.every((x) => x.quand && x.mention && x.texte.length > 60), a.recit);
+essai('seule la dernière étape parle de la suite (le projet en cours)', a.recit.etapes.map((x) => x.suite).join() === 'false,false,true' && a.recit.etapes.at(-1).mention === 'à réunir');
+essai('Revolut : une page de don de revolut.com, et rien d’autre', A.PAGE_REVOLUT.test(a.dons.revolut.lien) && a.dons.revolut.titre.length > 3 && a.dons.revolut.texte.length > 20
+  && ['http://revolut.com/app/donations/549cad02-8123-4062-bda1-f84543750d7d', 'https://revolut.com.exemple.test/app/donations/549cad02-8123-4062-bda1-f84543750d7d', 'https://exemple.test/app/donations/549cad02-8123-4062-bda1-f84543750d7d',
+    'https://revolut.com/app/donations/549cad02-8123-4062-bda1-f84543750d7d?vers=ailleurs', 'https://revolut.com/app/autre/549cad02-8123-4062-bda1-f84543750d7d', 'https://revolut.com/app/donations/pas-un-identifiant'].every((l) => !A.PAGE_REVOLUT.test(l)), a.dons.revolut);
 essai('le texte ne promet rien de faux : pas de compteur d’argent', !/collecté/i.test(JSON.stringify(a)));
 essai('« open source » est vrai : la licence GPL-3.0 est là, entière, et annoncée', fs.readFileSync(path.join(D, 'LICENSE'), 'utf8').includes('GNU GENERAL PUBLIC LICENSE') && fs.readFileSync(path.join(D, 'LICENSE'), 'utf8').includes('Version 3, 29 June 2007') && fs.statSync(path.join(D, 'LICENSE')).size > 34000 && JSON.parse(fs.readFileSync(path.join(D, 'package.json'), 'utf8')).license === 'GPL-3.0-only' && /GPL-3\.0/.test(fs.readFileSync(path.join(D, 'LICENCE.md'), 'utf8')) && !/Tous droits réservés/.test(fs.readFileSync(path.join(D, 'LICENCE.md'), 'utf8')));
 essai('l’app fabriquée emporte asso.json et la licence', /'asso\.json'/.test(fs.readFileSync(path.join(D, 'outils', 'construire-app.mjs'), 'utf8')) && /'LICENSE'/.test(fs.readFileSync(path.join(D, 'outils', 'construire-app.mjs'), 'utf8')));
@@ -102,6 +113,8 @@ essai('« Soutenir » : en direct, les projets ouverts seulement, celui de asso.
 essai('les jours restants sont comptés', s.dons.projets[0].jours === 39 || s.dons.projets[0].jours === 40, s.dons.projets[0].jours);
 essai('une cagnotte ouverte sur HelloAsso apparaît sans mise à jour de Dérush', s.dons.projets[1].titre === 'Une nouvelle cagnotte' && s.dons.projets[1].lien === `${DON}collectes/nouvelle`);
 essai('le don libre reste celui de asso.json tant qu’il est ouvert', s.dons.asso.lien === `${DON}formulaires/2`);
+essai('le récit arrive entier tant qu’un projet est ouvert', s.asso.recit.etapes.length === 3 && s.asso.recit.etapes.at(-1).suite === true, s.asso.recit.etapes.map((x) => x.quand));
+essai('Revolut arrive avec son code QR, prêt à dessiner', s.dons.revolut.lien === a.dons.revolut.lien && s.dons.revolut.qr.taille === 45 && /^(M\d+ \d+h\d+v1h-\d+z)+$/.test(s.dons.revolut.qr.d), s.dons.revolut);
 const avant = site.appels;
 s = await A.soutien();
 essai('la liste est gardée une heure : pas de second appel au site', site.appels === avant && s.direct === true, {avant, apres: site.appels});
@@ -114,6 +127,28 @@ essai('jamais lue et hors ligne : les projets de asso.json, sans planter', s.dir
 site.campagnes = [{slug: '9', title: 'Un autre don libre', description: '', url: `${DON}formulaires/9`}];
 s = await A.soutien({force: true});
 essai('le don libre a changé sur HelloAsso : Dérush prend celui qui est ouvert', s.dons.asso.lien === `${DON}formulaires/9` && s.dons.projets.length === 0, s.dons);
+essai('plus aucun projet ouvert : le récit s’arrête aux voyages faits', s.asso.recit.etapes.length === 2 && s.asso.recit.etapes.every((x) => !x.suite), s.asso.recit.etapes.map((x) => x.quand));
+
+console.log('Le code QR (pour donner avec Revolut depuis son téléphone)');
+// Ces trois codes ont été relus par le lecteur de codes du Mac (Vision) le 23 novembre 2026 : leur empreinte est épinglée.
+const empreinte = (c) => createHash('sha256').update(c.lignes.join('\n')).digest('hex').slice(0, 16);
+const connus = [['https://www.yabai.fr', 2, 2, '973fda42bb400bb8'], ['Dérush', 1, 6, '0d8158997c4d172f'], ['x'.repeat(106), 6, 3, '536f804ac066bd50']];
+essai('trois codes relus par un vrai lecteur n’ont pas bougé', connus.every(([texte, version, masque, attendu]) => { const c = Q.qr(texte); return c.version === version && c.masque === masque && empreinte(c) === attendu; }), connus.map(([texte]) => { const c = Q.qr(texte); return [c.version, c.masque, empreinte(c)]; }));
+const code = Q.qr(a.dons.revolut.lien);
+const sombre = (x, y) => code.lignes[y][x] === '1';
+const repere = (x0, y0) => { for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) { const d = Math.max(Math.abs(x - 3), Math.abs(y - 3)); if (sombre(x0 + x, y0 + y) !== (d !== 2)) return false; } return true; };
+essai('le code de Revolut : carré, de la bonne taille, avec ses trois repères', code.taille === 17 + 4 * code.version && code.lignes.length === code.taille && code.lignes.every((l) => l.length === code.taille && /^[01]+$/.test(l)) && repere(0, 0) && repere(code.taille - 7, 0) && repere(0, code.taille - 7), [code.taille, code.version]);
+essai('ses lignes de cadence alternent, et le module toujours sombre est là', Array.from({length: code.taille - 16}, (_, i) => i + 8).every((i) => sombre(i, 6) === (i % 2 === 0) && sombre(6, i) === (i % 2 === 0)) && sombre(8, code.taille - 8));
+// les 15 bits de format, lus aux deux endroits : le niveau M, le masque annoncé, et un reste de division nul
+const format = (copie) => { let bits = 0; const lire = (i, x, y) => { if (sombre(x, y)) bits |= 1 << i; }; const n = code.taille;
+  if (copie === 1) { for (let i = 0; i <= 5; i++) lire(i, 8, i); lire(6, 8, 7); lire(7, 8, 8); lire(8, 7, 8); for (let i = 9; i < 15; i++) lire(i, 14 - i, 8); }
+  else { for (let i = 0; i < 8; i++) lire(i, n - 1 - i, 8); for (let i = 8; i < 15; i++) lire(i, 8, n - 15 + i); }
+  return bits ^ 0x5412; };
+const reste = (bits) => { let v = bits; for (let i = 14; i >= 10; i--) if (v & (1 << i)) v ^= 0x537 << (i - 10); return v; };
+essai('son format, écrit deux fois, dit le niveau M et le bon masque', format(1) === format(2) && reste(format(1)) === 0 && (format(1) >>> 13) === 0 && ((format(1) >>> 10) & 7) === code.masque, [format(1).toString(2), format(2).toString(2), code.masque]);
+essai('un texte vide ou trop long (plus de 106 octets) ne donne pas de code', Q.qr('') === null && Q.qr(null) === null && Q.qr('x'.repeat(107)) === null && Q.qr('é'.repeat(54)) === null && Q.qr('é'.repeat(53)).version === 6 && Q.cheminQr('x'.repeat(200)) === null);
+const trace = Q.cheminQr('https://www.yabai.fr');
+essai('le tracé garde une marge blanche de 4 modules tout autour', trace.taille === 25 + 8 && [...trace.d.matchAll(/M(\d+) (\d+)h(\d+)/g)].every(([, x, y, l]) => Number(x) >= 4 && Number(y) >= 4 && Number(x) + Number(l) <= 29 && Number(y) <= 28), trace.taille);
 
 console.log('Le don libre (sans cagnotte)');
 essai('les montants proposés sont ceux de la page de don du site', A.MONTANTS_DON.join() === '5,10,20,50,100' && s.libre.montants.join() === '5,10,20,50,100' && s.libre.deduction === 0.66);

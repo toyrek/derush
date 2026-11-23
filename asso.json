@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "nom": "YABAÏ",
   "devise": "Culture, Création, Connexion",
   "accroche": "Rendre possible l’impossible",
@@ -8,18 +8,22 @@
   "site": "https://www.yabai.fr",
   "contact": "contact@yabai.fr",
   "depot": "https://github.com/toyrek/derush",
+  "recit": {
+    "titre": "Leur voyage au Japon,",
+    "titre_fort": "ils le financent eux-mêmes.",
+    "intro": "À Persan, dans le Val-d’Oise, YABAÏ accompagne des jeunes des quartiers populaires. Sa règle : le voyage ne s’offre pas, il se construit. Alors ils entreprennent : ils créent, vendent, organisent des événements et vont convaincre des partenaires.",
+    "etapes": [
+      {"quand": "2025 · première génération", "montant": 43000, "mention": "réunis", "texte": "Treize jeunes, dix-huit mois de préparation : des sweats à leur marque, des onigiris vendus sur les événements, des pitchs à Japan Expo, une cagnotte, des mécènes et des subventions décrochés un à un. En avril 2025, ils sont à Tokyo."},
+      {"quand": "2026 · deuxième génération", "montant": 60000, "mention": "réunis", "texte": "Un an à créer, vendre et organiser : un photobooth conçu, codé et fabriqué par eux, le YABAÏ Dōjō à la tour Eiffel, 48 heures de live pour Brick Matsuri, des prestations de traiteur et d’ateliers. En octobre 2026, treize jours d’Osaka à Tokyo."},
+      {"quand": "2027 · le prochain départ", "montant": 10000, "mention": "à réunir", "suite": true, "texte": "Quatre jeunes partent à Tottori, dans la campagne japonaise, concevoir et fabriquer un outil utile à une rizière. EVA Air offre les billets : ton don finance le reste."}
+    ]
+  },
   "histoire": [
-    "Dérush est né dans l’association YABAÏ, à Persan, dans le Val-d’Oise. Les jeunes qu’elle accompagne l’ont imaginé pour monter leurs propres vidéos : leurs voyages au Japon, leurs projets, leurs histoires.",
-    "Aujourd’hui, il est à tout le monde : gratuit, et son code est ouvert. Si Dérush t’aide, aide à ton tour les jeunes qui l’ont rêvé."
+    "Dérush est né là : ces jeunes l’ont imaginé pour monter leurs propres vidéos, celles de leurs projets et de leurs voyages. Il est gratuit et son code est ouvert à tous. S’il t’aide, aide-les à ton tour."
   ],
   "mission": "YABAÏ donne confiance à la jeunesse des quartiers, la met au premier plan et lui fait vivre des choses extraordinaires : l’entrepreneuriat, la création de contenu et les échanges entre la France et le Japon.",
-  "reperes": [
-    {"chiffre": "2025", "texte": "nos jeunes à l’Exposition universelle d’Osaka"},
-    {"chiffre": "13", "texte": "jeunes ont construit et financé leur voyage au Japon en 2026"},
-    {"chiffre": "66 %", "texte": "de ton don déductible de tes impôts"}
-  ],
-  "fiscal": "Chaque don donne droit à un reçu fiscal : 66 % du montant est déductible de tes impôts. Un don de 50 € te coûte 17 €.",
-  "paiement": "Le paiement se fait sur la page sécurisée de HelloAsso, dans ton navigateur. HelloAsso ne prend aucun frais et reverse tout à l’association. Dérush ne voit ni ton nom ni ta carte.",
+  "fiscal": "Avec HelloAsso, chaque don donne droit à un reçu fiscal : 66 % du montant est déductible de tes impôts. Un don de 50 € te coûte 17 €.",
+  "paiement": "Tu paies sur la page sécurisée de HelloAsso, dans ton navigateur : ta carte ne passe jamais par Dérush. HelloAsso ne prend aucun frais.",
   "dons": {
     "asso": {
       "titre": "L’association YABAÏ",
@@ -37,7 +41,14 @@
         "objectif": 10000,
         "fin": "2027-01-30"
       }
-    ]
+    ],
+    "revolut": {
+      "titre": "Aussi sur Revolut",
+      "accroche": "Tu as l’app ? Donne depuis ton téléphone.",
+      "texte": "YABAÏ est référencée sur Revolut Donations. L’app Revolut s’ouvre sur sa page de don.",
+      "bouton": "Ouvrir sur cet ordinateur",
+      "lien": "https://revolut.com/app/donations/549cad02-8123-4062-bda1-f84543750d7d"
+    }
   },
   "reseaux": [
     {"id": "instagram", "nom": "Instagram", "compte": "@la.6t.a.tokyo", "lien": "https://www.instagram.com/la.6t.a.tokyo"},
@@ -46,13 +57,13 @@
     {"id": "linkedin", "nom": "LinkedIn", "compte": "YABAÏ", "lien": "https://www.linkedin.com/company/yaba%C3%AF-%E2%80%93-culture-cr%C3%A9ation-connexion/"}
   ],
   "photos": [
-    {"src": "https://www.yabai.fr/images/home/japon-1280.webp", "legende": "Le groupe YABAÏ en tenue japonaise, dans une rue commerçante au Japon"},
-    {"src": "https://www.yabai.fr/images/tokyo-2026/1019-dotonbori-640.webp", "legende": "Le canal de Dōtonbori, à Osaka"},
-    {"src": "https://www.yabai.fr/images/home/dojo-1280.webp", "legende": "Le collectif sur scène, au YABAÏ Dojo"},
-    {"src": "https://www.yabai.fr/images/tokyo-2026/1025-sensoji-640.webp", "legende": "La grande porte de Sensō-ji, à Tokyo"},
-    {"src": "https://www.yabai.fr/images/home/photobooth-1280.webp", "legende": "Un jeune présente le photobooth en bois et son torii rouge, au FacLab"},
-    {"src": "https://www.yabai.fr/images/tokyo-2026/1026-torii-640.webp", "legende": "Le grand torii de Meiji-jingū"},
-    {"src": "https://www.yabai.fr/images/tokyo-2026/1027-zojoji-tokyo-tower-640.webp", "legende": "Le temple Zōjō-ji et la Tokyo Tower"},
-    {"src": "https://www.yabai.fr/images/tokyo-2026/1025-akihabara-640.webp", "legende": "Akihabara, côté enseignes"}
+    {"src": "https://www.yabai.fr/images/tokyo-2026/hero-kimono-instagram-1280.webp", "legende": "Osaka, octobre 2026 : la deuxième génération, en kimono et en yukata.", "credit": "@odildeuxmille", "cadre": "50% 30%"},
+    {"src": "https://www.yabai.fr/images/home/atelier-1280.webp", "legende": "Au FacLab, les jeunes fabriquent leur photobooth.", "cadre": "50% 12%"},
+    {"src": "https://www.yabai.fr/images/home/photobooth-1280.webp", "legende": "Le photobooth en bois et son torii rouge : conçu, codé et fabriqué par eux."},
+    {"src": "https://www.yabai.fr/images/home/dojo-1280.webp", "legende": "Le collectif sur scène, au YABAÏ Dōjō.", "cadre": "50% 70%"},
+    {"src": "https://www.yabai.fr/images/home/aeroport-1280.webp", "legende": "À l’aéroport, avec les drapeaux français et japonais."},
+    {"src": "https://www.yabai.fr/images/tokyo-2026/1019-namba-nuit-1280.webp", "legende": "Osaka, octobre 2026 : le groupe sous les enseignes de Namba.", "cadre": "50% 75%"},
+    {"src": "https://www.yabai.fr/images/home/japon-1280.webp", "legende": "2025 : la première génération, en tenue japonaise, au Japon.", "cadre": "50% 22%"},
+    {"src": "https://www.yabai.fr/images/home/osaka-1280.webp", "legende": "Mission Osaka, 2025.", "cadre": "50% 30%"}
   ]
 }
