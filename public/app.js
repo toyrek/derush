@@ -20,6 +20,7 @@ import {creerCompetences} from '/competences.js';
 import {creerDrive} from '/drive.js';
 import {creerSequences} from '/sequences.js';
 import {creerAsso} from '/asso.js';
+import {creerTelephone} from '/telephone.js';
 
 const JETON = document.querySelector('meta[name="derush-jeton"]').content;
 // Chaque fenêtre a son identifiant : le serveur sait laquelle est la principale, et quand la dernière se ferme.
@@ -6032,7 +6033,8 @@ function bulleTravail(c) {
     <div class="cl-provisoire cache" id="cl-provisoire"></div>
     <button class="cl-mini cache" id="cl-mini" data-cl="voir-direct" title="Voir en grand dans le lecteur"><img alt=""><span></span></button>
     <details class="ia-detail"${ui.clDetail ? ' open' : ''}><summary>Voir le détail</summary><ul class="cl-activite" id="cl-activite"></ul></details>
-    <button class="cl-lien" data-cl="pourquoi-long">${ic('aide')}Pourquoi c’est long, et que faire en attendant ?</button></div>`;
+    <button class="cl-lien" data-cl="pourquoi-long">${ic('aide')}Pourquoi c’est long, et que faire en attendant ?</button>
+    <button class="cl-lien" data-cl="telephone">${ic('tel-direct')}Suivre sur mon téléphone</button></div>`;
 }
 /** La feuille qui explique l'attente : ce que fait l'IA, ce qui la rend longue, ce qu'on peut faire pendant ce temps. */
 function feuillePourquoiLong() {
@@ -6049,6 +6051,7 @@ function feuillePourquoiLong() {
     <h4>Pendant ce temps, tu peux</h4>
     <ul class="pourquoi-liste">
       <li>${ic('bulle')}<span><b>Lui écrire.</b> ${e?.ecoute ? `${esc(qui)} lit ton message au geste suivant, sans recommencer.` : `Ton message partira dès que ${esc(qui)} aura fini.`}</span></li>
+      <li>${ic('tel-direct')}<span><b>Partir, et suivre sur ton téléphone.</b> Clique sur le téléphone, en haut : tu scannes un code, et tu vois l’avancée d’où tu veux chez toi.</span></li>
       <li>${ic('ciseaux')}<span><b>Continuer ton montage.</b> La timeline reste à toi. À la fin, tu choisiras de repartir de ton montage ou de garder son travail.</span></li>
       <li>${ic('micro')}<span><b>Enregistrer ta voix</b>, préparer une musique ou un bruitage dans « Créer », analyser tes médias.</span></li>
       <li>${ic('eclair')}<span><b>La prochaine fois</b>, choisis <b>Rapide</b> pour une retouche ou une question : le niveau Maximum est fait pour la première version.</span></li>
@@ -6658,6 +6661,7 @@ $('#claude').addEventListener('click', async (e) => {
     // une vidéo livrée par l'IA devient une vidéo de la timeline (public/sequences.js)
     if (act?.startsWith('seq-')) return await SQ.clic(act, e.target.closest('[data-cl]'));
     if (act === 'pourquoi-long') return feuillePourquoiLong();
+    if (act === 'telephone') return TEL.ouvrir();
     if (act === 'joindre') return joindreFichiers();
     if (act === 'styles') return feuilleStyles();
     if (act === 'joindre-drive') {
@@ -7904,6 +7908,9 @@ async function rafraichirMedias() {
   const avantFile = SRV.file;
   SRV.file = r.file;
   majBandeOeil(r.oeil ?? null);
+  // le suivi sur téléphone : son bouton s'allume ; une demande partie du téléphone s'affiche ici aussi
+  TEL.majBouton(r.telephone);
+  if (r.ia && ui.claude && !ui.claude.en_cours) chargerClaude();
   // une installation vient de finir : on relit l'état des moteurs
   if (avantFile?.en_cours?.meta?.type === 'installation' && !r.file.en_cours) SRV.moteurs = await api('GET', '/api/moteurs').catch(() => SRV.moteurs);
   // un détourage vient de finir : les masques qui manquaient sont peut-être là
@@ -8288,6 +8295,9 @@ const VO = creerVoixOff({
 const ASSO = creerAsso({api, note, esc, ic, logo, feuille, fermerFeuille, copierTexte});
 ASSO.ecouterErreurs();
 $('#b-soutenir').addEventListener('click', () => ASSO.soutenir());
+/** « Suivre sur mon téléphone » (public/telephone.js) : la porte du réseau local, le code à scanner, les téléphones reliés. */
+const TEL = creerTelephone({api, note, esc, ic, feuille, fermerFeuille, copierTexte, systeme: () => SRV.systeme, bouton: $('#b-telephone')});
+$('#b-telephone').addEventListener('click', () => TEL.ouvrir());
 /** La petite fenêtre des mises à jour (public/maj.js) : une nouvelle version est sortie, ou vient d'être installée. */
 const MAJ = creerMaj({
   api, note, esc, ic,

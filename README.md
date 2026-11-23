@@ -125,6 +125,18 @@ Le bouton palette, à côté du trombone, propose **99 styles** (face caméra, e
 
 **Exporter**, en haut à droite, comme dans CapCut : ta timeline ou la vidéo de ton IA, en 1080p, 2K ou 4K quand tes rushes le permettent, avec une copie par réseau si tu veux.
 
+## Suis ton montage depuis ton téléphone
+
+Un montage au niveau Maximum dure souvent une heure. Lance-le, pars faire autre chose, et garde un œil dessus : clique sur le téléphone, en haut de l'éditeur, puis sur **Allumer**. Scanne le code avec l'appareil photo de ton téléphone, compare le nombre affiché des deux côtés, clique **Relier ce téléphone** sur l'ordinateur.
+
+<p align="center"><img src="docs/images/capture-telephone.jpg" alt="La fenêtre « Suivre sur mon téléphone » avec son code à scanner, et deux téléphones : le rendu en direct, puis « C'est prêt »" width="100%"></p>
+
+Sur ton téléphone, tu vois ton IA travailler : les images qu'elle fabrique ou regarde, où elle en est (préparation, montage, rendu, contrôle), le temps passé, ses derniers gestes. Quand la vidéo est prête, la page l'annonce en grand : tu la regardes, tu lis la réponse de ton IA, et **Enregistrer sur mon téléphone** la garde chez toi, prête à poster.
+
+- **Par ton Wi-Fi, sans Internet.** Ton téléphone et ton ordinateur doivent être sur le même réseau. Rien ne passe par un serveur à nous.
+- **Regarder d'abord.** Au départ, le téléphone regarde seulement. Si tu veux lui écrire ou l'arrêter de là-bas, allume **Écrire à l'IA depuis le téléphone** dans la même fenêtre.
+- **Un Wi-Fi que tu connais.** La liaison n'est pas chiffrée (comme toute adresse d'un réseau local) : garde-la pour chez toi ou pour l'association, pas pour un Wi-Fi public. **Couper** referme tout, et un téléphone se retire d'un clic.
+
 ## Tes médias, analysés
 
 À l'import, Dérush regarde et écoute chaque rush : image sombre, plate ou brûlée, dominante de couleur, tourné en **Log**, bruit de fond, voix étouffée, écho. Des pastilles le disent sur les vignettes ; la fiche du média (menu « … ») détaille tout. **Analyser** fait regarder tes rushes par ton IA, sans les poser dans la timeline : ce qu'ils contiennent, leurs meilleurs moments, leurs défauts. Ton IA de montage s'en sert, et voit tous tes médias, même ceux que tu n'as pas posés.
@@ -280,6 +292,7 @@ Rien d'autre n'est installé ailleurs, sauf ce que tu acceptes (FFmpeg, Blender,
 - **Windows et Linux** : Dérush a été écrit pour les trois systèmes, mais il n'a été essayé pour de vrai que sur Mac (puce Apple). Sur Windows et Linux, attends-toi à des accrocs : dis-les-nous. La vraie application (sans navigateur) n'existe que sur Mac pour l'instant ; ailleurs, Dérush s'ouvre dans une fenêtre de Chrome, Edge ou Brave.
 - **Sur Mac, la première ouverture** : l'app n'est pas encore signée auprès d'Apple. Si macOS dit qu'il ne peut pas vérifier le développeur : *Réglages Système → Confidentialité et sécurité → Ouvrir quand même*, une seule fois.
 - **L'analyse de viralité** est une estimation faite par ton IA à partir de mesures et de repères publics : elle aide à améliorer une vidéo, elle ne prédit pas ses vues. Elle utilise ton abonnement Claude ou ChatGPT (une à trois minutes par analyse).
+- **Le suivi sur téléphone** a été essayé avec un téléphone simulé sur le même ordinateur, pas encore avec un vrai iPhone ni un vrai téléphone Android. Sur Windows, le pare-feu demande d'autoriser Node.js la première fois, et le réseau doit être réglé sur « Réseau privé » ; si l'ordinateur s'endort, le téléphone ne le voit plus (sur Mac, Dérush le garde éveillé tant que le téléphone regarde).
 - **Sur Mac seulement** : le recadrage qui suit les visages et le titre « derrière la personne » (ils utilisent Apple Vision).
 - **Codex** travaille dans un bac à sable : il écrit dans le dossier du projet, et Dérush fait les rendus pour lui. Claude, lui, travaille directement.
 - **La publication** dépend de Treg et de tes comptes : TikTok en brouillon seulement, YouTube limité à quelques envois par jour, Instagram par un lien public temporaire. Elle n'a pas encore été essayée en vrai sur tous les réseaux.

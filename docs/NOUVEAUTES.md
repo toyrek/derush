@@ -1,5 +1,12 @@
 # Dérush — ce qui est nouveau, version après version
 
+**11.6 — Dérush sur ton téléphone.** Tu lances un montage, tu pars faire autre chose, et tu le suis depuis ton téléphone : ce que fait ton IA, les images du rendu, puis la vidéo finie.
+- **Le direct dans ta poche.** Clique sur le téléphone, en haut de l'éditeur, puis sur « Allumer ». Sur ton téléphone, une page s'ouvre : un moniteur avec les images que ton IA fabrique ou regarde, un voyant « En direct », une grande phrase qui dit où elle en est (préparation, montage, rendu, contrôle), le temps passé et ses derniers gestes.
+- **Relié en un scan.** Tu scannes le code affiché sur ton ordinateur avec l'appareil photo (ou tu tapes ses six chiffres). Ton téléphone et ton ordinateur affichent alors le même nombre : tu compares, tu cliques « Relier ce téléphone », c'est fait. Le code vaut dix minutes et ne sert qu'une fois ; un téléphone se retire d'un clic.
+- **La vidéo finie, sur ton téléphone.** Quand c'est prêt, la page l'annonce en grand : « C'est prêt ». Tu regardes la vidéo, tu relis la réponse de ton IA, et « Enregistrer sur mon téléphone » la garde chez toi, prête à poster. Les versions d'avant restent à portée de pouce.
+- **Écrire à ton IA de là-bas, si tu le veux.** Au départ, le téléphone regarde seulement. Allume « Écrire à l'IA depuis le téléphone », et tu peux lui écrire pendant qu'elle travaille, lui demander une retouche, ou l'arrêter.
+- **Ce qu'il faut savoir.** Ça passe par ton Wi-Fi, sans Internet : ton téléphone et ton ordinateur doivent être sur le même réseau. La liaison n'est pas chiffrée : garde-la pour un Wi-Fi que tu connais (chez toi, à l'association), pas un Wi-Fi public. Sur Mac, l'ordinateur ne s'endort pas tant que ton téléphone regarde. « Couper » referme tout.
+
 **11.5.2 — La 6T à Tottori, en images.** Dans « Soutenir », le projet en cours se voit enfin : son affiche, ses photos, son logo, ses dates.
 - **Le projet en vedette.** En haut de la colonne du don, un carrousel montre l'affiche de la cagnotte (celle de HelloAsso), les jeunes du projet et les dunes de Tottori. Dessous : le logo « La 6T à Tottori », la mission en trois lignes, les dates, les billets offerts par EVA Air, deux vidéos à ouvrir (l'interview de Farid, Tottori en vidéo), et le bouton de la cagnotte.
 - **Sur l'accueil aussi.** La bannière porte le logo du projet en cours.

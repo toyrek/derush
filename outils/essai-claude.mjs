@@ -14,8 +14,9 @@
 // ne part pas), « Pour qui ? » changé (dossier et conversation neufs), la clé Treg absente quand Treg est coupé, un
 // projet qui ne s'écrit plus (Dérush ne s'arrête pas, la fin reste visible), les liens que le relais refuse (à la
 // demande, juste avant le rendu, et après lui), la voix off (contexte, consigne, rappel, questions et texte rangés à la
-// fin) et la consigne des rushes du Drive (« Depuis mon Drive »). Le Drive est un faux dossier (DERUSH_DRIVE), jamais
-// celui de l'ordinateur.
+// fin), la consigne des rushes du Drive (« Depuis mon Drive ») et le suivi sur téléphone (un message écrit du téléphone
+// au repos ou pendant le travail, un projet refermé toujours suivi, « Arrêter »). Le Drive est un faux dossier
+// (DERUSH_DRIVE), jamais celui de l'ordinateur.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -527,6 +528,49 @@ let refH = '';
 try { refH = fs.readFileSync(path.join(P.racine, lireEtat(P).atelier, 'contexte', 'gemini', 'REFERENCE.md'), 'utf8'); } catch { /* absent */ }
 await essai('… en Mode Hollywood, il part chez le réalisateur (REFERENCE.md), et le monteur n’a qu’une consigne, celle du réalisateur', () => (/# Le Motion\.md joint par la personne : « Dia launch motion\.md »/.test(refH) && /The glowing shape becomes the send arrow/.test(refH)
   && /contexte\/gemini\/REFERENCE\.md/.test(consignes) && !/d'après un Motion\.md : la personne a joint/.test(consignes)) || {refH: refH.slice(0, 300), consignes: consignes.slice(-900)});
+
+// ——— le suivi sur téléphone (lib/telephone.mjs) : ce que le téléphone voit et fait, avec le faux Claude ———
+console.log('\n— Le téléphone : écrire à l’IA, la suivre, l’arrêter —');
+{
+  const {sourceDerush} = await import(`${D}/lib/telephone.mjs`);
+  nouvelEssai();
+  const PT = projet('telephone', {etat: {moteur: 'claude', echanges: [{role: 'humain', texte: 'Fais un vlog.', quand: '2026-11-20T10:00:00.000Z'}, {role: 'claude', moteur: 'claude', texte: 'C’est prêt.', quand: '2026-11-20T10:20:00.000Z', version: 1}]}});
+  const ctxTel = {P: PT, file: null, projetVivant: (d) => (path.resolve(d) === PT.racine ? PT : null)};
+  const SRC = sourceDerush(ctxTel);
+  let vuTel = await SRC.etat();
+  await essai('au repos, le téléphone voit le projet et sa conversation, personne au travail', () => (vuTel.projet.titre === PT.d.titre && vuTel.projet.ouvert === true && vuTel.travail === null && vuTel.fil.length === 2) || vuTel);
+  // un message écrit du téléphone, au repos : une demande part, à la suite de la conversation (même dossier de travail)
+  process.env.DELAI_SONS = '1300'; // le temps d'écrire un second message pendant la préparation
+  const parti = await SRC.ecrire('Raccourcis la fin');
+  vuTel = await SRC.etat();
+  await essai('un message du téléphone, au repos : la demande part avec l’IA choisie sur l’ordinateur', () => (parti.ok === true && parti.lance === true && parti.ia === 'claude' && C.travailleSur(PT) && !!vuTel.travail && vuTel.travail.nom_ia === 'Claude' && vuTel.fil.at(-1).de === 'moi' && vuTel.fil.at(-1).texte === 'Raccourcis la fin') || {parti, travail: vuTel.travail, fil: vuTel.fil});
+  let refusTel = null;
+  try { await C.demander(PT, {message: 'Une autre demande'}); } catch (e) { refusTel = e.message; }
+  await essai('… une seconde demande « au repos » pendant ce travail est refusée par Dérush (une seule IA par projet)', () => /travaille déjà/.test(refusTel ?? '') || refusTel);
+  const pendant = await SRC.ecrire('Et mets le titre plus gros');
+  vuTel = await SRC.etat();
+  await essai('un message du téléphone pendant le travail : il rejoint la demande, et la conversation le montre', () => (pendant.ok === true && pendant.pendant === true && vuTel.fil.at(-1).texte === 'Et mets le titre plus gros' && ['lu', 'bientot', 'apres'].includes(vuTel.fil.at(-1).pendant) && vuTel.travail.messages.length === 1) || {pendant, fil: vuTel.fil.slice(-2), messages: vuTel.travail?.messages});
+  // le projet refermé sur l'ordinateur pendant que l'IA y travaille : le téléphone continue de le suivre
+  ctxTel.P = null;
+  vuTel = await SRC.etat();
+  await essai('le projet refermé sur l’ordinateur : le téléphone suit toujours le travail en cours', () => (vuTel.projet?.titre === PT.d.titre && vuTel.projet.ouvert === false && !!vuTel.travail) || vuTel);
+  ctxTel.P = PT;
+  await attendre(() => !C.claudeTravaille());
+  vuTel = await SRC.etat();
+  const lusTel = journal().filter((x) => x.quoi === 'lit').map((x) => x.texte).join('\n');
+  await essai('… le faux Claude a reçu les deux messages, et sa réponse arrive sur le téléphone', () => (/Raccourcis la fin/.test(lusTel) && /Et mets le titre plus gros/.test(lusTel) && vuTel.travail === null && vuTel.fil.at(-1).de === 'ia' && vuTel.fil.at(-1).texte === 'Réponse du faux Claude.' && lancements().length >= 1) || {lusTel: lusTel.slice(0, 400), fil: vuTel.fil.slice(-2)});
+  await essai('rien de l’ordinateur dans ce que reçoit le téléphone (ni dossier, ni chemin)', () => { const t = JSON.stringify(vuTel); return (!t.includes(T) && !/"chemin"|"atelier/.test(t)) || t.slice(0, 300); });
+  // « Arrêter », du téléphone
+  nouvelEssai();
+  process.env.DELAI_SONS = '1500';
+  await SRC.ecrire('Refais le début');
+  await pause(300);
+  const arretTel = await SRC.arreter();
+  await attendre(() => !C.claudeTravaille());
+  await pause(300);
+  vuTel = await SRC.etat();
+  await essai('« Arrêter », du téléphone : le travail s’arrête, la conversation le dit, et il n’y a plus rien à arrêter', async () => (arretTel === true && vuTel.travail === null && vuTel.fil.at(-1).arret === true && (await SRC.arreter()) === false) || {arretTel, fil: vuTel.fil.slice(-1)});
+}
 
 // la fin : seul le dossier que cet essai a créé est effacé (gardé si un essai a échoué, pour regarder)
 const tousBons = resultats.every(Boolean);
