@@ -153,6 +153,8 @@ Sélectionne-en plusieurs au lasso (ou ⌘A, ⌘-clic, Maj-clic) et glisse le gr
 
 **La musique** : ton IA lit n'importe quel morceau (son tempo, chaque temps, chaque mesure, ses moments forts) pour couper dessus, et le met à la durée de ta vidéo comme le ferait un monteur son : le début du morceau, un milieu raccourci par mesures entières, puis sa vraie fin sur la dernière image. Quand aucun morceau ne convient, elle peut en écrire un, en partition, joué sur ton ordinateur et calé sur les moments de ta vidéo, ou poser une musique de fond dans un des 13 styles : sans Internet, sans compte, sans crédit. Les instruments de cette musique-là sont calculés, pas enregistrés, et ça s'entend : un vrai morceau sonne toujours mieux, et ton IA te dit quand elle a écrit la musique elle-même.
 
+**Le ralenti et l'agrandisseur** : ton IA ralentit un geste jusqu'à 8 fois sans saccades (le *Ralenti fluide* invente les images qui manquent ; un rush filmé à 120 ou 240 images par seconde n'a rien à inventer), et agrandit une image ou une vidéo trop petite jusqu'à la 4K en inventant les détails (l'*Agrandisseur*, en mode « dessin » ou « photo » ; pour une vidéo, elle te dit d'abord le temps que ça prendra). Deux outils à installer d'un clic dans Connexions, sur Mac.
+
 <p align="center"><img src="docs/images/capture-couleurs.jpg" alt="Les couleurs d'un plan, réglées dans l'inspecteur, et l'aperçu qui suit" width="100%"></p>
 
 **Ta disposition** : tire les bords des panneaux pour agrandir les médias, l'IA ou la timeline ; double-clic pour revenir. **Pendant que ton IA travaille**, tu peux lui écrire (Claude lit ton message au geste suivant) et continuer ton montage.
@@ -174,6 +176,8 @@ Ouvre Dérush, puis **Connexions** (la prise, en haut à droite). Chaque carte s
 | <img src="public/logos/openverse.svg" width="22"> | **Bibliothèque de sons** | De vrais bruitages libres de droits (Openverse), rangés dans `Musique › Sons` avec leurs crédits | Un interrupteur |
 | 🔊 | **Real SFX** | Poser ces sons à l'image près, sous ta voix et ta musique | *Ajouter* (9 Mo) |
 | 👂 | **Earshot** | L'oreille de l'IA : écouter, choisir, fabriquer un son (facultatif) | *Ajouter* (2,5 Go) |
+| ⏱️ | **Ralenti fluide** | Des ralentis sans saccades, jusqu'à 8 fois plus lents (RIFE) ; sans lui, l'IA ralentit avec FFmpeg, moins finement | *Installer* (18 Mo, sur Mac) |
+| 🔍 | **Agrandisseur** | Agrandir une image ou une vidéo trop petite, jusqu'à la 4K, en inventant les détails (Real-ESRGAN) | *Installer* (43 Mo, sur Mac) |
 | <img src="public/logos/googledrive.svg" width="22"> | **Google Drive** | Donner tes fichiers du Drive à l'IA, y envoyer tes vidéos | Un interrupteur (il faut Google Drive pour ordinateur) |
 | <img src="public/logos/treg.svg" width="22" style="background:#000"> | **Treg** (conseillé) | Publier sur les réseaux, lire tes chiffres et tes commentaires, dresser ton profil de créateur | *Relier mes réseaux* : trois gestes, Dérush te guide et te montre quels réseaux sont reliés |
 | <img src="public/logos/blender.svg" width="22"> | **Blender** | La 3D réaliste (facultatif) | *Installer* |

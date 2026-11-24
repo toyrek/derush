@@ -247,5 +247,6 @@ try {
   serveur?.close?.();
 }
 console.log(`\n${bons} essais réussis sur ${total}`);
-if (bons === total) fs.rmSync(T, {recursive: true, force: true}); else console.log(`Dossier d’essai gardé : ${T}`);
+// un programme lancé par l'essai peut écrire encore dans le dossier (le cache de Node) : on réessaie, sans faire échouer la suite
+if (bons === total) { try { fs.rmSync(T, {recursive: true, force: true, maxRetries: 5, retryDelay: 200}); } catch { console.log(`Dossier d’essai pas tout à fait effacé : ${T}`); } } else console.log(`Dossier d’essai gardé : ${T}`);
 process.exit(bons === total ? 0 : 1);

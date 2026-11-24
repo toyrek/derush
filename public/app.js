@@ -5248,7 +5248,7 @@ const LOGOS = {openverse: 'openverse', claude: 'claude', anthropic: 'anthropic',
   elevenlabs: 'elevenlabs', drive: 'googledrive', treg: 'treg', tiktok: 'tiktok', youtube: 'youtubeshorts', instagram: 'instagram', linkedin: 'linkedin', facebook: 'facebook', x: 'x',
   blender: 'blender', hyperframes: 'hyperframes.png', github: 'github', ffmpeg: 'ffmpeg', python: 'python', node: 'nodedotjs', git: 'git', chrome: 'googlechrome', apple: 'apple', macos: 'macos', linux: 'linux', windows: 'windows',
   premiere: 'adobepremierepro', resolve: 'davinciresolve', revolut: 'revolut'};
-const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', remotion: 'film', maj: 'maj', competences: 'outil', effaceur: 'baguette'};
+const PICTOS = {realsfx: 'vague', earshot: 'oreille', sons: 'onde', remotion: 'film', maj: 'maj', competences: 'outil', effaceur: 'baguette', rife: 'horloge', realesrgan: 'loupe'};
 /**
  * Un logo sur sa pastille claire : les logos noirs (TikTok, GitHub…) restent lisibles sur le fond sombre.
  * La clé peut venir d'un fichier écrit par l'IA (un réseau dans la recette, une médiane) : seule une clé connue, ou un
@@ -6802,7 +6802,8 @@ $('#claude').addEventListener('click', async (e) => {
 let minuterieConnexions = null;
 /** Les installations en cours (le serveur suit chacune) : leurs noms. */
 const occupesCx = (d) => Object.entries({claude: d.claude?.action, codex: d.codex?.action, gemini: d.gemini?.action, blender: d.blender_action, remotion: d.competences?.action,
-  realsfx: d.sons?.realsfx?.action, earshot: d.sons?.earshot?.action}).filter(([, a]) => enCours(a)).map(([k]) => k);
+  realsfx: d.sons?.realsfx?.action, earshot: d.sons?.earshot?.action, hyperframes: d.hyperframes?.action, effaceur: d.effaceur?.action,
+  rife: d.pixels?.rife?.action, realesrgan: d.pixels?.realesrgan?.action}).filter(([, a]) => enCours(a)).map(([k]) => k);
 /** L'IA dont on attend la connexion, lancée d'ici (navigateur ou terminal) : 15 minutes au plus, même si la feuille a été fermée. */
 const cxAttendu = () => (ui.cxSuivre?.jusqua > Date.now() ? ui.cxSuivre.quoi : null);
 /** Le temps entre deux vérifications de cette IA : 5 s la première minute, puis 15 s. */
@@ -6862,6 +6863,29 @@ function carteEffaceur(d) {
       : `Efface les sous-titres incrustés d’un rush. Dérush l’installe tout seul quand un de tes rushes en a, ou maintenant (${e.taille ?? '260 Mo'}).`;
   const actions = e.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : occupe ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : e.installable !== false ? '<button class="btn bleu petit" data-cx="effaceur/installer">Installer</button>' : '';
   return carteCx({etat: etatCarte(e.ok, occupe), lg: logo('effaceur', 42), titre: 'Effaceur de texte', sous: esc(sous), actions, plus: erreurAction(e.action)});
+}
+/**
+ * Le ralenti fluide (RIFE) et l'agrandisseur (Real-ESRGAN) : deux programmes pris sur la page de leur auteur, sur un clic
+ * (lib/moteurs-pixels.mjs). Sans le premier, l'IA ralentit avec FFmpeg ; sans le second, elle n'agrandit pas.
+ */
+const TEXTES_PIXELS = {
+  rife: {titre: 'Ralenti fluide', pret: 'Prêt : ton IA fait des ralentis sans saccades, jusqu’à 8 fois plus lents. RIFE invente les images qui manquent, sur ta carte graphique.',
+    manque: (t) => `Invente les images qui manquent à un ralenti (jusqu’à ×8), sans saccades. Sans lui, ton IA ralentit avec FFmpeg, moins finement. ${t} depuis la page de RIFE.`,
+    ailleurs: 'Ton IA ralentit avec FFmpeg.'},
+  realesrgan: {titre: 'Agrandisseur', pret: 'Prêt : ton IA agrandit une image ou une vidéo trop petite, jusqu’à la 4K, en inventant les détails. Sur une vidéo filmée, c’est lent : elle te dit le temps avant de commencer.',
+    manque: (t) => `Agrandit une image ou une vidéo trop petite, jusqu’à la 4K, en inventant les détails (Real-ESRGAN). ${t} depuis sa page officielle.`,
+    ailleurs: ''},
+};
+function carteMoteurPixels(d, id) {
+  const e = d.pixels?.[id] ?? {};
+  const t = TEXTES_PIXELS[id];
+  const occupe = enCours(e.action);
+  const sous = e.ok ? t.pret
+    : e.installable === false ? `${e.pourquoi ?? 'Pas disponible sur cet ordinateur.'} ${t.ailleurs}`.trim()
+      : e.installe ? e.pourquoi ?? '' : t.manque(e.a_telecharger ? `${e.a_telecharger} à télécharger, une fois,` : 'À télécharger une fois,');
+  const actions = e.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : occupe ? `<span class="etiq">${anneau(0.5)}Installation…</span>`
+    : e.installable !== false ? `<button class="btn ${e.installe ? '' : 'bleu '}petit" data-cx="${id}/installer" title="${esc(`${e.nom ?? ''} ${e.version ?? ''} : ${e.source ?? ''}`.trim())}">${e.installe ? 'Réinstaller' : 'Installer'}</button>` : '';
+  return carteCx({etat: etatCarte(e.ok, occupe), lg: logo(id, 42), titre: t.titre, sous: esc(sous), actions, plus: erreurAction(e.action)});
 }
 /** HyperFrames, le second moteur de rendu : des vidéos écrites en HTML, et environ 450 blocs prêts. */
 function carteHyperframes(d) {
@@ -6961,6 +6985,8 @@ async function feuilleConnexions() {
     <section class="cx-section"><h4>${ic('cube')}L’image : 3D, motion design, retouche</h4><div class="cx-grille trois">
       ${carteHyperframes(d)}
       ${carteEffaceur(d)}
+      ${carteMoteurPixels(d, 'rife')}
+      ${carteMoteurPixels(d, 'realesrgan')}
       ${carteCx({etat: etatCarte(bl.ok, enCours(d.blender_action)), lg: logo('blender', 42), titre: 'Blender', sous: esc(bl.ok ? `${bl.nom} : l’IA s’en sert pour la 3D réaliste.` : 'Facultatif : sans lui, l’IA fait la 3D dans la page (Three.js).'), actions: bl.ok ? `<span class="etiq ok">${ic('coche')}Prêt</span>` : enCours(d.blender_action) ? `<span class="etiq">${anneau(0.5)}Installation…</span>` : '<button class="btn petit" data-cx="blender/installer">Installer</button>', plus: erreurAction(d.blender_action)})}</div></section>
     <section class="cx-section"><h4>${ic('outil')}Dérush</h4><div class="cx-grille deux">
       ${carteCx({etat: etatCarte(d.competences?.remotion, enCours(d.competences?.action)), lg: logo('competences', 42), titre: `${d.competences?.nombre ?? 0} compétences`, sous: esc(`Montage, FFmpeg, étalonnage, sous-titres, son, motion design, TikTok, Reels, Shorts, publication${d.competences?.remotion ? ', Remotion' : ''}${d.competences?.ajoutees ? `, et ${d.competences.ajoutees} ajoutée${d.competences.ajoutees > 1 ? 's' : ''} par toi` : ''} : l’IA les lit avant de travailler.`), actions: `${d.competences?.remotion ? '' : enCours(d.competences?.action) ? `<span class="etiq">${anneau(0.5)}Téléchargement…</span>` : '<button class="btn petit" data-cx="competences/remotion" title="Les compétences Remotion se téléchargent depuis leur dépôt officiel">Ajouter Remotion</button>'}<button class="btn ${d.competences?.remotion ? 'bleu ' : ''}petit" data-competences title="Une compétence trouvée sur GitHub ou dans l’annuaire skills.sh">${d.competences?.ajoutees ? 'Gérer' : 'Ajouter une compétence'}</button>`, plus: erreurAction(d.competences?.action)})}
@@ -7177,6 +7203,7 @@ async function feuilleConnexions() {
       if (/\/(installer|connecter|brancher)$/.test(action)) { note(action === 'gemini/connecter' ? 'Une fenêtre de terminal s’ouvre : connecte-toi avec ton compte Google, puis reviens ici.' : /connecter|brancher/.test(action) ? 'Une page s’ouvre dans ton navigateur : connecte-toi, puis reviens ici.' : 'Installation lancée : ça prend une à deux minutes.'); }
       if (action === 'maj/installer') { note('Mise à jour installée : Dérush redémarre…', false, true); voileMaj(); return; }
       if (action === 'earshot/installer') note('Earshot s’installe : 2,5 Go, compte une dizaine de minutes. Tu peux continuer à travailler.');
+      if (/^(rife|realesrgan)\/installer$/.test(action)) note('Téléchargement depuis la page officielle, puis un essai sur ta carte graphique : quelques secondes.');
     } catch (err) { note(err.message, true); }
     // rien à revérifier de force : l'action vient d'être prise par le serveur, le suivi fait le reste
     await relire();

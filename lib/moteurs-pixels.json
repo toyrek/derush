@@ -1,0 +1,48 @@
+{
+  "releve": "2026-11-24",
+  "rife": {
+    "nom": "RIFE",
+    "version": "rife-ncnn-vulkan 20221029, modèle 4.6",
+    "source": "https://github.com/nihui/rife-ncnn-vulkan",
+    "licence": "MIT (rife-ncnn-vulkan, © 2020 nihui ; RIFE, © hzwer) ; BSD-3-Clause (ncnn, Tencent)",
+    "mac": {
+      "archive": "https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-macos.zip",
+      "octets": 436537917,
+      "sha256": "4a63a1f3c9c715773c57d2ee51df1b315ed20cd6c63103e45c483ecc4400b595",
+      "a_telecharger": 18200000,
+      "racine": "rife-ncnn-vulkan-20221029-macos/",
+      "programme": "rife-ncnn-vulkan",
+      "fichiers": {
+        "rife-ncnn-vulkan": [25838096, "d11429c72f0cddfb170fd131ee9373dc5329a5729c4382c0acfd40092e5ed19a"],
+        "rife-v4.6/flownet.bin": [10614320, "f334ed2260149ce0188a6dcf049844e8b0cdd912e01cbcfb63553157d2508958"],
+        "rife-v4.6/flownet.param": [16532, "724569596bcd1e7b9fa50455c604777ebed99746d2ef40aa86e31b5725f1053c"],
+        "LICENSE": [1072, "a73beab18143600af0b10c6050a953ec233775ce31c2bf3373a794db535329fd"]
+      }
+    }
+  },
+  "realesrgan": {
+    "nom": "Real-ESRGAN",
+    "version": "realesrgan-ncnn-vulkan 20220424 (v0.2.5.0)",
+    "source": "https://github.com/xinntao/Real-ESRGAN",
+    "licence": "BSD-3-Clause (Real-ESRGAN, © 2021 Xintao Wang) ; MIT (Real-ESRGAN-ncnn-vulkan) ; BSD-3-Clause (ncnn, Tencent)",
+    "mac": {
+      "archive": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-macos.zip",
+      "octets": 51817124,
+      "sha256": "e0ad05580abfeb25f8d8fb55aaf7bedf552c375b5b4d9bd3c8d59764d2cc333a",
+      "a_telecharger": 43100000,
+      "racine": "",
+      "programme": "realesrgan-ncnn-vulkan",
+      "fichiers": {
+        "realesrgan-ncnn-vulkan": [26787080, "c1c35d92079085de96b9d547fd7e4464bc8a2e9ccf28d7b8c712d72ade91b7cc"],
+        "models/realesr-animevideov3-x2.bin": [1247368, "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d"],
+        "models/realesr-animevideov3-x2.param": [3173, "b88ff4f00ebf019a7fdac17fdd45a7fd3665d37509efc5baf2e4da2e24420a04"],
+        "models/realesr-animevideov3-x3.bin": [1247368, "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d"],
+        "models/realesr-animevideov3-x3.param": [3173, "d1a5755008791d09b57e3425fc9dd0bd26b00fdf79c606210bc0e693f8230881"],
+        "models/realesr-animevideov3-x4.bin": [1247368, "548a36f9c3f4ab8da56cd3b13badf23968bee207b396dad14d04b830e5f2ab2d"],
+        "models/realesr-animevideov3-x4.param": [3077, "850a248e7c14c27e5bd8cf7265113a9441036a7db63963bb8aa5169d788a435e"],
+        "models/realesrgan-x4plus.bin": [33424520, "713ee713b0353afaa27976f0563a64a5043bd70b9bd8936c2e26e25ebcdbcddf"],
+        "models/realesrgan-x4plus.param": [116029, "35330ececcea33b6c397a72548e788d5d53becee4734c50b7fada36e89f10a86"]
+      }
+    }
+  }
+}

@@ -1119,6 +1119,9 @@ h3.cat-transition .ic, h3.cat-titre .ic, h3.cat-ambiance .ic, h3.cat-son .ic { c
 .logo.p-treg { background: linear-gradient(135deg, #25d9ad, #0a84ff); color: #04241d; }
 .logo.p-realsfx { background: linear-gradient(135deg, #ff9f0a, #ff375f); color: #2a0a00; }
 .logo.p-earshot { background: linear-gradient(135deg, #64d2ff, #3d5afe); color: #021226; }
+.logo.p-rife { background: linear-gradient(135deg, #30d158, #0a84ff); color: #00210e; }
+.logo.p-realesrgan { background: linear-gradient(135deg, #bf5af2, #ff375f); color: #23002b; }
+.logo.p-effaceur { background: linear-gradient(135deg, #ffd60a, #ff9f0a); color: #2a1a00; }
 .logo.p-sons { background: #ffe033; color: #1c1900; }
 .logo.p-maj { background: linear-gradient(135deg, #5ba3cf, #3c3c8c); }
 .logo.p-competences { background: var(--braise); color: #1c0d05; }

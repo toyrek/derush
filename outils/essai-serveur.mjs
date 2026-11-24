@@ -60,6 +60,7 @@ const {Projet} = await lib('projet.mjs');
 const {FileDAttente, FFMPEG} = await lib('outils.mjs');
 const {demarrerServeur, cleFenetre, forceDemandee} = await lib('serveur.mjs');
 const SOURCE = fs.readFileSync(path.join(D, 'lib', 'serveur.mjs'), 'utf8');
+const APP = fs.readFileSync(path.join(D, 'public', 'app.js'), 'utf8');
 
 let bons = 0;
 let total = 0;
@@ -313,6 +314,20 @@ try {
   r = await api('POST', '/api/connexions/gemini/action-qui-n-existe-pas', {});
   essai('les actions de Gemini arrivent à leur route (avant : « Route inconnue. »)', r.code === 400 && /Action inconnue/.test(r.j?.erreur ?? ''), r);
   essai('… « installer » et « connecter » y sont reconnues', /\/api\/connexions\/gemini\/(installer|connecter)/.test('/api/connexions/gemini/installer') && /\(claude\|codex\|gemini\|ia\|/.test(SOURCE) && /id === 'gemini' && action === 'installer'/.test(SOURCE) && /id === 'gemini' && action === 'connecter'/.test(SOURCE));
+
+  // ————————————————————————————————————————————————————————————————————————————————
+  titre('Connexions : HyperFrames, l’effaceur, le ralenti fluide, l’agrandisseur');
+  // jamais « installer » ici : il téléchargerait pour de bon (les vraies installations : outils/essai-pixels.mjs)
+  for (const id of ['hyperframes', 'effaceur', 'rife', 'realesrgan']) {
+    r = await api('POST', `/api/connexions/${id}/action-qui-n-existe-pas`, {});
+    essai(`les actions de « ${id} » arrivent à leur route (avant la 11.9, « Route inconnue. » pour hyperframes et effaceur)`, r.code === 400 && /Action inconnue/.test(r.j?.erreur ?? ''), r);
+  }
+  r = await api('GET', '/api/connexions');
+  const px = r.j?.pixels ?? {};
+  essai('Connexions dit l’état du ralenti fluide et de l’agrandisseur (installable ou non, la taille), sans chemin de l’ordinateur',
+    r.code === 200 && ['rife', 'realesrgan'].every((id) => px[id] && typeof px[id].installable === 'boolean' && px[id].ok === false && !('dossier' in px[id]) && !('programme' in px[id]) && 'action' in px[id]), px);
+  essai('… et l’écran a leurs deux cartes, suivies pendant l’installation (avec celles de HyperFrames et de l’effaceur)',
+    /carteMoteurPixels\(d, 'rife'\)/.test(APP) && /carteMoteurPixels\(d, 'realesrgan'\)/.test(APP) && /rife: d\.pixels\?\.rife\?\.action/.test(APP) && /effaceur: d\.effaceur\?\.action/.test(APP) && /hyperframes: d\.hyperframes\?\.action/.test(APP));
 
   // ————————————————————————————————————————————————————————————————————————————————
   titre('La note d’une vidéo et le carnet : une seule leçon, toujours celle d’aujourd’hui');
