@@ -105,6 +105,24 @@ export const CATALOGUE = {
   'son-pop': {nom: 'Pop', categorie: 'son', duree: 0.09, fichier: 'pop.wav', description: 'Une petite bulle.', reglages: {volume: nombre('Volume', 50, 0, 100, '%')}},
   'son-glitch': {nom: 'Parasites', categorie: 'son', duree: 0.26, fichier: 'glitch.wav', description: 'Des parasites numériques.', reglages: {volume: nombre('Volume', 50, 0, 100, '%')}},
 };
+// ——— 12.0 : les fondus d'un plan (le même calcul dans l'aperçu de Dérush et dans le rendu) ———
+// Idée reprise d'Editroom (Robbie Tilton, licence MIT) : quatre courbes, pour l'image et pour le son.
+const COURBES = {lineaire: (x) => x, lente: (x) => x * x * x, rapide: (x) => 1 - (1 - x) ** 3, douce: (x) => x * x * (3 - 2 * x)};
+/**
+ * Le niveau d'un plan à cause de ses fondus (de 0 à 1), `dt` secondes après son début dans le montage, pour un plan
+ * de `duree` secondes. `pour` : « image » ou « son » (un fondu réservé à l'autre ne change rien).
+ */
+export function niveauFondu(fondu, dt, duree, pour = 'image') {
+  if (!fondu || (fondu.quoi && fondu.quoi !== 'tout' && fondu.quoi !== pour)) return 1;
+  const c = COURBES[fondu.courbe] ?? COURBES.lineaire;
+  let g = 1;
+  const e = Number(fondu.entree) || 0;
+  const s = Number(fondu.sortie) || 0;
+  if (e > 0) g = Math.min(g, c(borner(dt / e, 0, 1)));
+  if (s > 0) g = Math.min(g, c(borner((duree - dt) / s, 0, 1)));
+  return borner(g, 0, 1);
+}
+
 /** Durée d'un effet posé (s). */
 export const dureeEffet = (modele) => { const d = CATALOGUE[modele]; return d ? d.duree ?? d.avant + d.apres : 1; };
 /**

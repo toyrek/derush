@@ -9,7 +9,7 @@ import {montage, mots, type Bloc, type Plan, type PointCadrage} from './donnees'
 import {PLANS_SANS_SOUS_TITRES} from './reglages';
 // Le moteur d'habillage est le même fichier que dans l'app Dérush : l'aperçu et le rendu dessinent la même chose.
 // @ts-ignore (JavaScript pur)
-import {CATALOGUE, chargerPolices, creerHabillage, decoupeA, mouvementA, preparerEtat} from './moteur.js';
+import {CATALOGUE, chargerPolices, creerHabillage, decoupeA, mouvementA, niveauFondu, preparerEtat} from './moteur.js';
 
 // Le montage de Dérush, avec son habillage (transitions, titres, sous-titres, style).
 // Pour aller plus loin : remplace <ACreer> par de vraies scènes, ajoute tes propres calques dans <Montage>,
@@ -27,6 +27,9 @@ const ETAT = preparerEtat({
 const BASE_PUBLIC = staticFile('polices').replace(/\/polices$/, '');
 
 const volume = (db: number) => Math.pow(10, (db || 0) / 20);
+/** Les images qu'une transition ajoute avant le début d'un plan (celui qui entre) et après sa fin (celui qui sort). */
+const avantImages = (it: Plan | Bloc) => (it.type === 'plan' ? Math.round(((it as Plan).transition?.avant_s ?? 0) * montage.sortie.fps) : 0);
+const apresImages = (it: Plan | Bloc) => (it.type === 'plan' ? Math.round(((it as Plan).transition_apres_s ?? 0) * montage.sortie.fps) : 0);
 
 /** Fenêtre de recadrage au temps t (interpolée, sans glisser à travers une coupe de caméra). */
 function fenetreA(points: PointCadrage[] | undefined, t: number): number[] | null {
@@ -54,7 +57,9 @@ function placer(it: Plan, t: number, largeur: number, hauteur: number): React.CS
 const PlanVideo: React.FC<{it: Plan; petit?: boolean}> = ({it, petit}) => {
   const frame = useCurrentFrame();
   const {fps, width, height} = useVideoConfig();
-  const t = it.debut.s + frame / fps;
+  // une transition qui amène ce plan (Dérush 12) : il commence `avant` secondes avant sa coupe (sa Sequence aussi)
+  const avant = it.transition?.avant_s ?? 0;
+  const t = it.debut.s - avant + frame / fps;
   const m = petit ? null : mouvementA(ETAT, t);
   const L = petit ? width * 0.42 : width;
   const H = petit ? height * 0.42 : height;
@@ -72,9 +77,18 @@ const PlanVideo: React.FC<{it: Plan; petit?: boolean}> = ({it, petit}) => {
         ...(m.rvb > 0.5 ? [chromaticAberration({amount: m.rvb, angle: 20})] : []),
       ]
     : couleur;
+  // les fondus de l'image (Dérush 12) : un plan du montage passe par le noir, un plan par-dessus laisse voir le montage
+  let opacite = niveauFondu(it.fondu, t - it.debut.s, it.duree.s, 'image');
+  // la transition qui l'amène, par-dessus le plan qui sort (qui continue dessous) : fondu enchaîné ou volet
+  let volet: string | undefined;
+  if (avant > 0 && t < it.debut.s + avant) {
+    const p = Math.min(1, Math.max(0, (t - (it.debut.s - avant)) / (2 * avant)));
+    if (it.transition?.genre === 'volet') volet = `inset(0 ${((1 - p) * 100).toFixed(3)}% 0 0)`;
+    else opacite *= p;
+  }
   return (
-    <div style={cadre}>
-      <Video src={staticFile(it.fichier.chemin)} trimBefore={Math.round(it.fichier.debut_utile_s * fps)} muted style={placer(it, t, L, H)} effects={effets} />
+    <div style={{...cadre, opacity: opacite, clipPath: volet}}>
+      <Video src={staticFile(it.fichier.chemin)} trimBefore={Math.max(0, Math.round((it.fichier.debut_utile_s - avant * (it.vitesse ?? 1)) * fps))} playbackRate={it.vitesse ?? 1} muted style={placer(it, t, L, H)} effects={effets} />
     </div>
   );
 };
@@ -86,7 +100,7 @@ const Decoupe: React.FC<{it: Plan}> = ({it}) => {
   const t = it.debut.s + frame / fps;
   const d = it.fichier.masques;
   if (!d || !decoupeA(ETAT, t)) return null;
-  const j = Math.round((it.fichier.debut_utile_s + frame / fps) * (it.fichier.fps || fps));
+  const j = Math.round((it.fichier.debut_utile_s + (frame / fps) * (it.vitesse ?? 1)) * (it.fichier.fps || fps));
   if (j < d.premiere || j > d.derniere) return null;
   return <Img src={staticFile(`${d.dossier}/d_${String(j).padStart(5, '0')}.webp`)} style={placer(it, t, width, height)} />;
 };
@@ -162,13 +176,14 @@ export const Montage: React.FC<{afficherConsignes: boolean}> = ({afficherConsign
       {/* tout ce qui bouge avec l'image : plans, titres, personne détourée */}
       <div style={{...calque, transform: `translate(${m.tx}px, ${m.ty}px) scale(${m.echelle}) rotate(${m.rot}deg)`, filter: filtre}}>
         {montage.montage.map((it) => (
-          <Sequence key={it.id} name={`${it.id} ${it.titre || ''}`} from={it.debut.image} durationInFrames={it.duree.images}>
+          // une transition (Dérush 12) : le plan qui entre commence avant sa coupe, celui qui sort continue après la sienne
+          <Sequence key={it.id} name={`${it.id} ${it.titre || ''}`} from={it.debut.image - avantImages(it)} durationInFrames={it.duree.images + avantImages(it) + apresImages(it)}>
             {it.type === 'bloc' ? <ACreer it={it as Bloc} afficher={afficherConsignes} /> : (it as Plan).source.type !== 'audio' ? <PlanVideo it={it as Plan} /> : <SonSeul it={it as Plan} afficher={afficherConsignes} />}
           </Sequence>
         ))}
         {montage.superpositions.map((it) => (
           <Sequence key={it.id} name={`${it.id} (par-dessus)`} from={it.debut.image} durationInFrames={it.duree.images}>
-            {it.source.type !== 'audio' ? <PlanVideo it={it} petit={it.cadre === 'incrustation'} /> : null}
+            {it.source.type !== 'audio' && !it.son_seul ? <PlanVideo it={it} petit={it.cadre === 'incrustation'} /> : null}
           </Sequence>
         ))}
         <div ref={derriere} style={calque} />
@@ -186,10 +201,14 @@ export const Montage: React.FC<{afficherConsignes: boolean}> = ({afficherConsign
         const debut = Math.max(0, p.debut.image - Math.round(p.son.avant_s * fps));
         const fin = p.fin.image + Math.round(p.son.apres_s * fps);
         const fichier = p.son.version !== 'original' && p.fichier[p.son.version] ? p.fichier[p.son.version] : p.fichier.chemin;
-        const depart = p.fichier.debut_utile_s - (p.debut.image - debut) / fps;
+        // un plan ralenti ou accéléré (Dérush 12) : son son aussi, à la même vitesse ; ses fondus, au bord du son
+        const k = p.vitesse ?? 1;
+        const depart = p.fichier.debut_utile_s - ((p.debut.image - debut) / fps) * k;
+        const duree = Math.max(1, fin - debut);
         return (
-          <Sequence key={`son-${p.id}`} name={`son ${p.id}`} from={debut} durationInFrames={Math.max(1, fin - debut)} layout="none">
-            <Audio src={staticFile(fichier)} startFrom={Math.max(0, Math.round(depart * fps))} volume={volume(p.son.gain_db)} />
+          <Sequence key={`son-${p.id}`} name={`son ${p.id}`} from={debut} durationInFrames={duree} layout="none">
+            <Audio src={staticFile(fichier)} startFrom={Math.max(0, Math.round(depart * fps))} playbackRate={k}
+              volume={p.fondu ? (f: number) => volume(p.son.gain_db) * niveauFondu(p.fondu, f / fps, duree / fps, 'son') : volume(p.son.gain_db)} />
           </Sequence>
         );
       })}

@@ -97,6 +97,22 @@ Options : `--leger` (sans Whisper, 2 Go de moins), `--blender` (ajoute Blender p
 
 <p align="center"><img src="docs/images/capture-montage.jpg" alt="Dérush : les médias, l'aperçu avec ses sous-titres, la timeline avec la voix off" width="100%"></p>
 
+## Tes IA montent directement dans Dérush (nouveau en 12.0)
+
+Choisis **Timeline** au-dessus de la zone d'écriture, écris ce que tu veux : ton IA (Claude ou ChatGPT) monte
+directement dans ta timeline, sous tes yeux. Un curseur à son nom glisse et dit ce qu'elle fait ; chaque geste s'annule
+d'un ⌘Z, et « Tout annuler » remet ton montage d'avant. Dans **Connexions › Ouvre Dérush à tes IA**, branche aussi l'app
+Claude, ChatGPT (Codex) ou Claude Code : tu demandes un montage depuis l'app, il se fait dans Dérush (38 outils : lire
+le projet, regarder et chercher dans tes rushes, poser, couper, régler, titrer, créer et exporter la vidéo). Rien ne sort
+de ton ordinateur ; un interrupteur ferme la porte.
+
+À la main aussi, Dérush a maintenant tous les gestes d'un logiciel de montage : vitesse d'un plan (ralenti, accéléré),
+fondu enchaîné et volet centrés sur la coupe, fondus d'entrée et de sortie (image et son, quatre courbes), arrêt sur
+image, lecture à l'envers, son détaché, marqueurs (touche M), ambiances de couleur, étalonnage copié, « Égaliser le
+son », « Couper sur le temps » d'une musique, et « Trouver un moment » (ce qu'on voit, grâce à Apple Vision, et ce qui
+est dit). L'export choisit le niveau du son (réseaux, podcast, télévision), d'autres formats d'un clic, un passage
+seulement, et le son seul en WAV. Ces idées viennent d'Editroom (Robbie Tilton, MIT) ; le code est celui de Dérush.
+
 ## Cinq façons de créer
 
 <p align="center"><img src="docs/images/cinq-facons-de-creer.png" alt="Cinq façons de créer : Montage, Motion design, Extraits courts, Voix off, Sur un son" width="100%"></p>
@@ -178,6 +194,7 @@ Ouvre Dérush, puis **Connexions** (la prise, en haut à droite). Chaque carte s
 | 👂 | **Earshot** | L'oreille de l'IA : écouter, choisir, fabriquer un son (facultatif) | *Ajouter* (2,5 Go) |
 | ⏱️ | **Ralenti fluide** | Des ralentis sans saccades, jusqu'à 8 fois plus lents (RIFE) ; sans lui, l'IA ralentit avec FFmpeg, moins finement | *Installer* (18 Mo, sur Mac) |
 | 🔍 | **Agrandisseur** | Agrandir une image ou une vidéo trop petite, jusqu'à la 4K, en inventant les détails (Real-ESRGAN) | *Installer* (43 Mo, sur Mac) |
+| 🚪 | **Ouvre Dérush à tes IA** | L'app Claude, ChatGPT (Codex) ou Claude Code montent directement dans Dérush, geste par geste, sous tes yeux (38 outils) ; un interrupteur ferme la porte | *Brancher* (l'app Claude te demande « Installer ») |
 | <img src="public/logos/googledrive.svg" width="22"> | **Google Drive** | Donner tes fichiers du Drive à l'IA, y envoyer tes vidéos | Un interrupteur (il faut Google Drive pour ordinateur) |
 | <img src="public/logos/treg.svg" width="22" style="background:#000"> | **Treg** (conseillé) | Publier sur les réseaux, lire tes chiffres et tes commentaires, dresser ton profil de créateur | *Relier mes réseaux* : trois gestes, Dérush te guide et te montre quels réseaux sont reliés |
 | <img src="public/logos/blender.svg" width="22"> | **Blender** | La 3D réaliste (facultatif) | *Installer* |

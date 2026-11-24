@@ -2,6 +2,10 @@
 // Usage : derush-vision cadrage <dossier d'images .jpg>
 // Pour chaque image : visages, haut du corps et zones qui attirent l'œil (saillance).
 // Coordonnées normalisées 0..1, origine en haut à gauche : [x, y, largeur, hauteur, confiance].
+// Usage : derush-vision etiquettes <dossier d'images .jpg>   (Dérush 12)
+// Pour chaque image : ce qu'elle montre (« beach », « dog », « night_sky »… : les 1 303 étiquettes d'Apple Vision),
+// celles dont Vision est un peu sûr (0,1 ou plus), les plus sûres d'abord : [[étiquette, confiance], …].
+// Usage : derush-vision version   (la version de cet outil : Dérush le recompile quand elle change)
 import Foundation
 import Vision
 import CoreGraphics
@@ -15,10 +19,12 @@ func boite(_ r: CGRect, _ confiance: Float) -> [Double] {
 }
 
 let args = CommandLine.arguments
-guard args.count >= 3, args[1] == "cadrage" else {
-  ecrireErreur("usage : derush-vision cadrage <dossier d'images>")
+if args.count >= 2, args[1] == "version" { print("2"); exit(0) }
+guard args.count >= 3, ["cadrage", "etiquettes"].contains(args[1]) else {
+  ecrireErreur("usage : derush-vision cadrage|etiquettes <dossier d'images>")
   exit(2)
 }
+let mode = args[1]
 let dossier = URL(fileURLWithPath: args[2])
 let fichiers = ((try? FileManager.default.contentsOfDirectory(at: dossier, includingPropertiesForKeys: nil)) ?? [])
   .filter { ["jpg", "jpeg", "png"].contains($0.pathExtension.lowercased()) }
@@ -29,6 +35,14 @@ for (k, f) in fichiers.enumerated() {
   var e: [String: Any] = ["fichier": f.lastPathComponent]
   guard let source = CGImageSourceCreateWithURL(f as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
     images.append(e)
+    continue
+  }
+  if mode == "etiquettes" {
+    let classes = VNClassifyImageRequest()
+    do { try VNImageRequestHandler(cgImage: image, options: [:]).perform([classes]) } catch { ecrireErreur("\(f.lastPathComponent) : \(error.localizedDescription)") }
+    e["etiquettes"] = (classes.results ?? []).filter { $0.confidence >= 0.1 }.prefix(25).map { [$0.identifier, (Double($0.confidence) * 1000).rounded() / 1000] as [Any] }
+    images.append(e)
+    if k % 25 == 0 { ecrireErreur("progress=\(k * 100 / max(1, fichiers.count))%") }
     continue
   }
   let visages = VNDetectFaceRectanglesRequest()

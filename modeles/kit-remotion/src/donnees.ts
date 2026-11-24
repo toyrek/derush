@@ -23,6 +23,16 @@ export type Plan = {
   couleur?: {exposure: number; contrast: number; saturation: number; temperature: number; tint: number} | null;
   cadrage?: {points: PointCadrage[]};
   cadre?: 'plein' | 'incrustation';
+  /** La transition qui amène ce plan (Dérush 12) : il commence avant_s secondes avant sa coupe, par-dessus le plan qui sort. */
+  transition?: {genre: 'enchaine' | 'volet'; avant_s: number};
+  /** Le plan qui sort d'une transition (Dérush 12) continue ce temps après sa coupe, sous le plan qui entre. */
+  transition_apres_s?: number;
+  /** Par-dessus (Dérush 12) : le son d'une vidéo détaché de son image (« Détacher le son ») : seul le son se joue. */
+  son_seul?: boolean;
+  /** La vitesse du plan (Dérush 12) : 0,5 = ralenti, 2 = accéléré (le son suit). Absente : 1. */
+  vitesse?: number;
+  /** Ses fondus (Dérush 12), en secondes du montage : l'image depuis ou vers le noir, le son ; la courbe ; ce qui fond. */
+  fondu?: {entree?: number; sortie?: number; courbe?: 'lineaire' | 'lente' | 'rapide' | 'douce'; quoi?: 'tout' | 'image' | 'son'};
   texte?: string;
   notes?: string;
 };
