@@ -1,5 +1,10 @@
 # Dérush — ce qui est nouveau, version après version
 
+**11.9.1 — L'agrandisseur sait quand s'abstenir.** Mesuré juste après la 11.9 : une image réduite au quart, puis agrandie et comparée à la vraie.
+- **Sur un dessin, un logo, un texte**, l'Agrandisseur est nettement meilleur qu'un agrandissement simple : des traits nets, plus fidèles à l'original.
+- **Sur une vidéo filmée sombre, à contre-jour**, il rend l'image plus nette, mais en inventant : des contours trop durs, des boucles de cheveux qui n'existaient pas. Là, un agrandissement simple reste plus fidèle.
+- **Ton IA le sait maintenant.** Avant d'agrandir une vidéo filmée, elle agrandit une seule image des deux façons, les regarde côte à côte, et garde la plus juste.
+
 **11.9 — Le ralenti fluide et l'agrandisseur.** Ton IA sait maintenant ralentir un geste sans saccades, et agrandir une image ou une vidéo trop petite en inventant les détails. Deux outils à installer d'un clic dans Connexions, sur Mac.
 - **Un ralenti sans saccades.** Ralentir une vidéo filmée à 30 images par seconde, c'est montrer 120 images là où il n'y en a que 30 : il faut inventer les autres. Le « Ralenti fluide » (RIFE) les invente en suivant le mouvement, jusqu'à 8 fois plus lent. Ton IA choisit le passage, la vitesse, et pose le ralenti dans ton montage.
 - **Rien à inventer quand c'est possible.** Un rush filmé à 120 ou 240 images par seconde a déjà toutes ses images : Dérush les étale, c'est le plus beau ralenti. Et sans le Ralenti fluide, ton IA ralentit quand même, avec FFmpeg, un peu moins finement et un peu plus lentement.

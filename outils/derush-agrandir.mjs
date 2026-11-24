@@ -14,9 +14,8 @@ Usage (depuis le dossier de travail) :
   [--json] partout : la réponse complète.
 
   --cote      le petit côté voulu, en pixels : 1080 (HD), 1440 (2K), 2160 (4K). Ou --fois : de 1.05 à 4.
-  --modele    dessin : dessins, animation, motion design, captures d'écran, textes ; rapide.
-              photo : photos et vidéos filmées ; plus net qu'un agrandissement simple, mais lent, et il lisse un peu
-              les textures fines (grain, peau). Pour une image : photo par défaut. Pour une vidéo : à choisir.
+  --modele    dessin : dessins, animation, motion design, captures d'écran, textes, logos ; rapide, traits nets.
+              photo : photos nettes ; lent. Pour une image : photo par défaut. Pour une vidéo : à choisir.
   --de, --a   le passage d'une vidéo à agrandir (la sortie ne contient que lui) : agrandis seulement ce que tu montes.
   --long      accepte plus de 20 minutes de travail (jusqu'à 4 h), quand la personne est d'accord pour attendre.
 
@@ -24,8 +23,12 @@ Ce qu'il faut savoir :
   - N'agrandis que ce qui est vraiment trop petit pour le montage (une image de 600 px dans une vidéo 1080 × 1920, un
     vieux rush en 480p, un logo minuscule). Au-delà de ×4, rien : les détails seraient tous inventés. Une vidéo
     s'agrandit jusqu'à la 4K (2160 × 3840) ; une image jusqu'à 8192 px de côté.
-  - Le modèle dessin donne un air de dessin animé à une image filmée ; le modèle photo rend un dessin un peu flou par
-    endroits. Regarde le résultat (l'image, ou des images de la vidéo) avant de le monter.
+  - Ce qu'il retrouve et ce qu'il invente (mesuré le 24 nov. 2026 : une image réduite au quart, puis agrandie et
+    comparée à la vraie) : sur un dessin, les deux modèles rendent des traits nets, plus fidèles qu'un agrandissement
+    simple. Sur une vidéo filmée sombre, à contre-jour, il invente plus qu'il ne retrouve : « dessin » aplatit tout en
+    dessin animé, « photo » durcit les contours et invente des détails (des boucles de cheveux), et un agrandissement
+    simple (FFmpeg, scale=…:flags=lanczos) reste le plus fidèle. Avant de choisir, agrandis une seule image des deux
+    façons et regarde-les côte à côte ; regarde aussi le résultat avant de le monter.
   - Le temps, mesuré sur un Mac M4 : dessin, environ 1,3 s par image de 1080 × 1920 agrandie en 4K (10 s de vidéo à
     30 images/s : 6 à 7 min) ; photo, environ 11 s par image de 540 × 960 et 45 s par image de 1080 × 1920. Pour une
     vidéo, la commande mesure le temps avant de commencer et refuse au-delà de 20 minutes sans --long.

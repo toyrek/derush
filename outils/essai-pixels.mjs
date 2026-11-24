@@ -254,7 +254,7 @@ try {
   const ailleurs = JSON.parse(r.stdout.trim() || '{}');
   essai('un système sans version essayée : pas installable, et dit simplement', ailleurs.installable === false && ailleurs.ok === false && /seule la version pour Mac/.test(ailleurs.pourquoi ?? ''), ailleurs);
   const cp = M.consignePixels();
-  essai('la consigne de l’IA dit que RIFE invente les images, et comment se servir des deux commandes', /derush-ralenti/.test(cp) && /RIFE invente/.test(cp) && /derush-agrandir/.test(cp) && /--estimer/.test(cp), cp);
+  essai('la consigne de l’IA dit que RIFE invente les images, et comment se servir des deux commandes (comparer avant d’agrandir)', /derush-ralenti/.test(cp) && /RIFE invente/.test(cp) && /derush-agrandir/.test(cp) && /--estimer/.test(cp) && /agrandissement simple/.test(cp), cp);
 
   // ———————————————————————————————————————————————————————————————————————————
   titre('Une vidéo, image par image');
@@ -425,7 +425,7 @@ try {
   x = await cli({}, '--help');
   essai('l’aide dit tout : cadence, son, les vraies images d’un rush à 120 i/s, regarder avant de livrer', x.c === 0 && /--cadence/.test(x.o) && /120 ou 240/.test(x.o) && /son n'est pas gardé/.test(x.o) && /regarde des images/i.test(x.o), x.o.slice(0, 200));
   x = await cliA({}, '--help');
-  essai('… et celle de l’agrandisseur : les deux modèles, --estimer, le garde-fou, ×4 au plus', x.c === 0 && /dessin/.test(x.o) && /photo/.test(x.o) && /--estimer/.test(x.o) && /20 minutes/.test(x.o) && /×4/.test(x.o));
+  essai('… et celle de l’agrandisseur : les deux modèles, --estimer, le garde-fou, ×4 au plus, et ce qu’il invente sur une vidéo sombre', x.c === 0 && /dessin/.test(x.o) && /photo/.test(x.o) && /--estimer/.test(x.o) && /20 minutes/.test(x.o) && /×4/.test(x.o) && /reste le plus fidèle/.test(x.o) && /côte à côte/.test(x.o));
 
   // ———————————————————————————————————————————————————————————————————————————
   titre('Les vrais moteurs (sur la carte graphique)');
