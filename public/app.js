@@ -6184,6 +6184,9 @@ function rendreClaude() {
   const cle = JSON.stringify([modeProjet(), ui.reglagesIA.map((r) => r.texte), m, pret, qualiteIA(), modeleIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.espace_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs,
     // pour qui l'IA monte (ligne « Pour : »), et les notes des vidéos livrées (pouces, mot, publications suivies)
     ui.espace ? [ui.espace.id, ui.espace.nom, ui.espace.couleur] : null, signatureNotes(), ui.driveCarte,
+    // Classique ou Hollywood, et l'équipe (ses IA, sa phrase) : sans eux, un clic sur « Hollywood » ne redessinait pas le
+    // bouton, qui restait sur « Classique » jusqu'au changement suivant
+    c.hollywood?.ok ?? false, c.hollywood?.actif ?? false, c.equipe?.membres ?? null, c.equipe?.phrase ?? '',
     // la carte « Une voix off ? » (et le bouton « Au micro » sous les questions de l'IA)
     VO.signature(),
     // les vidéos de la timeline : laquelle est ouverte, leurs noms, une vidéo de l'IA qui y entre (public/sequences.js)

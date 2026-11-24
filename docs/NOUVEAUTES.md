@@ -1,5 +1,8 @@
 # Dérush — ce qui est nouveau, version après version
 
+**11.6.1 — Le bouton Hollywood répond tout de suite.** Avant, un clic sur « Hollywood » ou sur « Classique », au-dessus de la zone d'écriture, changeait bien le mode, mais le bouton restait sur l'ancien choix jusqu'à ton geste suivant.
+- **Ce que tu vois maintenant.** Tu cliques « Hollywood » : le bouton s'allume tout de suite, et « Équipe » apparaît à côté, avec les logos de tes trois IA. Tu cliques « Classique » : le bouton revient, « Équipe » s'en va.
+
 **11.6 — Dérush sur ton téléphone.** Tu lances un montage, tu pars faire autre chose, et tu le suis depuis ton téléphone : ce que fait ton IA, les images du rendu, puis la vidéo finie.
 - **Le direct dans ta poche.** Clique sur le téléphone, en haut de l'éditeur, puis sur « Allumer ». Sur ton téléphone, une page s'ouvre : un moniteur avec les images que ton IA fabrique ou regarde, un voyant « En direct », une grande phrase qui dit où elle en est (préparation, montage, rendu, contrôle), le temps passé et ses derniers gestes.
 - **Relié en un scan.** Tu scannes le code affiché sur ton ordinateur avec l'appareil photo (ou tu tapes ses six chiffres). Ton téléphone et ton ordinateur affichent alors le même nombre : tu compares, tu cliques « Relier ce téléphone », c'est fait. Le code vaut dix minutes et ne sert qu'une fois ; un téléphone se retire d'un clic.

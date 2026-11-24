@@ -264,7 +264,7 @@ export async function resolve(specifier, context, next) {
     // la garde : la fenêtre « Ouvrir » de l'ordinateur, les liens et l'envoi à l'IA de montage sont coupés et notés
     await js(`(() => {
       window.__appels = [];
-      window.__faux = {drive: null};
+      window.__faux = {drive: null, hollywood: null};
       const vrai = window.fetch.bind(window);
       const json = (j, code = 200) => new Response(JSON.stringify(j), {status: code, headers: {'content-type': 'application/json'}});
       window.fetch = async (url, opts = {}) => {
@@ -277,6 +277,14 @@ export async function resolve(specifier, context, next) {
         if (u.startsWith('/api/lien')) return json({ok: true});
         if (m === 'POST' && /^\\/api\\/claude\\/(demander|ajouter)/.test(u)) return json({ok: true});
         if (u === '/api/drive' && m === 'GET' && window.__faux.drive) return json(window.__faux.drive);
+        // le Mode Hollywood joué pour l'essai (Gemini « branché », l'équipe des trois IA) : le clic l'allume ou l'éteint
+        if (window.__faux.hollywood && m === 'POST' && u === '/api/connexions/hollywood/activer') { window.__faux.hollywood.actif = corps?.actif === true; return json({ok: true, hollywood: window.__faux.hollywood.actif}); }
+        if (window.__faux.hollywood && m === 'GET' && u === '/api/claude') {
+          const j = await (await vrai(url, opts)).json();
+          j.hollywood = {ok: true, actif: window.__faux.hollywood.actif, nom: 'Gemini 4 Hydrogen'};
+          j.equipe = {membres: ['gemini', 'claude', 'chatgpt'], phrase: 'Gemini réalise, Claude monte et ChatGPT dessine.', monteur: {ia: 'claude', pret: true, remplace_par: null}};
+          return json(j);
+        }
         return vrai(url, opts);
       };
       return true;
@@ -284,6 +292,24 @@ export async function resolve(specifier, context, next) {
     await jusqua("window.derush.claude() && window.derush.claude().claude && window.derush.claude().claude.ok", 15000);
     await capture('01-editeur');
     essai('le panneau des médias propose « Depuis mon Drive », la colonne de l’IA aussi', await js("!!document.querySelector('#p-medias [data-a=drive]') && !!document.querySelector('#claude [data-a=drive]')"));
+
+    // 11.6.1 — le bouton « Classique | Hollywood » de la zone d'écriture : la clé de rendreClaude ne contenait pas le mode,
+    // un clic sur « Hollywood » laissait donc le bouton sur « Classique » et « Équipe » caché
+    titre('Classique ou Hollywood : le bouton suit le clic');
+    await js('(window.__faux.hollywood = {actif: false}, window.derush.relireIA())');
+    essai('Gemini branché, en Classique : « Classique » est allumé, pas de bouton « Équipe »',
+      await jusqua("document.querySelector('#claude [data-cl=mode-classique].actif') && !document.querySelector('#claude [data-cl=mode-hollywood].actif') && !document.querySelector('#claude [data-cl=equipe]')", 5000));
+    await clic('#claude [data-cl="mode-hollywood"]');
+    essai('un clic sur « Hollywood » : le bouton passe sur « Hollywood », « Équipe » apparaît avec ses trois logos',
+      await jusqua("document.querySelector('#claude [data-cl=mode-hollywood].actif') && !document.querySelector('#claude [data-cl=mode-classique].actif') && document.querySelectorAll('#claude [data-cl=equipe] .pile-equipe > *').length === 3", 5000)
+      && (await appels('/hollywood\\/activer/')).at(-1)?.actif === true, await texteDe('#claude .cl-mode'));
+    await capture('01b-hollywood');
+    await clic('#claude [data-cl="mode-classique"]');
+    essai('un clic sur « Classique » : le bouton revient, « Équipe » disparaît',
+      await jusqua("document.querySelector('#claude [data-cl=mode-classique].actif') && !document.querySelector('#claude [data-cl=mode-hollywood].actif') && !document.querySelector('#claude [data-cl=equipe]')", 5000)
+      && (await appels('/hollywood\\/activer/')).at(-1)?.actif === false);
+    await js('(window.__faux.hollywood = null, window.derush.relireIA())');
+    await jusqua("!document.querySelector('.note')", 6000);
 
     titre('« va dans mon Drive… » écrit à l’IA de montage');
     const DEMANDE = 'va dans mon Drive, prends les vidéos de mon séjour au Japon et fais-moi un vlog du vendredi';
