@@ -6256,7 +6256,7 @@ function rendreClaude() {
     ${ui.reglagesIA.length ? `<div class="cl-reglages"><small>${ic('reglages')}${ui.reglagesIA.length} réglage${ui.reglagesIA.length > 1 ? 's' : ''} sur la table de montage, envoyé${ui.reglagesIA.length > 1 ? 's' : ''} avec ton message</small>${ui.reglagesIA.map((r, i) => `<span class="bloc-regle" title="${esc(r.texte)}"><b>${esc(r.nom)}</b> ${esc(r.texte)}<button data-reglage-i="${i}" title="Retirer ce réglage">${ic('fermer')}</button></span>`).join('')}</div>` : ''}
     ${attente.length ? `<div class="cl-pjs">${attente.map(pucePiece).join('')}</div>` : ''}
     <textarea id="cl-texte" rows="2" spellcheck="true" placeholder="${esc(texteVide)}"${pret ? '' : ' disabled'}></textarea>
-    <div class="cl-envoi"><button class="cl-joindre" data-cl="joindre" title="Joindre des fichiers : références, vidéos, charte graphique, logo, polices, zip… Tu peux aussi les glisser ou les coller ici.">${ic('trombone')}</button>${c.drive?.synchronise ? `<button class="cl-joindre" data-cl="joindre-drive" title="Joindre depuis ton Google Drive">${logo('drive', 16)}</button>` : ''}<button class="cl-joindre cl-style" data-cl="styles" title="Choisir un style : 99 recettes (face caméra, explications, promos, pubs produit, logos et affiches, effets, méthodes de montage)">${ic('palette')}</button>
+    <div class="cl-envoi"><button class="cl-joindre" data-cl="joindre" title="Joindre des fichiers : références, vidéos, charte graphique, logo, polices, zip… Tu peux aussi les glisser ou les coller ici.">${ic('trombone')}</button>${c.drive?.synchronise ? `<button class="cl-joindre" data-cl="joindre-drive" title="Joindre depuis ton Google Drive">${logo('drive', 16)}</button>` : ''}<button class="cl-joindre cl-style" data-cl="styles" title="Choisir un style : 199 styles en deux collections. Styles vidéo (face caméra, explications, promos, effets…) pour habiller tes rushes ; Tableaux en mouvement (peinture, dessin, encre…) pour une image faite tout en code. Ton IA lit la fiche du style et la suit.">${ic('palette')}</button>
     <span class="espace"></span>${c.en_cours ? `${c.en_cours.ecoute ? `<div class="segmente cl-quand" title="Quand ton message part : tout de suite (l’IA le lit au prochain geste, sans s’arrêter), ou quand elle a fini ce travail (une nouvelle demande)"><button data-cl="quand-envoyer" data-apres="0"${ui.apresTravail ? '' : ' class="actif"'}>Maintenant</button><button data-cl="quand-envoyer" data-apres="1"${ui.apresTravail ? ' class="actif"' : ''}>Après ce travail</button></div>` : ''}<button data-cl="arreter" class="stop" title="Arrêter ${qui}">${ic('stop', 'plein')}</button><button data-cl="envoyer" id="cl-envoyer" title="${c.en_cours.ecoute ? (ui.apresTravail ? 'Envoyer quand il aura fini ce travail (⌘↵)' : 'Lui écrire pendant son travail (⌘↵)') : 'Envoyer à la fin de son travail (⌘↵)'}">${ic('envoi')}</button>` : `<button data-cl="envoyer" id="cl-envoyer" title="Envoyer à ${qui} (⌘↵)">${ic('envoi')}</button>`}</div>
     <div class="cl-depot-ici">${ic('trombone')}<span>Lâche ici : ${qui} le recevra avec ton message</span></div></div>`;
   // pour qui l'IA monte ce projet : toujours visible près de la zone d'écriture (un clic pour changer)
@@ -6391,7 +6391,8 @@ function preparerReponse(n) {
   ta.scrollTop = 0;
 }
 /**
- * Les styles vidéo (competences/styles-video, recettes adaptées d'OpenMotion) : 99 recettes en 7 familles. Un clic pose
+ * Les styles, en deux collections (lib/styles.mjs) : les styles vidéo (competences/styles-video, 99 recettes adaptées
+ * d'OpenMotion) et les tableaux en mouvement (competences/tableaux-en-mouvement, 100 fiches). Un clic pose
  * « Style : <nom> » en tête de la zone d'écriture, à la place d'un style déjà choisi ; ton IA lit alors sa recette.
  */
 async function feuilleStyles() {
@@ -6400,27 +6401,36 @@ async function feuilleStyles() {
   const actuel = /^Style\s*:\s*(.+)$/im.exec(ui.brouillon ?? '')?.[1]?.trim() ?? null;
   const f = feuille('', true);
   f.classList.add('styles');
+  // deux collections : les styles vidéo (habiller des rushes) et les tableaux en mouvement (tout en code) ; la fenêtre
+  // s'ouvre sur celle du style déjà choisi
+  const collections = cat.collections?.length ? cat.collections : [{id: '', nom: 'Styles', aide: '', credit: ''}];
+  if (!ui.stylesCollection || !collections.some((c) => c.id === ui.stylesCollection)) ui.stylesCollection = cat.styles.find((s) => s.nom === actuel)?.collection ?? collections[0].id;
   const rendre = () => {
-    const fam = ui.stylesFamille ?? '';
-    const liste = cat.styles.filter((s) => !fam || s.categorie === fam);
-    const aide = cat.categories.find((x) => x.id === fam)?.aide;
-    f.innerHTML = `<h3>Choisis un style</h3><p class="sous-titre">${cat.styles.length} recettes de direction artistique. Ton IA lit celle que tu choisis et l’applique avec tes rushes et ta marque. Facultatif : sans style, elle choisit.</p>
-      <div class="segmente st-familles">${[{id: '', nom: 'Tous'}, ...cat.categories].map((x) => `<button data-st-famille="${x.id}"${fam === x.id ? ' class="actif"' : ''}${x.aide ? ` title="${esc(x.aide)}"` : ''}>${esc(x.nom)}</button>`).join('')}</div>
+    const col = collections.find((c) => c.id === ui.stylesCollection) ?? collections[0];
+    const familles = cat.categories.filter((x) => !col.id || x.collection === col.id);
+    const fam = familles.some((x) => x.id === ui.stylesFamille) ? ui.stylesFamille : '';
+    const liste = cat.styles.filter((s) => (!col.id || s.collection === col.id) && (!fam || s.categorie === fam));
+    const aide = familles.find((x) => x.id === fam)?.aide ?? col.aide;
+    f.innerHTML = `<h3>Choisis un style</h3><p class="sous-titre">${cat.styles.length} styles. Ton IA lit la fiche de celui que tu choisis et l’applique avec tes mots et ta marque. Facultatif : sans style, elle choisit.</p>
+      ${collections.length > 1 ? `<div class="segmente st-collections">${collections.map((c) => `<button data-st-collection="${esc(c.id)}"${col.id === c.id ? ' class="actif"' : ''} title="${esc(c.aide)}">${esc(c.nom)} <small>${c.styles}</small></button>`).join('')}</div>` : ''}
+      <div class="segmente st-familles">${[{id: '', nom: 'Tous'}, ...familles].map((x) => `<button data-st-famille="${x.id}"${fam === x.id ? ' class="actif"' : ''}${x.aide ? ` title="${esc(x.aide)}"` : ''}>${esc(x.nom)}</button>`).join('')}</div>
       ${aide ? `<p class="st-aide">${esc(aide)}</p>` : ''}
       <div class="st-grille">${liste.map((s) => `<button class="st-carte${actuel === s.nom ? ' choisi' : ''}" data-st="${esc(s.id)}" title="${esc(`${s.nom} (${s.nom_origine})`)}"><b>${esc(s.nom)}</b><small>${esc(s.description)}</small>${actuel === s.nom ? `<i class="coche">${ic('coche')}</i>` : ''}</button>`).join('')}</div>
-      <p class="st-source">Recettes adaptées d’OpenMotion (licence Apache-2.0).</p>
+      <p class="st-source">${esc(col.credit || 'Recettes adaptées d’OpenMotion (licence Apache-2.0).')}</p>
       <div class="pied">${actuel ? '<button class="btn" data-st-retirer>Sans style</button>' : ''}<span class="espace"></span><button class="btn principal" data-fermer>Fermer</button></div>`;
   };
   rendre();
   f.addEventListener('click', (e) => {
     if (e.target.closest('[data-fermer]')) return fermerFeuille();
+    const coll = e.target.closest('[data-st-collection]');
+    if (coll) { ui.stylesCollection = coll.dataset.stCollection; ui.stylesFamille = null; return rendre(); }
     const fam = e.target.closest('[data-st-famille]');
     if (fam) { ui.stylesFamille = fam.dataset.stFamille || null; return rendre(); }
     const s = cat.styles.find((x) => x.id === e.target.closest('[data-st]')?.dataset.st);
     if (!s && !e.target.closest('[data-st-retirer]')) return;
     poserStyle(s?.nom ?? null);
     fermerFeuille();
-    note(s ? `Style : ${s.nom}. Écris ta demande, ton IA suivra cette recette.` : 'Sans style : ton IA choisit.');
+    note(s ? (s.collection === 'tableaux-en-mouvement' ? `Style : ${s.nom}. Écris ce que tu veux voir, ton IA le dessinera en code.` : `Style : ${s.nom}. Écris ta demande, ton IA suivra cette recette.`) : 'Sans style : ton IA choisit.');
   });
 }
 /** Pose « Style : <nom> » en tête de la zone d'écriture (à la place d'un style déjà là), ou le retire (null). */

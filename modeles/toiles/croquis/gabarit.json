@@ -1,0 +1,6 @@
+{
+  "ordre": 2,
+  "titre": "Le croquis",
+  "pour": "un dessin au trait de main qui se trace sous les yeux, avec ses hachures et son trait qui frémit",
+  "bibliotheques": ["roughjs"]
+}

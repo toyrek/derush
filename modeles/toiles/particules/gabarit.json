@@ -1,0 +1,7 @@
+{
+  "ordre": 3,
+  "titre": "Les particules",
+  "pour": "des braises, des étincelles, de la poussière ou de la neige en 3D, avec three.js et three.quarks",
+  "bibliotheques": ["three", "three.quarks", "quarks.core"],
+  "suite": true
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Encre</title>
+<style>
+  html, body { margin: 0; background: #14110f; overflow: hidden; }
+</style>
+</head>
+<body>
+<canvas id="toile"></canvas>
+<script type="module">
+// De l'encre qui se répand dans l'eau : un vrai fluide (fluide.js, adapté de « WebGL Fluid Simulation », MIT).
+// C'est une SIMULATION : la toile le dit (suite: true). Le pas de calcul est fixe et les gouttes sont écrites dans la
+// partition : deux rendus donnent les mêmes images. Si le temps recule, tout est rejoué depuis zéro.
+import {creerFluide} from './fluide.js';
+import {preparer, pret, alea} from './toile.js';
+
+// ——— LA PARTITION ———
+const {canvas} = preparer({duree: 9, fps: 30, largeur: 1920, hauteur: 1080, suite: true, contexte: null});
+const PAS = 1 / 60;
+const PAPIER = [0.957, 0.925, 0.866];                 // #f4ecdd
+const ENCRES = {indigo: [0.10, 0.17, 0.42], vermillon: [0.80, 0.19, 0.11], ocre: [0.82, 0.55, 0.12], sumi: [0.08, 0.07, 0.06]};
+const FUMEE = false;                                  // true : de la fumée claire sur un fond sombre (change PAPIER en [0.03, 0.03, 0.04])
+// les gouttes : quand (s), où (x, y de 0 à 1, y vers le haut), leur élan (dx, dy), leur encre, leur quantité, leur rayon
+const GOUTTES = [
+  {t: 0.3, x: 0.30, y: 0.62, dx: 900, dy: -250, encre: 'indigo', quantite: 3.4, rayon: 0.004},
+  {t: 1.4, x: 0.70, y: 0.40, dx: -1000, dy: 320, encre: 'vermillon', quantite: 3.0, rayon: 0.0035},
+  {t: 2.6, x: 0.50, y: 0.80, dx: 0, dy: -1300, encre: 'sumi', quantite: 2.4, rayon: 0.002},
+  {t: 4.0, x: 0.22, y: 0.28, dx: 1100, dy: 700, encre: 'ocre', quantite: 3.0, rayon: 0.003},
+  {t: 5.3, x: 0.80, y: 0.72, dx: -800, dy: -600, encre: 'indigo', quantite: 2.6, rayon: 0.003},
+];
+// entre les gouttes, l'eau n'est jamais tout à fait immobile : de petits remous, toujours les mêmes (graine)
+const REMOUS = {graine: 11, chaque: 0.5, force: 220};
+
+const fluide = creerFluide(canvas, {simulation: 256, encre: 1080, pression: 22, tourbillon: 18, dissipationVitesse: 0.22, dissipationEncre: 0.02});
+let pas = -1, tirage = null;
+function rejouer() { fluide.vider(); pas = 0; tirage = alea(REMOUS.graine); }
+
+function avancerJusqua(t) {
+  const cible = Math.round(t / PAS);
+  if (pas < 0 || cible < pas) rejouer();
+  while (pas < cible) {
+    for (const g of GOUTTES) {
+      // une goutte dure 6 pas : elle coule, elle ne claque pas
+      const depuis = pas - Math.round(g.t / PAS);
+      if (depuis >= 0 && depuis < 6) fluide.goutte({x: g.x + depuis * g.dx * 1e-6, y: g.y + depuis * g.dy * 1e-6, dx: g.dx, dy: g.dy, couleur: ENCRES[g.encre], quantite: g.quantite / 6, rayon: g.rayon, fumee: FUMEE});
+    }
+    if (pas % Math.round(REMOUS.chaque / PAS) === 0) {
+      const a = tirage() * Math.PI * 2;
+      fluide.goutte({x: 0.15 + tirage() * 0.7, y: 0.15 + tirage() * 0.7, dx: Math.cos(a) * REMOUS.force, dy: Math.sin(a) * REMOUS.force, couleur: [1, 1, 1], quantite: 0, rayon: 0.02, fumee: FUMEE});
+    }
+    fluide.pas(PAS);
+    pas++;
+  }
+}
+
+window.renderAt = (t) => {
+  avancerJusqua(t);
+  fluide.dessiner({papier: PAPIER, force: 1.7, bord: 7, grain: 0.05, fumee: FUMEE});
+};
+
+pret();
+</script>
+</body>
+</html>

@@ -1767,6 +1767,11 @@ body.tire-col iframe, body.tire-lig iframe, body.tire-col video, body.tire-lig v
 
 /* ——— Les styles vidéo (recettes adaptées d'OpenMotion) : la feuille de choix ——— */
 .feuille.styles { width: min(860px, calc(100vw - 32px)); }
+/* les deux collections (Styles vidéo, Tableaux en mouvement) : un choix large, au-dessus des familles */
+.st-collections { display: flex; margin: 2px 0 8px; padding: 3px; border-radius: 11px; }
+.st-collections button { flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.st-collections button small { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: rgba(255, 255, 255, .1); color: var(--dim); font-size: 10.5px; font-weight: 600; }
+.st-collections button.actif small { background: rgba(255, 122, 60, .22); color: var(--braise-2); }
 .st-familles { flex-wrap: wrap; margin: 2px 0 4px; }
 .st-familles button { white-space: nowrap; }
 .st-aide { margin: 6px 2px 0; font-size: 12px; color: var(--dim); }

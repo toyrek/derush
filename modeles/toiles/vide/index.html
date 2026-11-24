@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Toile</title>
+<style>
+  /* les polices de Dérush sont servies sous /polices/ ; une autre police : copie son fichier dans ce dossier */
+  @font-face { font-family: 'Titre'; src: url('/polices/archivo-black-400.woff2') format('woff2'); font-display: block; }
+  @font-face { font-family: 'Texte'; src: url('/polices/geist-600.woff2') format('woff2'); font-display: block; }
+  html, body { margin: 0; background: #14110f; overflow: hidden; }
+</style>
+</head>
+<body>
+<canvas id="toile"></canvas>
+<script type="module">
+import {preparer, pret, avancee, rampe, melange, courbes, ressort, bruit, hasard} from './toile.js';
+
+// ——— LA PARTITION : tout ce qui se règle est ici, en nombres ———
+const {ctx, L, H} = preparer({duree: 6, fps: 30, largeur: 1920, hauteur: 1080});
+const COULEURS = {fond: '#f4efe6', encre: '#17130f', accent: '#d9541e', ombre: '#d9cfbf'};
+const T = {            // l'horloge : chaque geste lit ces temps, rien n'est réglé ailleurs
+  titre: 0.25,         // le titre se pose (ressort, amorti 1 : il se lit)
+  trait: 1.05,         // le trait se trace sous le titre, en 0,7 s
+  phrase: 1.55,        // la phrase arrive, mot après mot (un mot toutes les 90 ms)
+  sortie: 5.2,         // tout sort, en 0,45 s (moitié plus court que l'entrée)
+};
+const TITRE = 'Une toile';
+const PHRASE = 'Chaque image est une fonction du temps.'.split(' ');
+
+function fond(t) {
+  ctx.fillStyle = COULEURS.fond;
+  ctx.fillRect(0, 0, L, H);
+  // une lumière qui se promène lentement : le fond vit, même quand le texte tient
+  const x = L * (0.5 + 0.22 * bruit(t * 0.18, 1)), y = H * (0.42 + 0.16 * bruit(t * 0.14, 2));
+  const g = ctx.createRadialGradient(x, y, 0, x, y, L * 0.75);
+  g.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+  g.addColorStop(1, 'rgba(217, 207, 191, 0.75)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, L, H);
+  // un grain de papier, le même à chaque image (le hasard ne dépend que de la case)
+  ctx.fillStyle = 'rgba(23, 19, 15, 0.035)';
+  for (let i = 0; i < 2600; i++) ctx.fillRect(hasard(i, 11) * L, hasard(i, 12) * H, 2, 2);
+}
+
+window.renderAt = (t) => {
+  fond(t);
+  const sort = courbes.sortie(avancee(t, T.sortie, 0.45));   // 0 → 1 pendant la sortie
+  ctx.save();
+  ctx.translate(0, -sort * 90);
+  ctx.globalAlpha = 1 - sort;
+
+  // le titre : il monte de 60 px et se pose sans dépasser
+  const p = ressort(t - T.titre, {amorti: 1, frequence: 2.4});
+  ctx.font = '168px Titre';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = COULEURS.encre;
+  ctx.globalAlpha *= Math.min(1, p * 1.6);
+  ctx.fillText(TITRE, L / 2, H * 0.47 + (1 - p) * 60);
+  ctx.globalAlpha = 1 - sort;
+
+  // le trait : il se trace de gauche à droite, et sa main tremble un peu
+  const larg = ctx.measureText(TITRE).width;
+  const a = courbes.aller(avancee(t, T.trait, 0.7));
+  if (a > 0) {
+    ctx.strokeStyle = COULEURS.accent;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const x0 = L / 2 - larg / 2, y0 = H * 0.47 + 38;
+    for (let i = 0; i <= 60 * a; i++) { const x = x0 + (i / 60) * larg; const y = y0 + 5 * bruit(i * 0.35, 5); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke();
+  }
+
+  // la phrase : un mot toutes les 90 ms, chacun monte de 22 px
+  ctx.font = '44px Texte';
+  ctx.fillStyle = COULEURS.encre;
+  const espaces = PHRASE.map((m) => ctx.measureText(m + ' ').width);
+  let x = L / 2 - espaces.reduce((s, v) => s + v, 0) / 2;
+  ctx.textAlign = 'left';
+  PHRASE.forEach((mot, i) => {
+    const q = courbes.entree(avancee(t, T.phrase + i * 0.09, 0.5));
+    ctx.globalAlpha = (1 - sort) * q;
+    ctx.fillText(mot, x, H * 0.47 + 140 + (1 - q) * 22);
+    x += espaces[i];
+  });
+  ctx.restore();
+};
+
+pret(document.fonts.load('168px Titre'), document.fonts.load('44px Texte'));
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Croquis</title>
+<script type="importmap">{"imports": {"roughjs": "/lib/roughjs/bundled/rough.esm.js"}}</script>
+<style>
+  @font-face { font-family: 'Main'; src: url('/polices/permanent-marker-400.woff2') format('woff2'); font-display: block; }
+  html, body { margin: 0; background: #1b1a17; overflow: hidden; }
+</style>
+</head>
+<body>
+<canvas id="toile"></canvas>
+<script type="module">
+// Rough.js (MIT, https://github.com/rough-stuff/rough) donne un trait de main à n'importe quelle forme. Ici, chaque
+// forme est fabriquée une fois (4 variantes, pour le frémissement), puis révélée peu à peu le long de son tracé.
+import rough from 'roughjs';
+import {preparer, pret, avancee, courbes, tenu, hasard, bruit} from './toile.js';
+
+// ——— LA PARTITION ———
+const {toile, ctx, L, H} = preparer({duree: 7, fps: 30, largeur: 1920, hauteur: 1080});
+const COULEURS = {papier: '#f6f1e7', trait: '#1d1b18', accent: '#d9541e', bleu: '#2f6f8f', hachure: '#e8a33d'};
+const POSE = 3;          // le trait frémit toutes les 3 images (un dessin à la main se fait « à trois »)
+const VARIANTES = 4;     // quatre versions de chaque forme, qui tournent
+// chaque forme : quand elle commence à se tracer, combien de temps, puis ses hachures
+const FORMES = [
+  {id: 'boite', debut: 0.3, duree: 0.9, faire: (g, o) => g.rectangle(250, 380, 420, 300, o), options: {stroke: COULEURS.trait, strokeWidth: 5, roughness: 1.6, fill: COULEURS.hachure, fillStyle: 'hachure', hachureGap: 16, fillWeight: 3}},
+  {id: 'fleche', debut: 1.5, duree: 0.6, faire: (g, o) => g.linearPath([[720, 530], [1080, 530]], o), options: {stroke: COULEURS.accent, strokeWidth: 7, roughness: 1.4}},
+  {id: 'pointe', debut: 2.0, duree: 0.3, faire: (g, o) => g.linearPath([[1030, 480], [1090, 530], [1030, 580]], o), options: {stroke: COULEURS.accent, strokeWidth: 7, roughness: 1.2}},
+  {id: 'rond', debut: 2.4, duree: 1.0, faire: (g, o) => g.circle(1400, 530, 380, o), options: {stroke: COULEURS.trait, strokeWidth: 5, roughness: 1.8, fill: COULEURS.bleu, fillStyle: 'cross-hatch', hachureGap: 18, fillWeight: 2.5}},
+  {id: 'souligne', debut: 5.2, duree: 0.7, faire: (g, o) => g.curve([[470, 925], [760, 898], [1100, 932], [1450, 904]], o), options: {stroke: COULEURS.accent, strokeWidth: 8, roughness: 2.2}},
+];
+const TEXTES = [
+  {mot: 'une idée', x: 460, y: 345, debut: 1.0, taille: 64},
+  {mot: 'un film', x: 1400, y: 305, debut: 3.2, taille: 64},
+  {mot: 'dessiné à la main, tout en code', x: 960, y: 880, debut: 3.7, taille: 84},
+];
+
+// ——— la fabrique : chaque forme devient une liste de traits, mesurés, à révéler dans l'ordre ———
+const g = rough.generator();
+const mesureur = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+const longueur = (d) => { mesureur.setAttribute('d', d); return mesureur.getTotalLength(); };
+function traits(drawable) {
+  // un tracé de Rough.js est fait de morceaux (« M … ») : on les sépare pour les révéler l'un après l'autre
+  return g.toPaths(drawable).map((p) => {
+    const morceaux = p.d.split(/(?=M)/).map((d) => d.trim()).filter(Boolean).map((d) => ({chemin: new Path2D(d), longueur: longueur(d)}));
+    return {couleur: p.stroke, epaisseur: p.strokeWidth, remplissage: p.fill && p.fill !== 'none' ? p.fill : null, morceaux, total: morceaux.reduce((s, m) => s + m.longueur, 0)};
+  });
+}
+const DESSINS = FORMES.map((f, i) => ({...f, variantes: Array.from({length: VARIANTES}, (_, v) => traits(f.faire(g, {...f.options, seed: 100 + i * 10 + v})))}));
+
+function reveler(trait, a) {
+  // a de 0 à 1 : la part du tracé déjà dessinée
+  let reste = trait.total * a;
+  ctx.strokeStyle = trait.couleur;
+  ctx.lineWidth = trait.epaisseur;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (const m of trait.morceaux) {
+    if (reste <= 0) break;
+    if (reste >= m.longueur) { ctx.setLineDash([]); ctx.stroke(m.chemin); } else { ctx.setLineDash([reste, m.longueur + 10]); ctx.stroke(m.chemin); }
+    reste -= m.longueur;
+  }
+  ctx.setLineDash([]);
+}
+
+function papier() {
+  ctx.fillStyle = COULEURS.papier;
+  ctx.fillRect(0, 0, L, H);
+  ctx.fillStyle = 'rgba(29, 27, 24, 0.045)';
+  for (let i = 0; i < 3200; i++) ctx.fillRect(hasard(i, 1) * L, hasard(i, 2) * H, 2, 2);
+  // des lignes de cahier, très pâles
+  ctx.strokeStyle = 'rgba(47, 111, 143, 0.10)';
+  ctx.lineWidth = 2;
+  for (let y = 140; y < H; y += 72) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(L, y); ctx.stroke(); }
+}
+
+window.renderAt = (t) => {
+  papier();
+  // le frémissement : la variante change à chaque pose, pas à chaque image
+  const v = Math.floor(tenu(t, toile.fps, POSE) * toile.fps / POSE) % VARIANTES;
+  for (const d of DESSINS) {
+    const a = courbes.aller(avancee(t, d.debut, d.duree));
+    if (a <= 0) continue;
+    const liste = d.variantes[a >= 1 ? v : 0];      // pendant qu'elle se trace, la forme ne frémit pas
+    const contour = liste.filter((x) => !x.remplissage);
+    const hachures = liste.filter((x) => x.remplissage);
+    // les hachures d'abord dessous, une fois le contour bien avancé
+    const h = courbes.aller(avancee(t, d.debut + d.duree * 0.6, d.duree * 0.9));
+    for (const x of hachures) reveler({...x, couleur: x.remplissage}, h);
+    for (const x of contour) reveler(x, a);
+  }
+  // les mots : écrits lettre après lettre (une lettre toutes les 45 ms), d'une main qui bouge un peu
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = COULEURS.trait;
+  for (const [i, x] of TEXTES.entries()) {
+    const n = Math.floor(avancee(t, x.debut, x.mot.length * 0.045) * x.mot.length + 1e-6);
+    if (n <= 0) continue;
+    ctx.font = `${x.taille}px Main`;
+    const entier = ctx.measureText(x.mot).width;
+    ctx.textAlign = 'left';
+    ctx.fillText(x.mot.slice(0, n), x.x - entier / 2, x.y + 2 * bruit(tenu(t, toile.fps, POSE) * 3, 20 + i));
+  }
+};
+
+pret(document.fonts.load('64px Main'));
+</script>
+</body>
+</html>

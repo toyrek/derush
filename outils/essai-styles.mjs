@@ -24,7 +24,8 @@ let ko = 0;
 const essai = (nom, cond, detail = '') => { if (cond === true) { ok++; console.log(`  ✓ ${nom}`); } else { ko++; console.log(`  ✗ ${nom}${detail || cond ? ` — ${JSON.stringify(detail || cond).slice(0, 600)}` : ''}`); } };
 
 console.log('La compétence styles-video');
-const cat = S.catalogueStyles();
+// les styles vidéo sont une des deux collections (l'autre : les tableaux en mouvement, outils/essai-tableaux.mjs)
+const cat = S.catalogueStyles('styles-video');
 const fichiers = fs.readdirSync(path.join(DOSSIER, 'recettes')).filter((n) => n.endsWith('.md')).sort();
 essai('99 styles en 7 familles, chacun avec un nom et une description en français', cat.styles.length === 99 && cat.categories.length === 7 && cat.styles.every((s) => s.nom && s.description && cat.categories.some((c) => c.id === s.categorie)), {styles: cat.styles.length, familles: cat.categories.length});
 essai('chaque style a sa recette, et chaque recette son style', fichiers.length === 99 && cat.styles.every((s) => fichiers.includes(path.basename(s.fichier))) && fichiers.every((f) => cat.styles.some((s) => path.basename(s.fichier) === f)));
@@ -53,6 +54,16 @@ const cc = S.consigneStyles(S.stylesDemandes('Style : Avant / après'), 'claude'
 const cx = S.consigneStyles(S.stylesDemandes('Style : Avant / après'), 'codex');
 essai('la consigne donne le chemin de la recette dans les compétences de l’IA (Claude, Codex et Gemini)', /\.claude\/skills\/styles-video\/recettes\/before-after\.md/.test(cc) && /\.agents\/skills\/styles-video\/recettes\/before-after\.md/.test(cx) && /Lis la recette en entier/.test(cc) && S.consigneStyles([], 'claude') === '', cc);
 essai('chaque recette nommée par la consigne existe bien dans la compétence', cat.styles.every((s) => fs.existsSync(path.join(DOSSIER, s.fichier))));
+
+console.log('Les deux collections réunies');
+const tout = S.catalogueStyles();
+essai('deux collections dans le choix des styles : les styles vidéo (99) et les tableaux en mouvement (100), chacune avec son crédit', tout.collections.map((c) => `${c.id}:${c.styles}`).join(',') === 'styles-video:99,tableaux-en-mouvement:100' && tout.collections.every((c) => c.nom && c.aide && c.credit), tout.collections);
+essai('199 styles en 13 familles ; chaque famille dit sa collection, chaque style sa compétence', tout.styles.length === 199 && tout.categories.length === 13 && tout.categories.every((c) => tout.collections.some((x) => x.id === c.collection)) && tout.styles.every((x) => x.competence === tout.categories.find((c) => c.id === x.categorie)?.collection));
+essai('d’une collection à l’autre : aucun nom, aucun id en double', new Set(tout.styles.map((x) => x.nom.toLowerCase())).size === 199 && new Set(tout.styles.map((x) => x.id)).size === 199 && new Set(tout.categories.map((c) => c.id)).size === 13);
+essai('un style de l’autre collection se trouve aussi par « Style : … », même sans sa parenthèse', ids('Style : Estampe japonaise (ukiyo-e)') === 'dessin-estampe-japonaise' && ids('style : estampe japonaise') === 'dessin-estampe-japonaise' && ids('Style : Van Gogh\nStyle : Avant / après') === 'art-van-gogh,before-after');
+const ct = S.consigneStyles(S.stylesDemandes('Style : Van Gogh\nStyle : Avant / après'), 'claude');
+essai('la consigne d’un tableau en mouvement : sa fiche dans sa compétence, derush-toile, la manière sans rien recopier ; celle d’un style vidéo reste à part',
+  ct.split('\n').length === 2 && /\.claude\/skills\/tableaux-en-mouvement\/recettes\/art\/09_postimp\.md/.test(ct) && /derush-toile/.test(ct) && /tableaux-en-mouvement\/SKILL\.md/.test(ct) && /aucun personnage, aucun logo ni aucune œuvre/.test(ct) && /à la manière de/.test(ct) && /styles-video\/recettes\/before-after\.md/.test(ct), ct);
 
 console.log('« Comme cette vidéo » d’après un Motion.md');
 const f1 = path.join(tmp, 'notes.md');

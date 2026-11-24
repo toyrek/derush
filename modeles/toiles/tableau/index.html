@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Tableau</title>
+<style>
+  html, body { margin: 0; background: #111; overflow: hidden; }
+  canvas { display: block; }
+  #ui { position: fixed; left: 8px; bottom: 8px; color: #ddd; font: 12px monospace; }
+  body.render #ui { display: none; }
+</style>
+</head>
+<body>
+<!-- Le moteur de dessin de huashu-art-motion (MIT), livré avec Dérush : servi sous /tableaux/ par derush-toile.
+     Cette page ne se change presque jamais : ton film est dans film.js, tes scènes dans scenes/. -->
+<canvas id="c" width="1920" height="1080"></canvas>
+<div id="ui"><input id="scrub" type="range" min="0" max="60" step="0.0166667" value="0" style="width:600px"> <span id="tt"></span> <button id="play">lire</button></div>
+<script>window.__ready = false;</script>
+<script src="/tableaux/lib/fonts.js"></script>
+<script>
+  // les polices du moteur sont à côté de lui, pas dans ce dossier
+  for (const f of window.FONT_FACES) if (!/^(\/|https?:|data:)/.test(f.url)) f.url = '/tableaux/' + f.url;
+</script>
+<script src="/tableaux/lib/util.js"></script>
+<script src="/tableaux/lib/paint.js"></script>
+<script src="/tableaux/lib/brush.js"></script>
+<script src="/tableaux/lib/render.js"></script>
+<script src="/tableaux/lib/post.js"></script>
+<script src="/tableaux/lib/rig.js"></script>
+<script src="/tableaux/lib/rig_huashu.js"></script>
+<script src="/tableaux/lib/kit.js"></script>
+<script src="/tableaux/lib/medium.js"></script>
+<script src="/tableaux/lib/motion.js"></script>
+<script src="/tableaux/lib/camera.js"></script>
+<script src="/tableaux/lib/diagram.js"></script>
+<script src="/tableaux/lib/typo.js"></script>
+<script src="/tableaux/lib/chart.js"></script>
+<script src="/tableaux/lib/ui.js"></script>
+<script src="/tableaux/lib/collage.js"></script>
+<script src="/tableaux/lib/media.js"></script>
+<script src="/tableaux/lib/toon.js"></script>
+<script src="film.js"></script>
+<script src="/tableaux/transitions.js"></script>
+<script src="/tableaux/scenes/index.js"></script>
+<script src="/tableaux/engine.js"></script>
+</body>
+</html>

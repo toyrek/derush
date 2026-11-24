@@ -1,0 +1,64 @@
+Les licences de la compétence « tableaux-en-mouvement » de Dérush
+================================================================
+
+Cette compétence réunit des fichiers de trois dépôts. Chacun garde sa licence ; les textes complets sont aussi dans
+competences/licences/ (alchaincyf.txt, alexgreensh.txt, vincentwei1021.txt). Ce qui vient d'où : SOURCE.md.
+
+1. huashu-art-motion (moteur/, recettes/art/, references/huashu/) — licence MIT, ci-dessous.
+   Les polices de moteur/lib/fonts/ ne sont pas sous MIT : SIL Open Font License 1.1 (moteur/lib/fonts/LICENSES.md, OFL.txt).
+   moteur/lib/three.min.js : three.js, licence MIT (moteur/lib/THREE_LICENSE.txt).
+2. mg-styles-15 (recettes/mouvement/, references/jury.md, references/ecrire-un-style-de-mouvement.md) — licence MIT, ci-dessous.
+3. anidoodle (recettes/dessin/, references/anidoodle/) — licence Apache-2.0 : texte complet dans
+   competences/licences/alexgreensh.txt ; sa notice est NOTICE-anidoodle.txt, à côté de ce fichier.
+
+SKILL.md, methode.md, SOURCE.md, catalogue.json et les en-têtes « Dans Dérush » sont écrits pour Dérush (sa licence).
+
+--------------------------------------------------------------------------------
+huashu-art-motion
+--------------------------------------------------------------------------------
+MIT License
+
+Copyright (c) 2026 alchaincyf (花叔 · 花生)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+--------------------------------------------------------------------------------
+mg-styles-15
+--------------------------------------------------------------------------------
+MIT License
+
+Copyright (c) 2026 Vincentwei1021
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
