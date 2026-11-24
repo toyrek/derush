@@ -176,13 +176,16 @@ Real SFX (Clipwing/skills) et le guide d’Earshot (Leonxlnx/earshot) ne sont pa
 |---|---|---|---|---|
 | `genres-video` | Montage | https://github.com/Viprasol-Tech/claude-video-editing-skills (commit 0212f77 : 42 fiches de montage par genre, adaptées à Dérush, noms et index en français ; leur moteur et leurs habillages ne sont pas repris) | MIT | Viprasol Tech |
 
-## Ajoutées le 24 novembre 2026 (les tableaux en mouvement ; provenance, changements et retraits dans leur `SOURCE.md`)
+## Ajoutées le 24 novembre 2026 (les tableaux en mouvement, la direction et la musique de huashu-motion ; provenance, changements et retraits dans leur `SOURCE.md`)
 
 | Compétence | Domaine | Source | Licence | Auteur |
 |---|---|---|---|---|
 | `tableaux-en-mouvement` | Montage | https://github.com/alchaincyf/huashu-art-motion (commit a97c450 : son moteur de dessin, 53 fiches de styles d'art, 15 documents de méthode) ; https://github.com/alexgreensh/anidoodle (commit 4ae27d2 : 32 fiches de matières de dessin, 9 documents de méthode ; son moteur n'est pas repris) ; https://github.com/Vincentwei1021/mg-styles-15 (commit 46fd009 : 15 fiches de styles de mouvement, la grille du jury). Noms, index et méthode en français écrits pour Dérush. Les polices du moteur : SIL OFL 1.1 ; three.js : MIT. | MIT (huashu-art-motion, mg-styles-15), Apache-2.0 (anidoodle) | alchaincyf (花叔), Alex Greenshpun, Vincentwei1021 |
 | `motionmaxxing` | Montage | https://github.com/Tejashmakwana/motionmaxxing (commit 8c8ec0f : sa direction et ses 13 documents de référence, adaptés aux outils de Dérush ; son moteur, ses scripts et GSAP ne sont pas repris) | Apache-2.0 | Tejas Makwana |
+| `huashu-motion` | Montage | https://github.com/alchaincyf/huashu-motion (commit f4f38bf : sa direction de réalisateur et 41 documents de référence, dont 16 mondes musicaux et 3 partitions d'exemple, adaptés aux outils de Dérush ; son outil `om`, son studio, son moteur de film, GSAP, ses polices et sa bibliothèque de musiques ne sont pas repris) | MIT | Huashu (花叔) |
 
 La page de départ « encre » des toiles (`modeles/toiles/encre/fluide.js`) est adaptée de WebGL Fluid Simulation de Pavel Dobryakov (https://github.com/PavelDoGreat/WebGL-Fluid-Simulation, commit a2d2929, MIT : `licences/paveldogreat.txt`). Rough.js, three.js, three.quarks et simplex-noise (MIT) ne sont pas livrés : le moteur de rendu les installe chez toi, avec ses autres bibliothèques.
+
+Le compositeur de musique et le traceur de temps de huashu-motion (12 fichiers de son dossier `cli/lib/`, commit f4f38bf, MIT : `licences/alchaincyf-huashu-motion.txt`) sont repris sans un octet de changé hors de ce dossier, dans `lib/musique/` : c'est la commande `derush-musique`. Aucune musique et aucun instrument enregistré ne sont livrés avec.
 
 Les textes complets des licences sont dans `licences/`. Chaque dossier garde aussi sa licence (quand le dépôt en a une) et un `SOURCE.md` qui dit d’où il vient et ce qui a été retiré.

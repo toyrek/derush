@@ -349,6 +349,7 @@ await C.demander(P, {message: 'Fais-moi un vlog de la journée du vendredi'});
 await attendre(() => !C.claudeTravaille());
 let consignes = lireConsignes(P);
 let luVO = journal().find((x) => x.quoi === 'lit')?.texte ?? '';
+await essai('les consignes disent à l’IA qu’elle a derush-musique : les temps d’un morceau, sa durée ajustée, et une musique écrite ici (instruments calculés, à dire)', () => (/\n- La musique(, sans ElevenLabs| et ses temps) : La commande derush-musique \(aide : derush-musique --help/.test(consignes) && /« ajuster » met un morceau à la durée du film/.test(consignes) && /calculés, pas enregistrés : dis-le en une ligne à l’humain/.test(consignes)) || consignes.split('\n').filter((l) => /musique/i.test(l)).join(' | ').slice(0, 900));
 await essai('un vlog muet : contexte/voix-off.md est posé, et la consigne dit de le lire', () => (dansAtelier(P, 'contexte/voix-off.md') && /- Voix off : lis contexte\/voix-off\.md/.test(consignes)) || consignes.slice(-1500));
 await essai('… et dans cet ordre : une première version livrée sans attendre, puis des questions courtes et numérotées à la fin de la réponse', () => /Voix off, dans cet ordre : livre d’abord une première version complète, sans attendre de réponse ; tes questions viennent ensuite, à la fin de ta réponse : 3 à 5, courtes, numérotées/.test(consignes) || consignes.slice(-1500));
 await essai('le rappel de chaque message le redit (une conversation reprise relit le contexte du jour)', () => luVO.includes('voix off : relis contexte/voix-off.md') || luVO.slice(-800));

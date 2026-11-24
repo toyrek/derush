@@ -567,6 +567,18 @@ try {
   }
 
   // ————————————————————————————————————————————————————————————————————————————————
+  titre('Les styles : trois collections, dont une à télécharger');
+  {
+    // jamais POST /api/styles/telecharger ici : il irait chercher les fiches sur GitHub (outils/essai-styles.mjs le joue avec une fausse source)
+    const st = await api('GET', '/api/styles');
+    essai('GET /api/styles : les styles vidéo, les tableaux en mouvement, et les films en 99 styles pas encore là, avec leur taille et leur source', st.code === 200 && st.j.collections.map((c) => `${c.id}:${c.styles}`).join() === 'styles-video:99,tableaux-en-mouvement:100,lemo-opuscar:0' && st.j.collections[2].a_telecharger?.present === false && st.j.collections[2].a_telecharger.octets > 1e6 && st.j.collections[2].a_telecharger.familles.length === 15 && st.j.styles.length === 199 && st.j.styles.every((x) => x.collection && !('fichier' in x)), st.j?.collections);
+    const ot = await api('POST', '/api/styles/retirer');
+    essai('POST /api/styles/retirer : sans rien de téléchargé, répond avec le même catalogue', ot.code === 200 && ot.j.styles.length === 199 && ot.j.collections[2].a_telecharger.present === false, ot.j?.collections);
+    const sansJeton = await fetch(`${base}/api/styles/telecharger`, {method: 'POST'}).then((r) => r.status);
+    essai('POST /api/styles/telecharger sans la clé de la fenêtre : refusé, et rien n’est téléchargé', sansJeton >= 400 && sansJeton < 500 && !fs.existsSync(path.join(SUPPORT, 'competences', 'lemo-opuscar')), sansJeton);
+  }
+
+  // ————————————————————————————————————————————————————————————————————————————————
   titre('Au bout du compte');
   await ctx.file.vide();
   essai('toujours vivant après tout ça, et aucune erreur n’est restée sans personne pour l’attraper', await vivant() && tombes.length === 0, tombes.map((e) => String(e?.stack ?? e).slice(0, 300)));

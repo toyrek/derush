@@ -1,0 +1,1001 @@
+{
+ "depot": "lemomo-ai/lemo-opuscar",
+ "commit": "8ca0dd805e214bcc1d30714cd5b9d21cc02a454b",
+ "relu_le": "2026-11-24",
+ "licence": "CC BY-NC 4.0 pour les fiches (avec la permission de s’en servir pour ses propres films, même commerciaux) ; MIT pour le code",
+ "fichiers": {
+  "LICENSE": [
+   8317,
+   "07768caf240de25886f48e8053e384f2a7db40f331138671883d7b65f6758da7"
+  ],
+  "LICENSES/CC-BY-NC-4.0.txt": [
+   19347,
+   "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0"
+  ]
+ },
+ "categories": [
+  {
+   "id": "opuscar-montage",
+   "nom": "Montage et documentaire",
+   "aide": "De vraies images, des archives, des documents, montés comme une info, une enquête ou un journal.",
+   "nom_origine": "Edit & Documentary"
+  },
+  {
+   "id": "opuscar-peinture",
+   "nom": "Peinture et illustration",
+   "aide": "Aquarelle, huile, crayon : une page qui se peint ou se dessine sous les yeux.",
+   "nom_origine": "Painting & Illustration"
+  },
+  {
+   "id": "opuscar-croquis",
+   "nom": "Croquis et tableaux",
+   "aide": "Tableau blanc, tableau noir, feutre, notes dessinées : expliquer en dessinant.",
+   "nom_origine": "Sketch & Board"
+  },
+  {
+   "id": "opuscar-traditions",
+   "nom": "Arts traditionnels",
+   "aide": "Encre de Chine, théâtre d’ombres, estampe, papier découpé, vitrail, enluminure.",
+   "nom_origine": "Traditional Crafts"
+  },
+  {
+   "id": "opuscar-imprimerie",
+   "nom": "Imprimerie et gravure",
+   "aide": "Risographie, gravure sur bois ou sur cuivre, sérigraphie, trame, collage.",
+   "nom_origine": "Print & Printmaking"
+  },
+  {
+   "id": "opuscar-graphisme",
+   "nom": "Graphisme et typographie",
+   "aide": "Grille suisse, Art déco, Bauhaus, pictogrammes, génériques, cartons de texte.",
+   "nom_origine": "Graphic & Type"
+  },
+  {
+   "id": "opuscar-technique",
+   "nom": "Dessins techniques",
+   "aide": "Plans, vues éclatées, écorchés, notices : montrer comment une chose est faite.",
+   "nom_origine": "Line Diagrams"
+  },
+  {
+   "id": "opuscar-cartoons",
+   "nom": "Dessins animés",
+   "aide": "Des années 1930 au manga : contours, aplats, personnages.",
+   "nom_origine": "Cartoons"
+  },
+  {
+   "id": "opuscar-jeux",
+   "nom": "Jeux vidéo",
+   "aide": "Pixels, jeu de rôle 16 bits, mini-jeux, jeu de rythme.",
+   "nom_origine": "Games"
+  },
+  {
+   "id": "opuscar-pellicule",
+   "nom": "Pellicule et vidéo",
+   "aide": "Film muet, pellicule grattée, cassette retrouvée, écran à caractères.",
+   "nom_origine": "Film & Tape"
+  },
+  {
+   "id": "opuscar-ecrans",
+   "nom": "Écrans et interfaces",
+   "aide": "L’interface en vedette : lancement tech, capture d’écran, hologramme, tableur.",
+   "nom_origine": "Screens & Interfaces"
+  },
+  {
+   "id": "opuscar-lumiere",
+   "nom": "Lumière et lignes",
+   "aide": "Néons, lucioles, circuit imprimé, oscilloscope, lignes de vent.",
+   "nom_origine": "Light & Lines"
+  },
+  {
+   "id": "opuscar-volume",
+   "nom": "Volume et miniature",
+   "aide": "Briques, livre animé, maquette, île en facettes, verre.",
+   "nom_origine": "3D & Miniature"
+  },
+  {
+   "id": "opuscar-instruments",
+   "nom": "Instruments et preuves",
+   "aide": "Satellite, laser, microscope, rayons X, caméra thermique : de vraies mesures.",
+   "nom_origine": "Instruments & Evidence"
+  },
+  {
+   "id": "opuscar-donnees",
+   "nom": "Données et cartes",
+   "aide": "Graphiques qui racontent, cartes en relief, plan de métro, simulation.",
+   "nom_origine": "Data & Maps"
+  }
+ ],
+ "styles": [
+  {
+   "slug": "caption-news",
+   "nom": "Infos sous-titrées",
+   "description": "Une info qui se comprend sans le son : de vraies images, et d’énormes sous-titres qui claquent mot par mot.",
+   "nom_origine": "Caption News",
+   "categorie": "opuscar-montage",
+   "octets": 17252,
+   "sha256": "e884f887245ac40e070c1ac91664ff84c4a004cf03fbbc04c00cda34432071a2"
+  },
+  {
+   "slug": "newsreel",
+   "nom": "Actualités des années 1920",
+   "description": "Un journal filmé d’époque, monté avec de vraies archives : fanfare, commentateur pressé, cartons de lieu et de date.",
+   "nom_origine": "1920s Newsreel",
+   "categorie": "opuscar-montage",
+   "octets": 17809,
+   "sha256": "ec7cf8cef4efdc557c70f7743c5eb431d20e219e43a0a3dc2cbea1cfeea41e8d"
+  },
+  {
+   "slug": "countdown",
+   "nom": "Compte à rebours en écran partagé",
+   "description": "Un événement en temps réel : une horloge qui tourne, et l’écran qui se divise à mesure que le moment approche.",
+   "nom_origine": "Live Countdown Split-screen",
+   "categorie": "opuscar-montage",
+   "octets": 17032,
+   "sha256": "867cca6e0c9bb0d6fb914cc4e9a2e295623ecd345fda9bd00bc362ff233f220f"
+  },
+  {
+   "slug": "city-symphony",
+   "nom": "Symphonie d’une ville",
+   "description": "Une ville montée comme une musique : accélérés, coupes de plus en plus serrées, fin sèche sur un temps fort.",
+   "nom_origine": "City Symphony",
+   "categorie": "opuscar-montage",
+   "octets": 18480,
+   "sha256": "e197b2e5327571c63f905280e46be6863555e5a2ded93bb4431ee0e03a1b848a"
+  },
+  {
+   "slug": "visual-investigation",
+   "nom": "Enquête visuelle",
+   "description": "Images, documents, sons et cartes d’un même fait, posés sur une seule horloge pour se vérifier les uns les autres.",
+   "nom_origine": "Visual Investigation",
+   "categorie": "opuscar-montage",
+   "octets": 18977,
+   "sha256": "8f4bab46692ba0a24e0c416b96ef3045aa107dc63e171e5164a43d7bb0324337"
+  },
+  {
+   "slug": "kino-montage",
+   "nom": "Montage constructiviste",
+   "description": "Des archives imprimées comme une affiche, encre et papier avec un seul rouge, coupées sur un battement de machine.",
+   "nom_origine": "Constructivist Montage",
+   "categorie": "opuscar-montage",
+   "octets": 20124,
+   "sha256": "8c63deefda22d4677d286ddfffb243ce6385dfa7ab56fbc493705fe13908f204"
+  },
+  {
+   "slug": "telestrator",
+   "nom": "Analyse sportive au feutre",
+   "description": "L’action repasse, se fige, et on dessine dessus : cercles sous les joueurs, flèches, zones laissées libres.",
+   "nom_origine": "Sports Telestrator",
+   "categorie": "opuscar-montage",
+   "octets": 16954,
+   "sha256": "7289027728dc5e1b6d095b7c7bc7806790bb579934c81682265c0c1b4897a3d0"
+  },
+  {
+   "slug": "news-package",
+   "nom": "Journal télévisé",
+   "description": "L’habillage d’un journal télévisé, tout en code : générique, sommaire, bandeau en bas d’écran, grands graphiques.",
+   "nom_origine": "Broadcast News Package",
+   "categorie": "opuscar-montage",
+   "octets": 20678,
+   "sha256": "d763b356442dd0d7373fe409fa9108ec6a3c2901ec5534522af6b08b0915b72f"
+  },
+  {
+   "slug": "crayon-book",
+   "nom": "Album aux crayons de cire",
+   "description": "Une page d’album qui se dessine au crayon de cire, puis une aquarelle révèle ce que la cire cachait.",
+   "nom_origine": "Crayon Picture Book",
+   "categorie": "opuscar-peinture",
+   "octets": 11339,
+   "sha256": "ba558478fe519fa6777fe28fa7d1980117297c7beb6fe2e366ef6f00688aa175"
+  },
+  {
+   "slug": "watercolor",
+   "nom": "Carnet d’aquarelle",
+   "description": "Une page de carnet qui se peint toute seule : touches transparentes, papier chaud, notes écrites à la main.",
+   "nom_origine": "Watercolor Brush",
+   "categorie": "opuscar-peinture",
+   "octets": 11099,
+   "sha256": "662d57568408a7c82ef8f64980ca85798b8bb239df3dc3a6715283d7f4555ef0"
+  },
+  {
+   "slug": "impasto",
+   "nom": "Huile au couteau",
+   "description": "De la peinture épaisse posée au couteau : grands aplats aux bords nets, éclairés de côté pour voir chaque relief.",
+   "nom_origine": "Impasto Oil Painting",
+   "categorie": "opuscar-peinture",
+   "octets": 12013,
+   "sha256": "38a0dcb2808c2ff03ef721c1319b9145438b4074ed37ab7a09dcf20b7268e062"
+  },
+  {
+   "slug": "urban-sketch",
+   "nom": "Croquis urbain, plume et lavis",
+   "description": "Un carnet dessiné sur place : traits de feutre fin qui tremblent, aquarelle légère qui déborde.",
+   "nom_origine": "Urban Sketch · Pen & Wash",
+   "categorie": "opuscar-peinture",
+   "octets": 11766,
+   "sha256": "2baf1a19f31b06e55d66d62e4c3449c7a2686c689190976f3e3d0cbdce2faa9a"
+  },
+  {
+   "slug": "colored-pencil",
+   "nom": "Planche de sciences aux crayons de couleur",
+   "description": "Un monde en coupe (sol, pierres, êtres vivants) redessiné aux crayons de couleur, avec ses étiquettes.",
+   "nom_origine": "Colored-Pencil Science Illustration",
+   "categorie": "opuscar-peinture",
+   "octets": 10770,
+   "sha256": "71d1970d26da38a4d6b0cbf4ce1f8ddd6462bece4f62107d7a2aa5ddb678c31d"
+  },
+  {
+   "slug": "one-line",
+   "nom": "Dessin d’un seul trait continu",
+   "description": "Un seul trait d’encre qui ne quitte jamais le papier : les scènes ne se coupent pas, elles se transforment.",
+   "nom_origine": "One-line Drawing",
+   "categorie": "opuscar-croquis",
+   "octets": 11372,
+   "sha256": "69d26cb06f48ab6b03c12a76c2390d0945cdaddc38bc109b7d5e292b9af1399b"
+  },
+  {
+   "slug": "whiteboard",
+   "nom": "Explication au tableau blanc",
+   "description": "Une explication écrite en direct sur un tableau blanc : feutres sans main, aimants, caméra qui voyage sur le tableau.",
+   "nom_origine": "Whiteboard Explainer",
+   "categorie": "opuscar-croquis",
+   "octets": 11676,
+   "sha256": "19f66326257bcafb8aca18af3e209d1fee31d9e23902ce1708bbb606cbf4b718"
+  },
+  {
+   "slug": "chalkboard",
+   "nom": "Leçon au tableau noir",
+   "description": "Une craie qui écrit toute seule sur un vrai tableau de classe, comme le fait un professeur.",
+   "nom_origine": "Chalkboard",
+   "categorie": "opuscar-croquis",
+   "octets": 18516,
+   "sha256": "7f89f1a4694805e6bc767050007a6b44f2b7ab2474b0e3244032d3a0269b3e1c"
+  },
+  {
+   "slug": "sketchnote",
+   "nom": "Prise de notes dessinée",
+   "description": "Une page de notes visuelles sur papier pointé : feutre noir, gris pour l’ombre, un seul jaune pour l’essentiel.",
+   "nom_origine": "Sketchnote",
+   "categorie": "opuscar-croquis",
+   "octets": 14047,
+   "sha256": "c1d8538cf0c8f2124fe3aa8597924f3f1fc4b63a5a90c2e436fdea633f400906"
+  },
+  {
+   "slug": "stick-explainer",
+   "nom": "Bonshommes bâtons",
+   "description": "Des bonshommes tout simples sur papier chaud, une seule couleur d’accent, pour montrer une logique entre des gens.",
+   "nom_origine": "Stick-figure Explainer",
+   "categorie": "opuscar-croquis",
+   "octets": 13514,
+   "sha256": "da45e2773336892fb75b77e5cdd805d0376a532e509418df0c33780b7e477490"
+  },
+  {
+   "slug": "ipad-sketch",
+   "nom": "Croquis sur tablette",
+   "description": "Une toile crème sur tablette : crayon granuleux, aplats décalés, et la toile qu’on pince et qu’on tourne.",
+   "nom_origine": "Tablet Sketch Explainer",
+   "categorie": "opuscar-croquis",
+   "octets": 13302,
+   "sha256": "4a0e371e38f3660227e48886f3479ae060a310186a9ae2a35b8263da028c5d0f"
+  },
+  {
+   "slug": "marker-paper",
+   "nom": "Feutre sur bloc de papier",
+   "description": "Un bloc de papier blanc et un feutre noir, avec du bleu pour ce qu’on sait et du rouge pour ce qu’on cherche.",
+   "nom_origine": "Marker on Paper",
+   "categorie": "opuscar-croquis",
+   "octets": 13388,
+   "sha256": "26b384c99eeef6a9f119afeea237dc0916782f6b959f525d099c6891ebfe0458"
+  },
+  {
+   "slug": "ink-wash",
+   "nom": "Lavis à l’encre de Chine",
+   "description": "De la peinture à l’encre sur papier de riz : le blanc est l’espace, un coup de pinceau est une montagne.",
+   "nom_origine": "Chinese Ink Wash",
+   "categorie": "opuscar-traditions",
+   "octets": 11277,
+   "sha256": "5d71598f0b9cf4034c6461956b0d8bd63bd33750b4045376044f0d956b01d645"
+  },
+  {
+   "slug": "shadow-puppet",
+   "nom": "Ombres chinoises en peau ciselée",
+   "description": "Des marionnettes de peau ciselée et teintée, plaquées contre un écran de coton, éclairées par derrière.",
+   "nom_origine": "Shadow Puppetry",
+   "categorie": "opuscar-traditions",
+   "octets": 12787,
+   "sha256": "8be075a8262d5a3deea9b05684d8a9abdc1e54c0d90649bf14609ecb4106c3af"
+  },
+  {
+   "slug": "ukiyoe",
+   "nom": "Estampe d’Edo qui se déroule",
+   "description": "Une estampe sur bois japonaise qui prend vie : aplats, lignes gravées, ciels en dégradé, caméra qui se déroule.",
+   "nom_origine": "Ukiyo-e",
+   "categorie": "opuscar-traditions",
+   "octets": 12441,
+   "sha256": "218c48a204f9034d1c2fb7f11698b4834f1faee1ca68c9e336f3d6ab992ff2e4"
+  },
+  {
+   "slug": "papercut-red",
+   "nom": "Papier découpé rouge",
+   "description": "Les papiers découpés chinois des fenêtres : des figures rouges articulées, où la découpe est le dessin.",
+   "nom_origine": "Red Paper-cut",
+   "categorie": "opuscar-traditions",
+   "octets": 12450,
+   "sha256": "65e317d83335e0cb34696b643e31ad9e46fb0bb93fd748c2e21d74358aea61ec"
+  },
+  {
+   "slug": "paper-lantern",
+   "nom": "Boîte lumineuse en papier découpé",
+   "description": "Des feuilles de carton découpé empilées dans une boîte et éclairées par derrière : lumière chaude, ombres douces.",
+   "nom_origine": "Paper-cut Lightbox",
+   "categorie": "opuscar-traditions",
+   "octets": 14162,
+   "sha256": "e8be26d64f33229859e284a33d77969f9a4468b7bf1b478ca8fa924c7dd9f27d"
+  },
+  {
+   "slug": "stained-glass",
+   "nom": "Vitrail au soleil",
+   "description": "Un vitrail médiéval vu de l’intérieur d’une salle sombre, qui ne vit que là où le soleil le touche.",
+   "nom_origine": "Stained Glass",
+   "categorie": "opuscar-traditions",
+   "octets": 11945,
+   "sha256": "0f6551bd109a4127404068aa1e75f18f16b58c80b486c23480b3d193e597b060"
+  },
+  {
+   "slug": "gilded-illumination",
+   "nom": "Enluminure dorée",
+   "description": "Une miniature peinte : pigments en aplats, contours à l’encre, et de la feuille d’or qui brille quand la lumière passe.",
+   "nom_origine": "Gilded Illumination",
+   "categorie": "opuscar-traditions",
+   "octets": 18009,
+   "sha256": "515c5d01d9892fc629abf521aef4796862320fb072422bc72da27f5cf6b17252"
+  },
+  {
+   "slug": "risograph",
+   "nom": "Film imprimé en risographie",
+   "description": "Une animation qui semble imprimée image par image : deux ou trois encres transparentes, trame, calages imparfaits.",
+   "nom_origine": "Risograph Print",
+   "categorie": "opuscar-imprimerie",
+   "octets": 12030,
+   "sha256": "c3d85c91a81b0afde091d964482749482adc66c12730afe124708f7b18b331a6"
+  },
+  {
+   "slug": "halftone-dossier",
+   "nom": "Dossier d’archives en trame",
+   "description": "Un dossier imprimé à l’ancienne : papier crème, points de trame, gros titres, tampons qui claquent.",
+   "nom_origine": "Halftone Dossier",
+   "categorie": "opuscar-imprimerie",
+   "octets": 12417,
+   "sha256": "6a3eb7919f286515674f7d544ee4124881491723615ba15ac13abc304f57f85d"
+  },
+  {
+   "slug": "woodcut",
+   "nom": "Bois gravé qui se taille",
+   "description": "Une gravure qui se taille toute seule : tout est noir, et la lumière n’existe que là où la gouge est passée.",
+   "nom_origine": "Woodcut Print",
+   "categorie": "opuscar-imprimerie",
+   "octets": 12194,
+   "sha256": "b96fda6eeac038137310cc0766d979c8d8a5f3ff6acd87bada5aa50d5136a6a0"
+  },
+  {
+   "slug": "engraving",
+   "nom": "Gravure sur cuivre",
+   "description": "Une plaque de cuivre qui se grave : le burin trace, les hachures se croisent, puis l’épreuve est tirée.",
+   "nom_origine": "Copperplate Engraving",
+   "categorie": "opuscar-imprimerie",
+   "octets": 12338,
+   "sha256": "0c6816b8b47163d158ae0ea668feecf53dcbef9d1310e27b9e797d9b9e7aac0d"
+  },
+  {
+   "slug": "silkscreen-poster",
+   "nom": "Affiche de voyage en sérigraphie",
+   "description": "Des encres opaques tirées une à une : quatre à six couleurs, des bandes au lieu de dégradés.",
+   "nom_origine": "Silkscreen Travel Poster",
+   "categorie": "opuscar-imprimerie",
+   "octets": 13426,
+   "sha256": "f1c86a9f0cbe735de9fb1421d33ab44465122158e6c45a4786c98852ea9952b1"
+  },
+  {
+   "slug": "printed-long-take",
+   "nom": "Plan-séquence en carte à gratter",
+   "description": "Un monde en volume rendu comme une carte à gratter, encre et papier avec un rouge, traversé d’un seul mouvement de caméra.",
+   "nom_origine": "Scratchboard Long Take",
+   "categorie": "opuscar-imprimerie",
+   "octets": 21028,
+   "sha256": "ab296ec585615e3c0100ea22b879e88cd9790a493d0c995a24a25fe4ad25b97c"
+  },
+  {
+   "slug": "pop-art",
+   "nom": "Affiche pop des années 60",
+   "description": "Le langage des affiches pop : points de trame, gros traits noirs, rouge, jaune et bleu en aplats.",
+   "nom_origine": "Pop Art",
+   "categorie": "opuscar-imprimerie",
+   "octets": 14520,
+   "sha256": "b072389250134a9cd7968a6123c384dff5fae07f8fc30a2e4c59852afe5f1926"
+  },
+  {
+   "slug": "vintage-collage",
+   "nom": "Collage de gravures anciennes",
+   "description": "Des gravures, des timbres et de vieilles photos découpés, posés sur du papier de couleur déchiré.",
+   "nom_origine": "Vintage Engraving Collage",
+   "categorie": "opuscar-imprimerie",
+   "octets": 11931,
+   "sha256": "9ae3f52c26a6d5e21315a9a73b82694bd29ea04f47c1c60482583eb5bebe0a6f"
+  },
+  {
+   "slug": "swiss-motion",
+   "nom": "Graphisme suisse en mouvement",
+   "description": "Le style typographique international : une grille, une police, une couleur de signal, des mouvements exacts.",
+   "nom_origine": "Swiss Motion Graphics",
+   "categorie": "opuscar-graphisme",
+   "octets": 10696,
+   "sha256": "14ddeb6dc495e691a220497069a2ee4827d820f9ee7a3173de5846489ef41f57"
+  },
+  {
+   "slug": "spy-titles",
+   "nom": "Générique d’espionnage des années 60",
+   "description": "Un générique en papier découpé, quatre encres : des silhouettes dans des décors faits des noms du générique.",
+   "nom_origine": "60s Spy Title Sequence",
+   "categorie": "opuscar-graphisme",
+   "octets": 11411,
+   "sha256": "ea6e9e9073af43ef0bb860e368f60b16ec32a91668386115a142907d92cb1f75"
+  },
+  {
+   "slug": "art-deco",
+   "nom": "Affiche Art déco qui bouge",
+   "description": "Laque noire, filets d’or et géométrie à l’aérographe : une affiche des années 1930 en mouvement.",
+   "nom_origine": "Art Deco",
+   "categorie": "opuscar-graphisme",
+   "octets": 12196,
+   "sha256": "d73b30c0fa6d153487549d32d8c6c599733cf5e7576badec862a12da6d284761"
+  },
+  {
+   "slug": "pictogram-motion",
+   "nom": "Pictogrammes en rythme",
+   "description": "Un film calé sur le rythme, fait de cercles, de demi-disques et de pictogrammes géométriques.",
+   "nom_origine": "Pictogram Motion",
+   "categorie": "opuscar-graphisme",
+   "octets": 13325,
+   "sha256": "52f0119e13e2d98ee9d2dbf5ea8b9dc84ffb309746fd93afc01eb07d1e2c2689"
+  },
+  {
+   "slug": "bauhaus-shapes",
+   "nom": "Formes du Bauhaus à l’échelle",
+   "description": "Une explication avec des cercles, des carrés et des triangles seulement : chaque forme est une quantité à l’échelle.",
+   "nom_origine": "Bauhaus Shapes",
+   "categorie": "opuscar-graphisme",
+   "octets": 10062,
+   "sha256": "f501d8728bbcd8506cd77fc1109c6949432b36e89a6f3bf82b6ad2036d9e9a6e"
+  },
+  {
+   "slug": "flat-space-explainer",
+   "nom": "Voyage d’échelle",
+   "description": "Des formes pleines sur un bleu nuit, à la vraie échelle, et un zoom continu à travers les ordres de grandeur.",
+   "nom_origine": "Scale Zoom Explainer",
+   "categorie": "opuscar-graphisme",
+   "octets": 12570,
+   "sha256": "a56b7e17f818efd1fe9ab3edcbd2f6b7a5c1bce8dcedd896e817089ac12c2b58"
+  },
+  {
+   "slug": "text-flash-cuts",
+   "nom": "Cartons de texte éclair",
+   "description": "Des cartons de texte plein écran qui passent en quelques images, en rouge, noir et blanc.",
+   "nom_origine": "Text Flash Cuts",
+   "categorie": "opuscar-graphisme",
+   "octets": 15112,
+   "sha256": "f69fa08818c5d41099abe29c8afdd0a9f3ef89746d379346dc9bf384adbd1299"
+  },
+  {
+   "slug": "silhouette-rhythm",
+   "nom": "Silhouettes en rythme",
+   "description": "Des silhouettes noires sur un coucher de soleil, qui changent de pose à chaque temps.",
+   "nom_origine": "Silhouette Rhythm",
+   "categorie": "opuscar-graphisme",
+   "octets": 13174,
+   "sha256": "66f1a0f7d44ad1067960046514336bb4d19fce9799a16ec1591696343987a291"
+  },
+  {
+   "slug": "blueprint",
+   "nom": "Plan d’ingénieur sur papier bleu",
+   "description": "Des dessins techniques qui prennent vie : traits blancs sur papier bleu, cotes, annotations qui bougent.",
+   "nom_origine": "Blueprint",
+   "categorie": "opuscar-technique",
+   "octets": 12323,
+   "sha256": "de01fc7fcb38b17b58eb017c9cdbcb36b9242b029435a33587614c93088e1717"
+  },
+  {
+   "slug": "iso-infographic",
+   "nom": "Infographie isométrique",
+   "description": "Un schéma qui prend vie : un petit monde en blocs à trois tons, qui s’ouvre pour montrer l’intérieur.",
+   "nom_origine": "Isometric Infographic",
+   "categorie": "opuscar-technique",
+   "octets": 11989,
+   "sha256": "a3bf89913255043ff2c8616bff9be9f9536efe1eb7a3b98c755cb4189bd7dff1"
+  },
+  {
+   "slug": "teardown",
+   "nom": "Vue éclatée d’un produit",
+   "description": "Un vrai produit démonté devant la caméra, comme en studio : les couches se soulèvent, chaque pièce est nommée.",
+   "nom_origine": "Exploded Teardown",
+   "categorie": "opuscar-technique",
+   "octets": 13572,
+   "sha256": "90df05a02a3d33add58e0dd99bef19ca20ea16b10390b3c2350d8483106922ee"
+  },
+  {
+   "slug": "hardcore-info",
+   "nom": "Écorché au trait",
+   "description": "Un objet en volume tracé au trait noir sur papier blanc : il tourne, s’ouvre, se coupe, avec ses cotes.",
+   "nom_origine": "Line-Art Cutaway",
+   "categorie": "opuscar-technique",
+   "octets": 14706,
+   "sha256": "ddcd47faa4ca8a450baa159d73767f62f66d1efe91008aa9f0e7b6c6db48f283"
+  },
+  {
+   "slug": "precise-mechanism",
+   "nom": "Mécanisme en couleurs",
+   "description": "Un vrai mécanisme en volume, coloré comme une planche d’anatomie : une couleur par système.",
+   "nom_origine": "Color-Coded Mechanism",
+   "categorie": "opuscar-technique",
+   "octets": 13742,
+   "sha256": "476538b1c0d602067bbac28c822eb70f8fad19ce0d29f1dda6354c3687af237d"
+  },
+  {
+   "slug": "instruction-manual",
+   "nom": "Notice de montage",
+   "description": "Le film est une notice imprimée : dessin au trait en vue isométrique, étapes numérotées, flèches.",
+   "nom_origine": "Instruction Manual Art",
+   "categorie": "opuscar-technique",
+   "octets": 15982,
+   "sha256": "57f9e69373bb36bafe5572bf960f9557c484210e0edaf89cfc286cc9be21282e"
+  },
+  {
+   "slug": "pen-plotter",
+   "nom": "Table traçante",
+   "description": "Une table traçante dessine le sujet trait par trait, avec de vrais stylos et de la vraie encre.",
+   "nom_origine": "Pen Plotter",
+   "categorie": "opuscar-technique",
+   "octets": 12862,
+   "sha256": "6b4b45210d953e8ddee6741e7866b5cc7ad0a7fc37926b8cb7554f7209345412"
+  },
+  {
+   "slug": "assembly-line-diagram",
+   "nom": "Usine en coupe",
+   "description": "Un processus expliqué comme une usine coupée en deux : des pièces, des machines, de petits ouvriers, des tuyaux de couleur.",
+   "nom_origine": "Assembly-Line Diagram",
+   "categorie": "opuscar-technique",
+   "octets": 16267,
+   "sha256": "179a41acc3a10bf45d7a3d91eab316077d44fdd75b0ba067d42d87e5b2e598bf"
+  },
+  {
+   "slug": "rubber-hose",
+   "nom": "Cartoon à l’encre des années 1930",
+   "description": "Du noir et blanc à l’encre, où chaque objet est vivant et se balance sur du jazz.",
+   "nom_origine": "1930s Rubber Hose Cartoon",
+   "categorie": "opuscar-cartoons",
+   "octets": 12791,
+   "sha256": "bf850f9cd22e68b2125fed00d1b9804e91479620b44420ba7ec50e570e472a94"
+  },
+  {
+   "slug": "cel-anime-80s",
+   "nom": "Anime des années 80",
+   "description": "Des celluloïds peints à la main, des néons en contre-jour, le tout rejoué comme une vieille cassette.",
+   "nom_origine": "80s Cel Anime",
+   "categorie": "opuscar-cartoons",
+   "octets": 12647,
+   "sha256": "1e16f5c6f90ebf09556ec94d37434400d309c978e00ee89e9d38dec476664eaf"
+  },
+  {
+   "slug": "scifi-toon",
+   "nom": "Dessin animé de science-fiction",
+   "description": "Une comédie de science-fiction pour adultes : gros contours qui tremblent, aplats, un portail qui luit.",
+   "nom_origine": "Sci-Fi Sitcom Toon",
+   "categorie": "opuscar-cartoons",
+   "octets": 12755,
+   "sha256": "9a720a57ce50dc554e9237e698a979cdf7311527e6e6a0dad803278dfe8ad2ce"
+  },
+  {
+   "slug": "midcentury-toon",
+   "nom": "Dessin animé des années 1950",
+   "description": "Des aplats décalés du trait, une animation économe, un narrateur posé et du jazz cool.",
+   "nom_origine": "Mid-century Cartoon",
+   "categorie": "opuscar-cartoons",
+   "octets": 12620,
+   "sha256": "e73614b6f9e2f2e8ee279f4909da8429235b96f6d13a12345b6e57d5823c30b8"
+  },
+  {
+   "slug": "comic-history",
+   "nom": "Histoire en pantins de papier",
+   "description": "Les pays sont des pantins de papier sur une carte : qui prend une terre colle un bout de papier dessus.",
+   "nom_origine": "Comic History Cartoon",
+   "categorie": "opuscar-cartoons",
+   "octets": 14198,
+   "sha256": "4aec43d12d02f39438872c9825e6e0d952b2c5762643a4d0b0dffdd8adb38fac"
+  },
+  {
+   "slug": "manga-panels",
+   "nom": "Planches de manga",
+   "description": "Une page de manga en noir et blanc qui bouge : cases qui s’ouvrent sur le rythme, onomatopées, trames.",
+   "nom_origine": "Manga Panels",
+   "categorie": "opuscar-cartoons",
+   "octets": 19579,
+   "sha256": "5c53e55bce2df67d6c9cea3f12f559e4b92216b325be6581852ddf35dc0c0da8"
+  },
+  {
+   "slug": "pixel-rpg",
+   "nom": "Jeu de rôle 16 bits",
+   "description": "Un film qui ressemble à un jeu de rôle des années 90 et se comporte comme lui : boîtes de dialogue, menus, musique à puce.",
+   "nom_origine": "16-bit Pixel RPG",
+   "categorie": "opuscar-jeux",
+   "octets": 11293,
+   "sha256": "6624481152a77960b54bc3c0d2f2f9de6af15d4e95294525ef8e3635fe479fe5"
+  },
+  {
+   "slug": "hd-2d",
+   "nom": "Pixel art dans un décor en volume",
+   "description": "Des personnages en pixels, debout comme du papier découpé, dans un décor en volume éclairé et brumeux.",
+   "nom_origine": "2.5D Pixel Art",
+   "categorie": "opuscar-jeux",
+   "octets": 12396,
+   "sha256": "f83bb4ee11739d4367bfce5371ba4110d5b6a5033b18aa5cc5fa37f82ceda323"
+  },
+  {
+   "slug": "microgame",
+   "nom": "Mini-jeux en rafale",
+   "description": "Un mot d’ordre, quelques secondes, une action : chaque mini-jeu a son style, et ça va de plus en plus vite.",
+   "nom_origine": "Microgame Frenzy",
+   "categorie": "opuscar-jeux",
+   "octets": 12565,
+   "sha256": "04e2b7fa9dee5cac346b475e400e577e977b6753afe35ee4e45f66111496ce6a"
+  },
+  {
+   "slug": "game-show",
+   "nom": "Jeu de rythme",
+   "description": "Une émission de jeu de rythme en aplats : mascottes, rayures de bonbon, tout tombe sur le tempo.",
+   "nom_origine": "Rhythm Game Show",
+   "categorie": "opuscar-jeux",
+   "octets": 12487,
+   "sha256": "5dabcaabee826fb5e454cc05e2d0df62e3d2f165a7d578337ccdc89474b65c12"
+  },
+  {
+   "slug": "ascii-crt",
+   "nom": "Terminal en caractères",
+   "description": "Tout ce qu’on voit est un vrai caractère sur une grille, éclairé par le phosphore d’un vieil écran.",
+   "nom_origine": "CRT ASCII Terminal",
+   "categorie": "opuscar-pellicule",
+   "octets": 12200,
+   "sha256": "471f294a40b8ca050daeaaee329b94036174e5eda1e521c8406a579d711bb9b6"
+  },
+  {
+   "slug": "silent-film",
+   "nom": "Film muet des années 1920",
+   "description": "Un film muet en gravure, projeté dans une salle : image qui tremble, cartons au lieu des voix, pianiste.",
+   "nom_origine": "1920s Silent Film",
+   "categorie": "opuscar-pellicule",
+   "octets": 11585,
+   "sha256": "44633a4edd4ec6b84be809bd48b38503a75a71531112b3d28a52f27135012b20"
+  },
+  {
+   "slug": "backrooms",
+   "nom": "Cassette retrouvée",
+   "description": "Des cassettes de caméscope tournées dans des lieux vides, sans fin, sous des néons.",
+   "nom_origine": "Liminal Found Footage",
+   "categorie": "opuscar-pellicule",
+   "octets": 12620,
+   "sha256": "2a3697a1ce37d0fbae3281220ae6154eeb9789233f1fae472d55ac169ba26fb4"
+  },
+  {
+   "slug": "scratch-film",
+   "nom": "Pellicule grattée",
+   "description": "Chaque image semble grattée à l’aiguille dans une pellicule noire, puis teintée : tout ce qui brille est une rayure.",
+   "nom_origine": "Scratch Film",
+   "categorie": "opuscar-pellicule",
+   "octets": 11096,
+   "sha256": "79be9b3664338fb2f7f1877acaff9ec7a7ec0946fda096bc1c3e96bf9a64ec86"
+  },
+  {
+   "slug": "double-exposure",
+   "nom": "Double exposition",
+   "description": "Une silhouette sombre sert de fenêtre : elle contient une seconde photographie.",
+   "nom_origine": "Double Exposure",
+   "categorie": "opuscar-pellicule",
+   "octets": 16706,
+   "sha256": "dd8c7e6167f3323621dfbba2f286286be38c0bde58f3620a4beb91ff0243c52f"
+  },
+  {
+   "slug": "dark-keynote",
+   "nom": "Lancement tech sur fond noir",
+   "description": "Un film de lancement où l’interface est la vedette : fond presque noir, grille fine, une couleur de marque.",
+   "nom_origine": "Dark Tech Keynote",
+   "categorie": "opuscar-ecrans",
+   "octets": 12164,
+   "sha256": "b0791b5e95f56bf46c621e6064d426ebbee810c7515fb87e951b73668a2a0d24"
+  },
+  {
+   "slug": "living-screencast",
+   "nom": "Capture d’écran habitée",
+   "description": "Une visite de logiciel qui ressemble à une capture d’écran, où une petite mascotte joue ce que fait le logiciel.",
+   "nom_origine": "Mascot Screencast",
+   "categorie": "opuscar-ecrans",
+   "octets": 11503,
+   "sha256": "62389f107308c738854f103e96c2b2e8bc47a14e28bf1081f15976d90e89b5f9"
+  },
+  {
+   "slug": "hologram-hud",
+   "nom": "Hologramme de science-fiction",
+   "description": "Un objet scanné en fil de fer lumineux : des cadres se verrouillent sur ses pièces, les chiffres défilent.",
+   "nom_origine": "Sci-fi Hologram HUD",
+   "categorie": "opuscar-ecrans",
+   "octets": 11833,
+   "sha256": "81e2c6b0ede2cc211a8dd676417a1ce5efda278514f273c5249165e38ff34573"
+  },
+  {
+   "slug": "desktop-flythrough",
+   "nom": "Survol d’un bureau",
+   "description": "Des écrans d’appli posés comme des cartes sur un bureau au soleil, et une caméra qui les survole d’une traite.",
+   "nom_origine": "Tabletop App Flythrough",
+   "categorie": "opuscar-ecrans",
+   "octets": 22483,
+   "sha256": "38993ddb69447ba7c44890fbdcff8698b31cbfcd48de82932334b65124f2c390"
+  },
+  {
+   "slug": "spreadsheet",
+   "nom": "Film dans un tableur",
+   "description": "Tout se passe dans une feuille de calcul : les cellules sont les pixels, la barre de formule dit le texte.",
+   "nom_origine": "Spreadsheet Film",
+   "categorie": "opuscar-ecrans",
+   "octets": 13748,
+   "sha256": "63b4c656fe1c63e38ac769ace40d7bf4a35313285e5f426003faf64b35f73f77"
+  },
+  {
+   "slug": "one-bit-dither",
+   "nom": "Tramage en deux encres",
+   "description": "Un monde en volume montré avec deux encres seulement : chaque gris devient une trame de points.",
+   "nom_origine": "1-bit Dither",
+   "categorie": "opuscar-ecrans",
+   "octets": 15093,
+   "sha256": "0bc40947535c1b1a3e41903ab3e7e75c372d1392e2145e0d79a6e6fc110eb16b"
+  },
+  {
+   "slug": "circuit-board",
+   "nom": "Circuit imprimé",
+   "description": "Le sujet dessiné comme un circuit vu d’en haut : pistes de cuivre, pastilles, et la lumière qui court dessus.",
+   "nom_origine": "Circuit Board",
+   "categorie": "opuscar-lumiere",
+   "octets": 22762,
+   "sha256": "3f5244726e732a8407355bebdec309942410104af32c956372ff4f1477a0cd9b"
+  },
+  {
+   "slug": "firefly-pointillism",
+   "nom": "Lucioles",
+   "description": "Des milliers de points de lumière sur du noir, qui se dispersent et se rassemblent pour former autre chose.",
+   "nom_origine": "Firefly Pointillism",
+   "categorie": "opuscar-lumiere",
+   "octets": 12898,
+   "sha256": "15ab75f6b7f2eebbf24471edb9d4050c2b4db6c8699727a43a9de2dc8c2c6c59"
+  },
+  {
+   "slug": "flow-field",
+   "nom": "Lignes de vent",
+   "description": "Un flux invisible (vent, courant, circulation) rendu visible par des milliers de fines lignes d’encre.",
+   "nom_origine": "Flow-field Wind Lines",
+   "categorie": "opuscar-lumiere",
+   "octets": 16790,
+   "sha256": "4605fa6f3093dee6177f483d1ec5c7cea0cb7aa3aff9f7e1857f5dbb277993e9"
+  },
+  {
+   "slug": "oscilloscope-math",
+   "nom": "Maths à l’oscilloscope",
+   "description": "Des mathématiques tracées par un faisceau vert sur un écran à phosphore, avec les vraies valeurs.",
+   "nom_origine": "Oscilloscope Math",
+   "categorie": "opuscar-lumiere",
+   "octets": 11715,
+   "sha256": "2b9b1ca78c1bebaf58b2673356170e6dfe84f8e0b322617b16f016f53af8f635"
+  },
+  {
+   "slug": "neon-tubes",
+   "nom": "Enseignes au néon",
+   "description": "De vraies enseignes dans une rue mouillée, la nuit : elles s’allument en clignotant et se doublent dans les flaques.",
+   "nom_origine": "Neon Tubes",
+   "categorie": "opuscar-lumiere",
+   "octets": 14168,
+   "sha256": "86b5d2d9157b4e9e1cbc8e49d0e244f45e02619226a7cf228d14e513c93c8ea3"
+  },
+  {
+   "slug": "brick-toy",
+   "nom": "Briques de construction",
+   "description": "Des films image par image avec des briques de jouet, filmés en macro sur un vrai bureau.",
+   "nom_origine": "Brick Toy",
+   "categorie": "opuscar-volume",
+   "octets": 12556,
+   "sha256": "29b23e846951856b722a698a03c9458cfc17b4fc71d044f45d773acf2a742768"
+  },
+  {
+   "slug": "paper-popup",
+   "nom": "Livre animé en papier",
+   "description": "Un livre pop-up sur un bureau devient une scène : des décors en papier surgissent de la page.",
+   "nom_origine": "Paper Pop-up Book",
+   "categorie": "opuscar-volume",
+   "octets": 12095,
+   "sha256": "8e5c0ca430fd96b75c4d9c2af92a87c84d4d1af8cda64280a189c51279e1ee9b"
+  },
+  {
+   "slug": "tilt-shift",
+   "nom": "Ville en maquette",
+   "description": "Un lieu vu de très haut, flou en haut et en bas, en accéléré : le monde entier ressemble à une maquette.",
+   "nom_origine": "Tilt-Shift Miniature",
+   "categorie": "opuscar-volume",
+   "octets": 12077,
+   "sha256": "131ae50c6bddd30922638cbd5f2fae5c047223360a3f6924b074b0db525a5c63"
+  },
+  {
+   "slug": "lowpoly-island",
+   "nom": "Île en facettes",
+   "description": "Un tout petit monde à facettes en vue isométrique, où tout arrive avec un rebond et une note.",
+   "nom_origine": "Low-poly Isometric Island",
+   "categorie": "opuscar-volume",
+   "octets": 12310,
+   "sha256": "1ae7bcd6aa3d521f563d8905f8109842fd7252ff8b70c1bd18265105a8a450f9"
+  },
+  {
+   "slug": "glass-product",
+   "nom": "Produit en verre",
+   "description": "Un rendu de produit en verre transparent et dépoli, dans un studio sombre, balayé par des bandes de lumière.",
+   "nom_origine": "Glass Product Render",
+   "categorie": "opuscar-volume",
+   "octets": 12199,
+   "sha256": "630fa80cde0930154ba64f15bce5c8ee0c8dcf48d921253f8c7e3194712c8fb5"
+  },
+  {
+   "slug": "memphis-diorama",
+   "nom": "Diorama Memphis",
+   "description": "Un lieu construit comme une maquette aux couleurs Memphis : contours à l’encre, ombres violettes, petits motifs.",
+   "nom_origine": "Memphis Diorama",
+   "categorie": "opuscar-volume",
+   "octets": 19589,
+   "sha256": "7f1748f2741d069e074172800d501ec00527db8a018e1e5ab4ecfa630ed6763b"
+  },
+  {
+   "slug": "isometric-picture-book",
+   "nom": "Scène isométrique avec des gens",
+   "description": "Une règle de tous les jours expliquée dans un lieu en vue isométrique, avec de petits personnages vus de dos.",
+   "nom_origine": "Isometric People Scene",
+   "categorie": "opuscar-volume",
+   "octets": 20859,
+   "sha256": "0118a0183745d8bbd29ab06792c2ea887edeee7d3dcd47b5a89889c57687cd59"
+  },
+  {
+   "slug": "crayon-world",
+   "nom": "Monde en crayon de cire",
+   "description": "Un monde en volume redessiné au crayon de cire, comme par un enfant, pendant que la caméra le traverse.",
+   "nom_origine": "Crayon World 3D",
+   "categorie": "opuscar-volume",
+   "octets": 12504,
+   "sha256": "50c5b5319fabd7189cf725524092b3c69af334ae7f92052f10da2581356030b0"
+  },
+  {
+   "slug": "satellite-briefing",
+   "nom": "Image satellite annotée",
+   "description": "De vraies images satellite d’un vrai lieu, en gris, avec de fines lignes de mesure et un zoom continu.",
+   "nom_origine": "Satellite Briefing",
+   "categorie": "opuscar-instruments",
+   "octets": 13232,
+   "sha256": "659e1d33189f252cec629685c60fc9b495d1c6f6679c5c8791b37b1192a3147f"
+  },
+  {
+   "slug": "briefing-board",
+   "nom": "Tableau de travail d’ingénieur",
+   "description": "Un vrai mur de tableau blanc : des photos découpées s’y posent, avec des étiquettes, des aimants et du feutre.",
+   "nom_origine": "Engineering Briefing Board",
+   "categorie": "opuscar-instruments",
+   "octets": 13328,
+   "sha256": "44669da808da4ed37e2a4a0f6e5d2b23008775a3c4870add04641d714e9f323d"
+  },
+  {
+   "slug": "lidar-survey",
+   "nom": "Relevé au laser",
+   "description": "Les vrais points d’un relevé laser, flottant dans le noir, qui se condensent en surface puis se mesurent.",
+   "nom_origine": "LiDAR Survey",
+   "categorie": "opuscar-instruments",
+   "octets": 13152,
+   "sha256": "fe7034a4f7a66af8712562544e8dc33d68c25ee8cfe9975fff5d0ab98b253d28"
+  },
+  {
+   "slug": "microscope",
+   "nom": "Au microscope",
+   "description": "De vraies images de microscope, et un changement d’échelle continu de la lame de verre jusqu’à une cellule.",
+   "nom_origine": "Under the Microscope",
+   "categorie": "opuscar-instruments",
+   "octets": 13157,
+   "sha256": "39f9d5ed9287ff42da82be62aac2eb50eacf635e85788c39428762a61f628030"
+  },
+  {
+   "slug": "archive-lighttable",
+   "nom": "Table lumineuse d’archives",
+   "description": "De vrais objets d’archives sur une table lumineuse ; une loupe descend, et l’objet prend vie dans le verre.",
+   "nom_origine": "Archive Light Table",
+   "categorie": "opuscar-instruments",
+   "octets": 13338,
+   "sha256": "2f18ac9a42822b7a9941866c42b0642e5417dea5431d61f141f6e11b29c1ec14"
+  },
+  {
+   "slug": "security-xray",
+   "nom": "Rayons X de contrôle",
+   "description": "Tout est vu par un scanner à bagages : chaque matière a sa couleur, orange, vert, bleu ou noir.",
+   "nom_origine": "Security X-ray",
+   "categorie": "opuscar-instruments",
+   "octets": 16759,
+   "sha256": "fef3d388f119c5e331093b20817b5fa312bb356ae1bacdab5098996fbe3f6321"
+  },
+  {
+   "slug": "dark-documentary",
+   "nom": "Documentaire au radar",
+   "description": "Le monde est noir jusqu’au passage d’un balayage : ce qu’il touche s’allume, puis s’efface en échos.",
+   "nom_origine": "Radar Sweep Documentary",
+   "categorie": "opuscar-instruments",
+   "octets": 11989,
+   "sha256": "1c3183105543c0108ab248839b389234436b524982f4cedc38a8c33fb96290b5"
+  },
+  {
+   "slug": "thermal-camera",
+   "nom": "Caméra thermique",
+   "description": "Tout est vu par une caméra thermique : la luminosité est la température, avec ses instruments à l’écran.",
+   "nom_origine": "Thermal Camera",
+   "categorie": "opuscar-instruments",
+   "octets": 13188,
+   "sha256": "b6af38ba920121ef8b764831514b7c917ed24beadcb86e7d8a63f54fa47f45ae"
+  },
+  {
+   "slug": "dataviz",
+   "nom": "Récit de données",
+   "description": "Un graphique qui raconte : de vraies données tracées marque par marque au crayon rouge et bleu, avec des notes.",
+   "nom_origine": "Data Storytelling",
+   "categorie": "opuscar-donnees",
+   "octets": 11415,
+   "sha256": "e94013d5a7c548c8844598a671ff0b49bc78770696cbca0d8d00846336f3c67f"
+  },
+  {
+   "slug": "white-model",
+   "nom": "Maquette blanche éclairée",
+   "description": "Une maquette toute blanche d’un vrai lieu, sur laquelle un projecteur peint les données en lumière.",
+   "nom_origine": "Projection-Mapped Model",
+   "categorie": "opuscar-donnees",
+   "octets": 13579,
+   "sha256": "d285018ffffd5eac5c015550d3f5ffe32bc6b6222c9e37d9a1adfe8a03d929fb"
+  },
+  {
+   "slug": "data-physical",
+   "nom": "Données en objets",
+   "description": "De vraies statistiques construites en objets : chaque unité est une pièce qu’on peut compter, filmée en studio.",
+   "nom_origine": "Data Physicalization",
+   "categorie": "opuscar-donnees",
+   "octets": 13473,
+   "sha256": "18c3c76d1ddb3d8616c7cd571433853885e8bd65146ab0b4ee2222e4475c6116"
+  },
+  {
+   "slug": "transit-map",
+   "nom": "Plan de métro",
+   "description": "Un plan de métro imprimé sur une feuille : les lignes se tracent pendant qu’une caméra survole le papier.",
+   "nom_origine": "Transit Map",
+   "categorie": "opuscar-donnees",
+   "octets": 30614,
+   "sha256": "e6c62bc75071c86b67c30def595e919910d86245504c8c09882d151a3c719d1c"
+  },
+  {
+   "slug": "map-explainer",
+   "nom": "Carte en relief",
+   "description": "Le vrai relief et de vraies images en carte 3D, éclairée par un soleil bas, avec des données qui s’allument.",
+   "nom_origine": "3D Map Explainer",
+   "categorie": "opuscar-donnees",
+   "octets": 15771,
+   "sha256": "fedb3f7444b78e65bc66c7c456fb5d4d09fc7228ffbd220ed90827ef8f816e6f"
+  },
+  {
+   "slug": "pip-simulation",
+   "nom": "Simulation de petits personnages",
+   "description": "Une foule de petits personnages joue une vraie simulation : évolution, jeux, épidémies, files d’attente.",
+   "nom_origine": "Blob Simulation",
+   "categorie": "opuscar-donnees",
+   "octets": 13540,
+   "sha256": "eac2f8477b540ce02ee6d609643c5be94f99f83e6d70577ea382309a1fe5b8b8"
+  }
+ ]
+}

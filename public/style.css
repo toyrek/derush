@@ -1784,6 +1784,16 @@ body.tire-col iframe, body.tire-lig iframe, body.tire-col video, body.tire-lig v
 .st-carte .coche { position: absolute; top: 9px; right: 9px; color: var(--braise-2); }
 .st-carte .coche .ic { width: 14px; height: 14px; }
 .st-source { margin: 10px 2px 0; font-size: 10.5px; color: var(--dim-2); }
+.st-source .lien { padding: 0; border: 0; background: none; font: inherit; color: var(--dim); text-decoration: underline; cursor: pointer; }
+.st-source .lien:hover { color: var(--texte); }
+/* une collection qui n'est pas encore sur l'ordinateur : ce que c'est, sa licence, le bouton */
+.st-telecharger { margin-top: 12px; padding: 18px 20px 20px; border-radius: 14px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); }
+.st-telecharger h4 { margin: 0 0 6px; font-size: 15px; font-weight: 650; }
+.st-telecharger p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--dim); }
+.st-familles-apercu { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-familles-apercu span { padding: 3px 9px; border-radius: 99px; background: rgba(255, 255, 255, .07); font-size: 11.5px; color: var(--texte); }
+.st-telecharger .st-licence { margin: 12px 0 14px; font-size: 11.5px; }
+.st-telecharger .st-licence b { color: var(--texte); font-weight: 600; }
 
 /* ——— plusieurs comptes par IA (lib/comptes.mjs) : la liste sur la carte de ChatGPT et de Claude ——— */
 .comptes { display: grid; gap: 6px; margin-top: 10px; font-size: 11.5px; }

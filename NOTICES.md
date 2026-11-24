@@ -29,6 +29,11 @@ et sous quelle licence.
 | Icône d'HyperFrames | `public/logos/hyperframes.png` | HeyGen, Inc. (dépôt sous Apache-2.0) | montrée seulement pour dire quel moteur Dérush installe |
 | Logos IABAI, Dérush et YABAÏ | `public/marque/`, `public/icone.svg` | IABAI / YABAÏ | marques de l'association : la licence GPL-3.0 de Dérush ne donne pas de droit sur elles |
 | Compétence `genres-video` : 42 fiches de montage par genre (adaptées : en-tête de Dérush, noms et index en français, moteur et habillages d'origine non repris) | `competences/` | Viprasol Tech (Claude Video Editing Skills) | MIT |
+| Compétence `tableaux-en-mouvement` : un moteur de dessin (53 scènes, 45 transitions) et 53 fiches de styles d'art ; 32 fiches de matières de dessin ; 15 fiches de styles de mouvement (noms, index et méthode en français écrits pour Dérush) | `competences/tableaux-en-mouvement/` | alchaincyf, 花叔 (huashu-art-motion) ; Alex Greenshpun (anidoodle) ; Vincentwei1021 (mg-styles-15) | MIT ; Apache-2.0 (anidoodle) ; les polices du moteur : SIL OFL 1.1 |
+| Compétence `motionmaxxing` : la direction d'un motion design et 13 documents (adaptée : outils de Dérush ; son moteur, ses scripts et GSAP ne sont pas repris) | `competences/motionmaxxing/` | Tejas Makwana | Apache-2.0 |
+| La page de départ « encre » des toiles (adaptée de WebGL Fluid Simulation) | `modeles/toiles/encre/fluide.js` | Pavel Dobryakov | MIT |
+| Compétence `huashu-motion` : la direction d'un film et 41 documents, dont 16 mondes musicaux et 3 partitions d'exemple (adaptée : outils de Dérush ; son outil, son studio et son moteur de film ne sont pas repris) | `competences/huashu-motion/` | Huashu, 花叔 (huashu-motion) | MIT |
+| Le compositeur de musique et le traceur de temps de `derush-musique` : 12 fichiers repris sans un octet de changé (leur taille et leur empreinte sont dans `lib/musique/LISEZ-MOI.md`) | `lib/musique/` | Huashu, 花叔 (huashu-motion) | MIT |
 
 Le détail compétence par compétence (source, version, ce qui a été retiré) est dans
 [competences/LICENCES.md](competences/LICENCES.md), avec le texte des licences dans `competences/licences/`.
@@ -48,6 +53,9 @@ Les logos et leurs règles d'usage sont décrits dans [public/logos/LISEZMOI.md]
 | yt-dlp 2026.10.26 (téléchargé au premier lien de « Comme cette vidéo ») | Télécharger une vidéo de référence depuis TikTok, Instagram ou YouTube, pour en étudier le style | The Unlicense ; l'exécutable autonome contient du code sous GPLv3+ |
 | HyperFrames 0.9.64 (HeyGen), et ce qu'il installe (sharp, puppeteer-core…) | Le second moteur de rendu : des vidéos écrites en HTML, et environ 450 blocs | Apache-2.0 (son catalogue : Apache-2.0, quelques blocs MIT ou OFL) ; il embarque GSAP (licence de Webflow ci-dessus) |
 | Compétences Remotion (remotion-dev/skills) | Les fiches que l'IA lit pour Remotion | Pas de licence de redistribution : téléchargées chez toi depuis leur dépôt officiel |
+| Les fiches de Lemo-Opuscar (Lemomo / LemoLab), seulement si tu cliques « Télécharger » dans le bouton Styles | 99 styles de film à faire en code (« Films en 99 styles ») | CC BY-NC 4.0, avec la permission de s'en servir pour ses propres films, même commerciaux ; elles ne se redonnent pas, donc Dérush les prend chez toi, à la source, et vérifie chaque fichier. « Memphis Diorama » est de EianLu, « Crayon World 3D » de 2nd1st |
+| Rough.js, three.quarks, quarks.core, simplex-noise (dans le kit de rendu) | Le trait de main, les particules et le bruit des toiles | MIT |
+| Manim 0.22.1, seulement si tu le demandes | Des maths animées | MIT |
 | Real SFX (Clipwing/skills), à la version examinée | Poser de vrais sons à l'image près | Scripts sous licence MIT ; sons d'interface uisfx : code MIT, sons CC0 (d'après son README). Fait par Alexander Korbanov |
 | Earshot (Leonxlnx/earshot), facultatif | Écouter, choisir, fabriquer des sons, sur ton ordinateur | MIT (Leon Lin) ; ses modèles : CLAP (Apache-2.0), AST (BSD-3-Clause) |
 | Whisper large-v3-turbo (MLX ou faster-whisper) | Le texte des vidéos, sur ton ordinateur | MIT |
