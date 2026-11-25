@@ -38,7 +38,9 @@ export type Plan = {
 };
 export type Bloc = {n: number; id: string; type: 'bloc'; titre: string; genre: string; genre_lisible: string; consigne: string; debut: Temps; fin: Temps; duree: {s: number; images: number}};
 export type Indication = {id: string; genre_lisible: string; consigne: string; debut: Temps; fin: Temps};
-export type Effet = {id: string; modele: string; debut: Temps; fin: Temps; reglages: Record<string, unknown>};
+export type Effet = {id: string; modele: string; debut: Temps; fin: Temps; reglages: Record<string, unknown>;
+  /** Une animation de l'IA (Dérush 12.1) : ses images, une par image, dans animations/<id>/a_00000.webp (transparentes). */
+  animation?: {id: string; nom: string; images: number; fps: number; dossier: string}};
 export type Mot = {t: string; debut: number; fin: number; plan: string; evenement?: boolean};
 
 export const montage = montageJson as unknown as {

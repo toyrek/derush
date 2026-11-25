@@ -5,7 +5,7 @@ import {blur} from '@remotion/effects/blur';
 import {chromaticAberration} from '@remotion/effects/chromatic-aberration';
 import {zoomBlur} from '@remotion/effects/zoom-blur';
 import {colorCorrection} from '@remotion/effects/color-correction';
-import {montage, mots, type Bloc, type Plan, type PointCadrage} from './donnees';
+import {montage, mots, type Bloc, type Effet, type Plan, type PointCadrage} from './donnees';
 import {PLANS_SANS_SOUS_TITRES} from './reglages';
 // Le moteur d'habillage est le même fichier que dans l'app Dérush : l'aperçu et le rendu dessinent la même chose.
 // @ts-ignore (JavaScript pur)
@@ -105,6 +105,19 @@ const Decoupe: React.FC<{it: Plan}> = ({it}) => {
   return <Img src={staticFile(`${d.dossier}/d_${String(j).padStart(5, '0')}.webp`)} style={placer(it, t, width, height)} />;
 };
 
+/**
+ * Une animation de l'IA (Dérush 12.1), posée dans la piste des effets : ses images (WebP transparentes), une par image
+ * du montage, en plein cadre. Plus longue que ses images, elle reste sur la dernière ; plus courte, elle est coupée.
+ */
+const AnimationIA: React.FC<{e: Effet}> = ({e}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const a = e.animation;
+  if (!a || a.images < 1) return null;
+  const n = Math.min(a.images - 1, Math.max(0, Math.round((frame / fps) * (a.fps || fps))));
+  return <Img src={staticFile(`${a.dossier}/a_${String(n).padStart(5, '0')}.webp`)} style={{position: 'absolute', inset: 0, width: '100%', height: '100%'}} />;
+};
+
 /** Plan de son seul (podcast, voix off) : les images restent à créer. */
 const SonSeul: React.FC<{it: Plan; afficher: boolean}> = ({it, afficher}) => (
   <AbsoluteFill style={{background: 'radial-gradient(circle at 50% 40%, #1d2a33, #07090c)', justifyContent: 'center', alignItems: 'center', padding: '8%'}}>
@@ -194,6 +207,12 @@ export const Montage: React.FC<{afficherConsignes: boolean}> = ({afficherConsign
         ))}
         <div ref={milieu} style={calque} />
       </div>
+      {/* les animations de l'IA (12.1) : devant le montage, sous les titres et les sous-titres du moteur */}
+      {(montage.habillage?.effets ?? []).filter((e) => e.modele === 'animation' && e.animation).map((e) => (
+        <Sequence key={`animation-${e.id}`} name={`${e.id} animation ${e.animation?.nom ?? ''}`} from={e.debut.image} durationInFrames={Math.max(1, e.fin.image - e.debut.image)}>
+          <AnimationIA e={e} />
+        </Sequence>
+      ))}
       <div ref={devant} style={calque} />
 
       {sons.map((p) => {

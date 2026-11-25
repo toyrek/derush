@@ -3781,33 +3781,10 @@ $('#trouver-res').addEventListener('click', (e) => {
   note('Moment choisi : E pour le poser dans le montage, ⇧E par-dessus.');
 });
 
-// ——— 12.0 : « Sur ma timeline » (la zone « Demander à l'IA », mode Timeline) ———
-// L'IA (Claude ou ChatGPT) monte dans la timeline par la porte des IA : ses gestes arrivent ici un par un (son curseur).
-// Un petit panneau suit son travail ; « Tout annuler » remet le montage d'avant (le projet tel qu'il était à l'envoi).
+// ——— 12.1 : l'IA monte dans la timeline (par la porte des IA) ———
+// Ses gestes arrivent ici un par un (son curseur). À la fin d'une demande où elle a monté dans la timeline, un petit
+// panneau le dit ; « Tout annuler » remet le montage d'avant (le projet tel qu'il était à l'envoi), d'un seul ⌘Z.
 let suiviTimeline = null;
-async function envoyerSurTimeline(texte) {
-  if (!texte) return $('#cl-texte')?.focus();
-  if (suiviTimeline) return note('Ton IA monte déjà sur ta timeline.', true);
-  await sauver(true);
-  const avant = instantane();
-  try {
-    await api('POST', '/api/timeline/demander', {texte, moteur: moteurIA()});
-  } catch (err) { return note(err.message, true); }
-  ui.brouillon = '';
-  const ta = $('#cl-texte');
-  if (ta) { ta.value = ''; majEnvoi(); }
-  suiviTimeline = {avant, debut: Date.now(), texte};
-  panneauTimeline({etat: 'en_cours', etapes: [], nom_ia: nomIA()});
-  const suivre = async () => {
-    let r;
-    try { r = (await api('GET', '/api/timeline')).etat; } catch { r = null; }
-    if (!suiviTimeline) return;
-    if (r) panneauTimeline(r);
-    if (!r || r.etat === 'en_cours') { setTimeout(suivre, 1000); return; }
-    suiviTimeline.fini = true;
-  };
-  setTimeout(suivre, 800);
-}
 function panneauTimeline(r) {
   let p = $('#panneau-timeline');
   if (!p) {
@@ -5287,8 +5264,53 @@ function majHabillage() {
   }
   SCENE.contenu.style.filter = filtres.join(' ');
   majDecoupe(etat, t);
+  majAnimations(t);
   if (prog.lecture) jouerBruitages(etat, t);
   dernierT = t;
+}
+// ——— Les animations de l'IA (12.1) : leurs images (WebP transparentes) sur une toile, devant le montage ———
+const IMAGES_ANIM = new Map(); // « A1:12 » → Image chargée, 'attente', ou null (introuvable)
+function imageAnimation(a, n) {
+  const lire = (k) => {
+    const cle = `${a.id}:${k}`;
+    if (!IMAGES_ANIM.has(cle)) {
+      if (IMAGES_ANIM.size > 1500) for (const c of [...IMAGES_ANIM.keys()].slice(0, 500)) IMAGES_ANIM.delete(c);
+      IMAGES_ANIM.set(cle, 'attente');
+      const img = new Image();
+      img.onload = () => { IMAGES_ANIM.set(cle, img); if (!prog.lecture && ui.mode === 'montage') majAnimations(borner(prog.t, 0, Math.max(0, seq.duree - 1e-4))); };
+      img.onerror = () => IMAGES_ANIM.set(cle, null);
+      img.src = `/animation/${a.id}/${k}?j=${JETON}&p=${ui.cleProjet ?? ''}`;
+    }
+    const v = IMAGES_ANIM.get(cle);
+    return v instanceof Image ? v : null;
+  };
+  const v = lire(n);
+  for (let k = 1; k <= 12 && n + k < a.images; k++) lire(n + k); // les suivantes se chargent d'avance
+  if (v) return v;
+  // pas encore là : la plus proche déjà chargée, pour ne pas clignoter pendant la lecture
+  for (let k = 1; k <= 6; k++) { const x = IMAGES_ANIM.get(`${a.id}:${n - k}`); if (x instanceof Image) return x; }
+  return null;
+}
+/** Dessine les animations de l'IA présentes au temps t (dans l'ordre où elles commencent). */
+function majAnimations(t) {
+  const toile = $('#hab-animations');
+  if (!toile) return;
+  const ici = ui.mode === 'montage' ? P.indications.filter((i) => i.modele === 'animation' && i.animation && t >= i.debut && t < i.fin).sort((a, b) => a.debut - b.debut) : [];
+  if (!ici.length) { if (!toile.classList.contains('cache')) toile.classList.add('cache'); return; }
+  const L = P.sortie.largeur;
+  const H = P.sortie.hauteur;
+  const W = Math.min(L, 1080);
+  const Ht = Math.round((W * H) / L);
+  if (toile.width !== W || toile.height !== Ht) { toile.width = W; toile.height = Ht; }
+  const c = toile.getContext('2d');
+  c.clearRect(0, 0, W, Ht);
+  for (const i of ici) {
+    const a = i.animation;
+    const n = Math.min(a.images - 1, Math.max(0, Math.round((t - i.debut) * (a.fps || F()))));
+    const img = imageAnimation(a, n);
+    if (img) c.drawImage(img, 0, 0, W, Ht);
+  }
+  toile.classList.remove('cache');
 }
 /** Pendant la lecture : joue les bruitages dont le moment vient de passer. */
 function jouerBruitages(etat, t) {
@@ -5472,7 +5494,7 @@ function rendrePanneauEffets() {
   $('#p-effets').innerHTML = `<div class="nav-effets">${Object.entries(CATEGORIES).map(([k, c]) => `<button class="cat-${k}" data-vers="${k}">${ic(ICONE_CAT[k])}${esc(c.nom)}</button>`).join('')}</div>
     <p>Clique sur un effet : il se pose à la tête de lecture. Ou glisse-le dans la timeline. Il se règle ensuite à droite.</p>${Object.entries(CATEGORIES).map(([k, c]) => `
     <h3 class="cat-${k}" id="effets-${k}">${ic(ICONE_CAT[k])}${esc(c.nom)}</h3><p>${esc(c.aide)}</p>
-    <div class="tuiles-effets cat-${k}">${Object.entries(CATALOGUE).filter(([, d]) => d.categorie === k).map(([id, d]) => `<button class="tuile-effet" data-effet="${id}"><b>${esc(d.nom)}</b><small>${esc(d.description)}</small></button>`).join('')}</div>`).join('')}`;
+    <div class="tuiles-effets cat-${k}">${Object.entries(CATALOGUE).filter(([, d]) => d.categorie === k && !d.interne).map(([id, d]) => `<button class="tuile-effet" data-effet="${id}"><b>${esc(d.nom)}</b><small>${esc(d.description)}</small></button>`).join('')}</div>`).join('')}`;
 }
 $('#p-effets').addEventListener('click', (e) => {
   const vers = e.target.closest('[data-vers]')?.dataset.vers;
@@ -6027,6 +6049,13 @@ function apresClaude(avant) {
     else if (dernier?.erreur) note(`${qui} n’a pas pu finir. Le détail est dans la conversation.`, true);
     else note(`${qui} a répondu.`, false, true);
     ui.depart = null;
+    // 12.1 : l'IA a monté dans la timeline pendant ce travail : on peut tout remettre comme avant, d'un geste
+    const avantD = ui.avantDemande;
+    ui.avantDemande = null;
+    if (avantD && avantD.cle === ui.cleProjet && P && instantane() !== avantD.avant) {
+      suiviTimeline = {avant: avantD.avant, debut: Date.now(), fini: true};
+      panneauTimeline({etat: 'fini', moteur: dernier?.moteur, nom_ia: qui, reponse: {fait: `${qui} a monté dans ta timeline : tout se retouche à la main. « Tout annuler » remet ton montage d’avant la demande.`}});
+    }
     chargerRetours();
     // une vidéo livrée a sa fiche : ses pouces, sa série, sa publication à suivre
     chargerNotes();
@@ -6238,20 +6267,23 @@ function publicationsHtml(pubs) {
     return `<div class="ia-pub e-${esc(p.etat)}">${logo(p.reseau, 20)}<span><b>${esc(RESEAUX_UI[p.reseau] ?? p.reseau)}</b><small>${esc(ETATS_PUB[p.etat] ?? p.etat)}${p.message ? ` · ${esc(p.message)}` : ''}</small></span>${p.lien ? `<button class="icone-btn" data-cl="lien-pub" data-lien="${esc(p.lien)}" title="Ouvrir la publication">${ic('lien')}</button>` : ''}${texte ? `<button class="icone-btn" data-cl="copier" data-texte="${esc(texte)}" title="Copier le titre, la légende et les hashtags">${ic('copier')}</button>` : ''}</div>`;
   }).join('')}</div>`;
 }
-/** La puce du Mode Hollywood, à côté de « Pour : … » : allumée, Gemini regarde et écoute les rushes pour ton IA. */
 /**
- * Le mode de la demande, choisi avant d'écrire : Classique (ton IA monte seule, d'après les images et le texte des
- * rushes) ou Hollywood (Gemini, le réalisateur, regarde et écoute les rushes, propose le découpage et contrôle la vidéo ;
- * ton IA monte). Sans Gemini branché, « Hollywood » ouvre Connexions.
+ * 12.1 : un seul mode. Ton IA (Claude, ChatGPT) monte DANS ta timeline, sous tes yeux, par la porte des IA : plans,
+ * coupes, son, couleur, transitions, titres, et ses animations écrites en code (des blocs de la piste des effets) ; la
+ * vidéo se fabrique depuis la timeline, et tout se retouche ensuite à la main. Gemini fabrique encore sa vidéo à part
+ * (son bac à sable coupe la porte). Hollywood est un interrupteur, sur la ligne de « Pour » ; allumé, la phrase devient
+ * l'équipe (ses logos, « Gemini réalise, Claude monte… ») : un clic choisit le modèle de chacun.
  */
-const puceHollywood = (c) => {
+const choixMode = (c) => {
   const h = c?.hollywood ?? {};
   const hw = !!(h.ok && h.actif);
   const e = c?.equipe;
-  // en Hollywood, l'équipe à côté : ses logos, et la feuille pour choisir le modèle de chaque IA
-  const equipe = hw && e ? `<button class="cl-equipe" data-cl="equipe" title="${esc(`Ton équipe : ${e.phrase} Clique pour choisir le modèle de chaque IA.`)}">${pileEquipe(e.membres)}<span>Équipe</span></button>` : '';
-  const tl = !!ui.surTimeline;
-  return `<div class="cl-mode" role="group" aria-label="Le mode de montage"><button data-cl="mode-classique"${hw || tl ? '' : ' class="actif"'} title="Classique : ton IA monte seule, d’après les images et le texte de tes rushes.">Classique</button><button data-cl="mode-timeline"${tl ? ' class="actif"' : ''} title="Sur ma timeline : ton IA monte directement dans ta timeline, geste par geste, sous tes yeux (pas de vidéo fabriquée). Chaque geste s’annule d’un ⌘Z ; « Tout annuler » revient à avant.">${ic('ciseaux')}<span>Timeline</span></button><button data-cl="mode-hollywood"${hw && !tl ? ' class="actif"' : ''} title="${h.ok ? `Hollywood : trois IA travaillent ensemble. ${esc(h.nom ?? 'Gemini')}, le réalisateur, regarde et écoute tes rushes, propose le découpage et contrôle la vidéo ; ton IA monte ; ChatGPT dessine ce qui manque.` : 'Hollywood : branche Gemini dans Connexions, et un réalisateur regardera et écoutera tes rushes avec ton IA.'}">${logo('gemini', 13)}<span>Hollywood</span></button></div>${equipe}`;
+  const nomG = esc(String(h.nom ?? 'Gemini').split(' ')[0]);
+  const titre = h.ok ? `Hollywood : ${nomG}, le réalisateur, regarde et écoute tes rushes, propose le découpage et contrôle la vidéo ; ton IA monte ; ChatGPT dessine ce qui manque.` : 'Hollywood : branche Gemini dans Connexions, et un réalisateur regardera et écoutera tes rushes avec ton IA.';
+  const rang = `<button class="cl-hollywood${hw ? ' actif' : ''}" data-cl="hollywood" role="switch" aria-checked="${hw}" title="${esc(titre)}">${logo('gemini', 12)}<span>Hollywood</span><i></i></button>`;
+  const phrase = hw && e ? `<button class="cl-equipe" data-cl="equipe" title="Ton équipe. Clique pour choisir le modèle de chaque IA.">${pileEquipe(e.membres)}<span class="cl-equipe-txt">${esc(e.phrase)}</span></button>`
+    : `<p>${moteurIA() === 'gemini' ? 'Gemini fabrique toute la vidéo : montage, animations, sous-titres, musique.' : 'Ton IA monte dans ta timeline, sous tes yeux : plans, animations, sous-titres, musique. Tu retouches tout ensuite.'}</p>`;
+  return {rang, aide: `<div class="cl-mode-aide">${phrase}</div>`};
 };
 /** Les logos de l'équipe, en pile (le réalisateur, le monteur, le graphiste). */
 const pileEquipe = (membres = [], t = 14) => `<span class="pile-equipe">${membres.map((k) => logo(k, t)).join('')}</span>`;
@@ -6729,8 +6761,9 @@ function rendreClaude() {
   const cle = JSON.stringify([modeProjet(), ui.reglagesIA.map((r) => r.texte), m, pret, qualiteIA(), modeleIA(), c.echanges.length, c.echanges.at(-1)?.quand ?? '', c.versions.map((v) => [v.n, v.videos.map((x) => (x.publications ?? []).length)]), depart, c.montage_change, c.espace_change, c.decoupe_ia, ui.vue, ui.versionVue, ui.videoVue, c.atelier ?? '', !!c.en_cours, c.pieces.map((x) => [x.id, x.role, x.message, x.en_preparation, !!x.erreur, x.apercu, x.introuvable]), P.medias.length, ui.clRecus, ui.clMenu, ui.clMenuVideo, c.drive?.synchronise, c.elevenlabs,
     // pour qui l'IA monte (ligne « Pour : »), et les notes des vidéos livrées (pouces, mot, publications suivies)
     ui.espace ? [ui.espace.id, ui.espace.nom, ui.espace.couleur] : null, signatureNotes(), ui.driveCarte,
-    // Classique ou Hollywood, et l'équipe (ses IA, sa phrase) : sans eux, un clic sur « Hollywood » ne redessinait pas le
-    // bouton, qui restait sur « Classique » jusqu'au changement suivant
+    // Hollywood allumé ou non, et l'équipe (ses IA, sa phrase) : sans eux, un clic sur « Hollywood » ne redessinait pas le
+    // bouton, qui restait sur l'ancien choix jusqu'au changement suivant (11.6.1) ; de même pour « Vidéo finie » ou « Dans
+    // ma timeline » (12.0.1 : en 12.0, le bouton « Timeline » ne s'allumait qu'au changement suivant)
     c.hollywood?.ok ?? false, c.hollywood?.actif ?? false, c.equipe?.membres ?? null, c.equipe?.phrase ?? '',
     // la carte « Une voix off ? » (et le bouton « Au micro » sous les questions de l'IA)
     VO.signature(),
@@ -6806,12 +6839,13 @@ function rendreClaude() {
     <div class="cl-depot-ici">${ic('trombone')}<span>Lâche ici : ${qui} le recevra avec ton message</span></div></div>`;
   // pour qui l'IA monte ce projet : toujours visible près de la zone d'écriture (un clic pour changer)
   const E = ui.espace;
-  const pour = E ? `<button class="cl-pour${E.type === 'neutre' ? ' neutre' : ''}" data-cl="pour-qui" style="--c:${esc(E.couleur)}" title="Pour qui ton IA monte ce projet. Un clic pour changer"><i></i><span>Pour : <b>${esc(E.nom)}</b></span><small>${E.type === 'client' ? 'sa marque, son carnet' : E.type === 'neutre' ? 'neutre, rien n’est appris' : 'ton style, ton carnet'}</small>${ic('img-plus')}</button>` : '';
+  const pour = E ? `<button class="cl-pour${E.type === 'neutre' ? ' neutre' : ''}" data-cl="pour-qui" style="--c:${esc(E.couleur)}" title="Pour qui ton IA monte ce projet. Un clic pour changer"><i></i><span><em>Pour : </em><b>${esc(E.nom)}</b></span><small>${E.type === 'client' ? 'sa marque, son carnet' : E.type === 'neutre' ? 'neutre, rien n’est appris' : 'ton style, ton carnet'}</small>${ic('img-plus')}</button>` : '';
   // les cartes du pied (le montage a changé, le Drive, la voix off, la vidéo ouverte) : elles défilent entre elles quand la
   // colonne est courte, pour que la conversation garde sa place (style.css, .cl-cartes)
   const cartesPied = `${changement}${carteDrive()}${VO.carte()}${SQ.ligneIA()}`.trim();
+  const mode = choixMode(c);
   box.innerHTML = `${tete}<div class="cl-haut" id="cl-haut">${recus}${brancher}${accueil}${fil}${reprendre}${bande}${apprendre}${relances}</div>
-    <div class="cl-pied">${cartesPied ? `<div class="cl-cartes">${cartesPied}</div>` : ''}<div class="cl-pour-rang">${pour}${puceHollywood(c)}</div>${compose}</div>`;
+    <div class="cl-pied">${cartesPied ? `<div class="cl-cartes">${cartesPied}</div>` : ''}<div class="cl-pour-rang">${pour}${mode.rang}</div>${mode.aide}${compose}</div>`;
   const haut = $('#cl-haut', box);
   const ta = $('#cl-texte', box);
   ta.value = ui.brouillon;
@@ -6875,7 +6909,6 @@ async function envoyerDemande() {
     return;
   }
   if (!iaPrete()) return feuilleConnexions();
-  if (ui.surTimeline) return envoyerSurTimeline(texte);
   const reglages = texteReglages();
   if (!texte && !pj.length && !reglages) return $('#cl-texte')?.focus();
   // « va dans mon Drive, prends les vidéos de mon séjour… » : Dérush propose d'abord de les chercher lui-même (« Depuis mon
@@ -6912,6 +6945,8 @@ async function envoyerDemande() {
   envoiDemande = true;
   try {
     await sauver(true);
+    // 12.1 : l'IA va monter dans la timeline ; son état d'avant la demande, pour « Tout annuler » à la fin
+    ui.avantDemande = {avant: instantane(), cle: ui.cleProjet};
     const message = [texte || (reglages ? 'Applique ces réglages sur ta vidéo, sans rien changer d’autre.' : ''), reglages].filter(Boolean).join('\n\n');
     await api('POST', '/api/claude/demander', {message, pieces: pj.map((x) => x.id), moteur: moteurIA(), qualite: qualiteIA(), nouveau: depart === 'nouveau', ...(creditApi ? {credit_api: true} : {})});
     ui.brouillon = '';
@@ -7171,19 +7206,12 @@ $('#claude').addEventListener('click', async (e) => {
     if (act === 'tableau') return TB.ouvrir({espace: ui.notes?.espace?.id ?? ui.espace?.id ?? null});
     if (act === 'pour-qui') return changerEspaceProjet();
     if (act === 'equipe') return feuilleEquipe();
-    // 12.0 : « Sur ma timeline » (l'IA monte dans la timeline, par la porte des IA) ; Classique et Hollywood le quittent
-    if (act === 'mode-timeline') {
-      if (moteurIA() === 'gemini') return note('Gemini ne monte pas encore sur la timeline : choisis Claude ou ChatGPT (Qui monte ?), ou demande une vidéo complète.', true);
-      ui.surTimeline = true;
-      note('Sur ma timeline : ton IA va monter directement ici, sous tes yeux. Écris ce que tu veux.');
-      return rendreClaude();
-    }
-    if ((act === 'mode-classique' || act === 'mode-hollywood') && ui.surTimeline) { ui.surTimeline = false; rendreClaude(); if (act === 'mode-classique') return; }
+    // 12.1 : un seul mode (l'IA monte dans la timeline) ; « mode-classique » et « mode-hollywood » restent compris (anciens boutons)
     if (act === 'mode-classique' || act === 'mode-hollywood' || act === 'hollywood') {
       const actif = act === 'hollywood' ? !c.hollywood?.actif : act === 'mode-hollywood';
       if (actif && !c.hollywood?.ok) return feuilleConnexions(); // Gemini n'est pas encore branché
       if (actif === !!c.hollywood?.actif) return;
-      try { await api('POST', '/api/connexions/hollywood/activer', {actif}); note(actif ? `Mode Hollywood : ${c.hollywood?.nom ?? 'Gemini'}, le réalisateur, regardera et écoutera tes rushes, proposera le découpage et contrôlera la vidéo ; ton IA monte${c.codex?.ok ? ' ; ChatGPT dessine ce qui manque' : ''}. « Équipe » : le modèle de chacun.` :'Mode classique : ton IA monte seule.'); } catch (err) { note(err.message, true); }
+      try { await api('POST', '/api/connexions/hollywood/activer', {actif}); note(actif ? `Hollywood allumé : ${c.hollywood?.nom ?? 'Gemini'}, le réalisateur, regardera et écoutera tes rushes, proposera le découpage et contrôlera la vidéo ; ton IA monte${c.codex?.ok ? ' ; ChatGPT dessine ce qui manque' : ''}. Clique l’équipe pour choisir le modèle de chacun.` : 'Hollywood éteint : ton IA monte seule.'); } catch (err) { note(err.message, true); }
       return chargerClaude();
     }
     if (act === 'gemini-temps') {
@@ -9110,7 +9138,12 @@ const PORTE = creerPorte({
   calerSurLeTemps: (id) => calerSurLeTemps(id),
   // une IA a lancé « Créer la vidéo » : la fenêtre la suit comme si la personne avait cliqué
   evenement: (e) => {
+    // 12.1 : une IA fabrique une animation (le bloc arrivera dans la piste des effets quand ses images seront prêtes)
+    if (e?.type === 'animation' && !ui.remplacee) return note(`${e.ia ?? 'Une IA'} fabrique une animation${e.nom ? ` (« ${e.nom} »)` : ''} : elle se posera dans la timeline dès qu’elle sera prête.`);
     if (e?.type !== 'rendu' || !e.tache || ui.remplacee) return;
+    // 12.1 : l'IA monte dans la timeline pendant une demande d'ici : sa vidéo arrivera dans la conversation, rien ne
+    // s'ouvre par-dessus la timeline pendant qu'elle travaille encore
+    if (ui.claude?.en_cours) return;
     ui.renduTache = e.tache;
     note(`${e.ia ?? 'Une IA'} crée la vidéo : elle s’affichera ici quand elle sera prête.`);
     suivreFile();

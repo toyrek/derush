@@ -98,7 +98,7 @@ export function creerPorte(c) {
         : {id: it.id, type: 'case', genre: it.genre, titre: it.titre, consigne: it.consigne, debut: t3(debut), fin: t3(fin)})),
       par_dessus: p.superpositions.map((x) => ({id: x.id, media: x.media, nom_media: nomM(x.media), debut: t3(x.debut), fin: t3(x.debut + x.sortie - x.entree), entree: t3(x.entree), sortie: t3(x.sortie),
         cadre: x.cadre, son: vueSon(x.son), ...(x.titre ? {titre: x.titre} : {}), ...(x.voix_off ? {voix_off: true} : {}), ...(x.fondu ? {fondu: x.fondu} : {}), ...(x.son_seul ? {son_seul: true} : {})})),
-      effets: p.indications.filter((i) => CATALOGUE[i.modele]).map((e) => ({id: e.id, modele: e.modele, nom: resumeEffet(e), debut: t3(e.debut), fin: t3(e.fin), reglages: e.reglages ?? {}})),
+      effets: p.indications.filter((i) => CATALOGUE[i.modele]).map((e) => ({id: e.id, modele: e.modele, nom: resumeEffet(e), debut: t3(e.debut), fin: t3(e.fin), reglages: e.reglages ?? {}, ...(e.animation ? {animation: e.animation.id} : {})})),
       notes: p.indications.filter((i) => !CATALOGUE[i.modele]).map((i) => ({id: i.id, genre: i.genre, consigne: i.consigne, debut: t3(i.debut), fin: t3(i.fin)})),
       marqueurs: (p.marqueurs ?? []).map((k) => ({id: k.id, temps: t3(k.t), nom: k.nom, couleur: k.couleur})),
       style: {look: st.look, sous_titres: st.sous_titres, accent: st.accent, police_titres: st.police_titres, police_textes: st.police_textes, transition_auto: st.transition_auto,
@@ -509,6 +509,7 @@ export function creerPorte(c) {
     },
     poser_effet(args, ia) {
       const d = CATALOGUE[args.modele] ?? refus(`Effet inconnu : ${args.modele}. lister_effets donne les modèles.`);
+      if (d.interne) refus('Une animation se pose avec poser_animation (son code), pas avec poser_effet.');
       const sq = seq();
       if (!sq.segs.length) refus('Le montage est vide : pose d’abord un plan.');
       const F = P().sortie.fps;
@@ -549,6 +550,31 @@ export function creerPorte(c) {
       });
       presence(ia, {t: debut, id: e.id, texte: `pose « ${resumeEffet(e)} »`});
       return {texte: `${e.id} : « ${resumeEffet(e)} » de ${t3(debut)} s à ${t3(fin)} s${existant ? ' (il remplace la transition qui était sur cette coupe)' : ''}.`, donnees: {id: e.id, debut: t3(debut), fin: t3(fin), reglages: reglagesDe(args.modele, reglages)}};
+    },
+    // 12.1 : une animation de l'IA, déjà fabriquée par le serveur (poser_animation) : le bloc dans la piste des effets,
+    // au temps voulu, ou à la place d'une autre (« remplace » : son id I…, qui garde sa place si aucun début n'est donné)
+    poser_animation_bloc(args, ia) {
+      const a = args.animation && /^A\d{1,5}$/.test(String(args.animation.id ?? '')) ? args.animation : refus('Animation inconnue.');
+      const sq = seq();
+      if (!sq.segs.length) refus('Le montage est vide : pose d’abord un plan.');
+      const F = P().sortie.fps;
+      const ancienne = args.remplace ? trouver(args.remplace) : null;
+      if (ancienne && (ancienne.ou !== 'effet' || ancienne.it.modele !== 'animation')) refus(`${args.remplace} n’est pas une animation.`);
+      const d0 = nombre(args.debut) ?? (ancienne ? ancienne.it.debut : null) ?? c.tete();
+      const debut = surGrille(borner(d0, 0, Math.max(0, sq.duree - 1 / F)), F);
+      const voulue = nombre(args.duree) ?? a.images / (a.fps || F);
+      const fin = Math.min(sq.duree, Math.max(debut + 1 / F, surGrille(debut + voulue, F)));
+      const animation = {id: a.id, nom: String(a.nom ?? '').slice(0, 80), images: Math.max(1, Math.round(Number(a.images) || 1)), fps: Number(a.fps) > 0 ? Number(a.fps) : F};
+      let e;
+      c.modifier(() => {
+        if (ancienne) { e = ancienne.it; Object.assign(e, {debut, fin, animation}); } else {
+          e = {id: nouvelId(P(), 'I'), genre: 'texte', debut, fin, consigne: '', modele: 'animation', reglages: {}, animation};
+          P().indications.push(e);
+        }
+      });
+      presence(ia, {t: debut, id: e.id, texte: `pose l’animation « ${animation.nom} »`});
+      const coupee = fin - debut < voulue - 1 / F;
+      return {texte: `${e.id} : l’animation « ${animation.nom} » (${a.id}) de ${t3(debut)} s à ${t3(fin)} s${ancienne ? `, à la place de l’ancienne` : ''}${coupee ? ' (coupée à la fin du montage)' : ''}.`, donnees: {id: e.id, animation: a.id, debut: t3(debut), fin: t3(fin)}};
     },
     regler_effet(args, ia) {
       const x = trouver(args.id);
@@ -649,10 +675,26 @@ export function creerPorte(c) {
       for (const e of r?.evenements ?? []) c.evenement?.(e);
       for (const a of r?.appels ?? []) await jouer(a);
     } catch { /* serveur arrêté, fenêtre remplacée : on réessaiera */ }
-    setTimeout(tour, actif ? 150 : 1500);
+    attendre(actif ? 150 : 1500).then(tour);
+  }
+  // 12.1 : le rythme vient d'un Worker (public/metronome.js) : une fenêtre cachée ralentit ses propres minuteurs jusqu'à
+  // une fois par minute, et l'IA croyait la fenêtre fermée (constaté le 25 nov. 2026 : elle a monté sans la timeline)
+  let metronome;
+  function attendre(ms) {
+    if (metronome === undefined) { try { metronome = new Worker('/metronome.js'); } catch { metronome = null; } }
+    if (!metronome) return new Promise((ok) => setTimeout(ok, ms));
+    // un métronome arrêté (Worker fermé par le navigateur) ne bloque jamais la boucle : un minuteur ordinaire la relance
+    return new Promise((ok) => {
+      let fait = false;
+      const fin = () => { if (!fait) { fait = true; ok(); } };
+      metronome.onmessage = fin;
+      metronome.onerror = () => { metronome = null; fin(); };
+      metronome.postMessage(ms);
+      setTimeout(fin, ms * 4 + 2000);
+    });
   }
   return {
-    demarrer() { if (!enMarche) { enMarche = true; setTimeout(tour, 400); } },
+    demarrer() { if (!enMarche) { enMarche = true; attendre(400).then(tour); } },
     etat: () => ({actif, en_marche: enMarche, tours}),
     /** Pour les essais : jouer un geste directement, sans passer par le serveur. */
     jouer: (nom, args, ia = 'Essai') => GESTES[nom](args ?? {}, ia),

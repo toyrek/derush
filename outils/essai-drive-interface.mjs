@@ -293,20 +293,26 @@ export async function resolve(specifier, context, next) {
     await capture('01-editeur');
     essai('le panneau des médias propose « Depuis mon Drive », la colonne de l’IA aussi', await js("!!document.querySelector('#p-medias [data-a=drive]') && !!document.querySelector('#claude [data-a=drive]')"));
 
-    // 11.6.1 — le bouton « Classique | Hollywood » de la zone d'écriture : la clé de rendreClaude ne contenait pas le mode,
-    // un clic sur « Hollywood » laissait donc le bouton sur « Classique » et « Équipe » caché
-    titre('Classique ou Hollywood : le bouton suit le clic');
+    // 11.6.1 — le bouton Hollywood de la zone d'écriture : la clé de rendreClaude ne contenait pas le mode, un clic laissait
+    // donc le bouton sur l'ancien choix et « Équipe » caché. 12.1 : un seul mode (l'IA monte dans la timeline), une phrase
+    // dessous ; Hollywood est un interrupteur sur la ligne de « Pour », et son équipe prend la place de la phrase
+    titre('Un seul mode, et Hollywood en interrupteur : le bouton suit le clic');
     await js('(window.__faux.hollywood = {actif: false}, window.derush.relireIA())');
-    essai('Gemini branché, en Classique : « Classique » est allumé, pas de bouton « Équipe »',
-      await jusqua("document.querySelector('#claude [data-cl=mode-classique].actif') && !document.querySelector('#claude [data-cl=mode-hollywood].actif') && !document.querySelector('#claude [data-cl=equipe]')", 5000));
-    await clic('#claude [data-cl="mode-hollywood"]');
-    essai('un clic sur « Hollywood » : le bouton passe sur « Hollywood », « Équipe » apparaît avec ses trois logos',
-      await jusqua("document.querySelector('#claude [data-cl=mode-hollywood].actif') && !document.querySelector('#claude [data-cl=mode-classique].actif') && document.querySelectorAll('#claude [data-cl=equipe] .pile-equipe > *').length === 3", 5000)
-      && (await appels('/hollywood\\/activer/')).at(-1)?.actif === true, await texteDe('#claude .cl-mode'));
+    essai('un seul mode : plus de choix entre « Vidéo finie » et « Dans ma timeline » ; la phrase dit que l’IA monte dans ta timeline',
+      await jusqua("!document.querySelector('#claude .cl-mode, #claude [data-cl=mode-timeline], #claude [data-cl=mode-video], #claude [data-cl=mode-classique]') && /monte dans ta timeline/.test(document.querySelector('#claude .cl-mode-aide')?.textContent ?? '')", 5000),
+      await texteDe('#claude .cl-mode-aide'));
+    essai('Gemini branché, Hollywood éteint : l’interrupteur est sur la ligne de « Pour », éteint, sans équipe',
+      await jusqua("document.querySelector('#claude .cl-pour-rang [data-cl=hollywood]') && !document.querySelector('#claude [data-cl=hollywood].actif') && !document.querySelector('#claude [data-cl=equipe]')", 5000),
+      await texteDe('#claude .cl-pour-rang'));
+    await capture('01a-un-seul-mode');
+    await clic('#claude [data-cl="hollywood"]');
+    essai('un clic sur l’interrupteur « Hollywood » : il s’allume, l’équipe et ses trois logos remplacent la phrase',
+      await jusqua("document.querySelector('#claude [data-cl=hollywood].actif') && document.querySelectorAll('#claude .cl-mode-aide [data-cl=equipe] .pile-equipe > *').length === 3", 5000)
+      && (await appels('/hollywood\\/activer/')).at(-1)?.actif === true, await texteDe('#claude .cl-mode-aide'));
     await capture('01b-hollywood');
-    await clic('#claude [data-cl="mode-classique"]');
-    essai('un clic sur « Classique » : le bouton revient, « Équipe » disparaît',
-      await jusqua("document.querySelector('#claude [data-cl=mode-classique].actif') && !document.querySelector('#claude [data-cl=mode-hollywood].actif') && !document.querySelector('#claude [data-cl=equipe]')", 5000)
+    await clic('#claude [data-cl="hollywood"]');
+    essai('un second clic l’éteint : l’équipe s’en va, la phrase revient',
+      await jusqua("!document.querySelector('#claude [data-cl=hollywood].actif') && !document.querySelector('#claude [data-cl=equipe]') && /monte dans ta timeline/.test(document.querySelector('#claude .cl-mode-aide')?.textContent ?? '')", 5000)
       && (await appels('/hollywood\\/activer/')).at(-1)?.actif === false);
     await js('(window.__faux.hollywood = null, window.derush.relireIA())');
     await jusqua("!document.querySelector('.note')", 6000);

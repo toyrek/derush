@@ -94,6 +94,10 @@ export const CATALOGUE = {
     texte: texte('Texte', 'TON TITRE'), etiquette: texte('Étiquette', ''), sous_titre: texte('Petite ligne', ''), ligne: texte('Dernière ligne', '', 'ex. @compte, date, lieu'),
     fond: choix('Fond', {flou: 'L’image floutée', anime: 'Couleurs animées', noir: 'Noir'}, 'flou'), son: BRUIT}},
 
+  // 12.1 : une animation écrite en code par l'IA, fabriquée image par image par Dérush (lib/animations.mjs). Interne :
+  // elle n'est pas dans la bibliothèque des effets ; l'aperçu et le kit la montrent depuis ses images, pas ce moteur.
+  animation: {nom: 'Animation de l’IA', categorie: 'titre', duree: 3, interne: true, description: 'Une animation écrite par ton IA (titre animé, graphisme, carte…), image par image.', reglages: {}},
+
   'zoom-lent': {nom: 'Zoom lent', categorie: 'ambiance', duree: 3, description: 'L’image avance (ou recule) tout doucement.', reglages: {sens: choix('Sens', {avant: 'Vers l’avant', arriere: 'Vers l’arrière'}, 'avant'), force: FORCE}},
   secousse: {nom: 'Secousse', categorie: 'ambiance', duree: 0.6, description: 'L’image tremble.', reglages: {force: FORCE}},
 
@@ -146,6 +150,7 @@ export function reglagesDe(modele, donnes = {}) {
 export function resumeEffet(e) {
   const d = CATALOGUE[e.modele];
   if (!d) return e.modele ?? '';
+  if (e.modele === 'animation') return e.animation?.nom ? `Animation · ${e.animation.nom}` : d.nom;
   const t = e.reglages?.texte ?? d.reglages.texte?.defaut;
   return t ? `${d.nom} · ${t}` : d.nom;
 }

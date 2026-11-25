@@ -97,14 +97,18 @@ Options : `--leger` (sans Whisper, 2 Go de moins), `--blender` (ajoute Blender p
 
 <p align="center"><img src="docs/images/capture-montage.jpg" alt="Dérush : les médias, l'aperçu avec ses sous-titres, la timeline avec la voix off" width="100%"></p>
 
-## Tes IA montent directement dans Dérush (nouveau en 12.0)
+## Ton IA monte dans ta timeline, sous tes yeux (12.1)
 
-Choisis **Timeline** au-dessus de la zone d'écriture, écris ce que tu veux : ton IA (Claude ou ChatGPT) monte
-directement dans ta timeline, sous tes yeux. Un curseur à son nom glisse et dit ce qu'elle fait ; chaque geste s'annule
-d'un ⌘Z, et « Tout annuler » remet ton montage d'avant. Dans **Connexions › Ouvre Dérush à tes IA**, branche aussi l'app
-Claude, ChatGPT (Codex) ou Claude Code : tu demandes un montage depuis l'app, il se fait dans Dérush (38 outils : lire
-le projet, regarder et chercher dans tes rushes, poser, couper, régler, titrer, créer et exporter la vidéo). Rien ne sort
-de ton ordinateur ; un interrupteur ferme la porte.
+Tu écris ce que tu veux : ton IA (Claude ou ChatGPT) monte directement dans ta timeline. Un curseur à son nom glisse et
+dit ce qu'elle fait : plans, coupes, son, couleur, transitions, titres, musique. Ce que les effets de Dérush ne savent
+pas faire (un logo qui s'anime, un graphisme, une scène de motion design), elle l'écrit en code, avec toutes ses
+compétences de motion design et tout son matériel (tes logos, tes rushes, les dessins du graphiste) ; Dérush le
+fabrique image par image et le pose dans la piste des effets, comme un bloc que tu déplaces ou supprimes. Puis Dérush
+fabrique la vidéo depuis ta timeline : tout se retouche ensuite, à la main ou en le demandant, et « Tout annuler » remet ton
+montage d'avant. Gemini fabrique encore sa vidéo à part (son bac à sable coupe la porte). Dans **Connexions › Ouvre
+Dérush à tes IA**, branche aussi l'app Claude, ChatGPT (Codex) ou Claude Code : tu demandes un montage depuis l'app, il
+se fait dans Dérush (39 outils : lire le projet, regarder et chercher dans tes rushes, poser, couper, régler, titrer,
+animer, créer et exporter la vidéo). Rien ne sort de ton ordinateur ; un interrupteur ferme la porte.
 
 À la main aussi, Dérush a maintenant tous les gestes d'un logiciel de montage : vitesse d'un plan (ralenti, accéléré),
 fondu enchaîné et volet centrés sur la coupe, fondus d'entrée et de sortie (image et son, quatre courbes), arrêt sur
@@ -135,7 +139,7 @@ Tu écris comme à un monteur. Ton IA monte, et tout ce qu'elle pose (plans, tit
 
 Le bouton palette, à côté du trombone, propose **199 styles**, en deux collections, et 99 de plus à télécharger. *Styles vidéo* : 99 recettes pour habiller tes rushes (face caméra, explications racontées, promos, pubs produit, logos et affiches, effets, méthodes de montage). *Tableaux en mouvement* : 100 styles pour une image peinte, dessinée ou animée sans aucun rush (peinture de grotte, Van Gogh, estampe japonaise, fusain, risographie, un seul trait…) : ton IA écrit une page qui se dessine, et Dérush la rend image par image, sans Internet. *Films en 99 styles* : un film entier dans une manière précise (infos sous-titrées, aquarelle, tableau blanc, ombres chinoises, plan d'ingénieur, jeu de rôle 16 bits, néons, plan de métro…). Cette collection vient de Lemo-Opuscar ; sa licence te laisse t'en servir pour tes propres films mais pas la redonner, alors Dérush ne la livre pas : il la télécharge chez toi quand tu cliques (1,4 Mo, chaque fichier vérifié). Un clic, et elle suit la fiche avec tes mots et ta marque. Pendant qu'elle travaille, tu peux lui écrire et lui joindre des fichiers : ils lui arrivent tout de suite, ou *Après ce travail* si tu préfères. Dans *Mes espaces*, ton **kit média** (logos, charte, polices, fonds, logos de tes partenaires, chacun décrit) et ta **bibliothèque d'animations** (les cartons et transitions qu'elle a déjà faits pour toi) lui sont donnés à chaque montage.
 
-**Le Mode Hollywood** (à choisir avant chaque demande : *Classique* ou *Hollywood*) : Gemini, la seule IA qui voit ET entend une vidéo, devient le réalisateur de l'équipe, avec la même grille d'analyse et les mêmes compétences que ton IA de montage. Il dérushe chaque rush en entier, propose le découpage, répond aux questions de ton IA sur un passage, contrôle la vidéo avant qu'elle parte, puis te dit ce qui coince. Ton IA reste le monteur. Par ton compte Google (la commande Gemini connectée, sans clé), ou par ta clé Google AI Studio, en secours. Et **ChatGPT devient le graphiste** : quand le montage a besoin d'une image qui n'existe pas dans tes rushes (un autocollant, une illustration, un fond, un personnage qui bouge en sprites ou en GIF), ton IA la lui demande, avec ton forfait ChatGPT. *Équipe* choisit le modèle de chaque IA ; si l'une n'a plus de quota, les deux autres continuent sans toi.
+**Le Mode Hollywood** (un interrupteur à côté de « Pour », avant chaque demande) : Gemini, la seule IA qui voit ET entend une vidéo, devient le réalisateur de l'équipe, avec la même grille d'analyse et les mêmes compétences que ton IA de montage. Il dérushe chaque rush en entier, propose le découpage, répond aux questions de ton IA sur un passage, contrôle la vidéo avant qu'elle parte, puis te dit ce qui coince. Ton IA reste le monteur. Par ton compte Google (la commande Gemini connectée, sans clé), ou par ta clé Google AI Studio, en secours. Et **ChatGPT devient le graphiste** : quand le montage a besoin d'une image qui n'existe pas dans tes rushes (un autocollant, une illustration, un fond, un personnage qui bouge en sprites ou en GIF), ton IA la lui demande, avec ton forfait ChatGPT. *Équipe* choisit le modèle de chaque IA ; si l'une n'a plus de quota, les deux autres continuent sans toi.
 
 **Plusieurs comptes ChatGPT et Claude** (Connexions, « Un autre compte ») : chacun avec son quota. Quand celui qui travaille est à bout, Dérush te propose de continuer avec un autre, et c'est toi qui choisis, jamais lui. Le crédit API de Claude, lui, te dit environ ce qu'il te reste, d'après le crédit que tu as noté.
 
@@ -194,7 +198,7 @@ Ouvre Dérush, puis **Connexions** (la prise, en haut à droite). Chaque carte s
 | 👂 | **Earshot** | L'oreille de l'IA : écouter, choisir, fabriquer un son (facultatif) | *Ajouter* (2,5 Go) |
 | ⏱️ | **Ralenti fluide** | Des ralentis sans saccades, jusqu'à 8 fois plus lents (RIFE) ; sans lui, l'IA ralentit avec FFmpeg, moins finement | *Installer* (18 Mo, sur Mac) |
 | 🔍 | **Agrandisseur** | Agrandir une image ou une vidéo trop petite, jusqu'à la 4K, en inventant les détails (Real-ESRGAN) | *Installer* (43 Mo, sur Mac) |
-| 🚪 | **Ouvre Dérush à tes IA** | L'app Claude, ChatGPT (Codex) ou Claude Code montent directement dans Dérush, geste par geste, sous tes yeux (38 outils) ; un interrupteur ferme la porte | *Brancher* (l'app Claude te demande « Installer ») |
+| 🚪 | **Ouvre Dérush à tes IA** | L'app Claude, ChatGPT (Codex) ou Claude Code montent directement dans Dérush, geste par geste, sous tes yeux (39 outils) ; un interrupteur ferme la porte | *Brancher* (l'app Claude te demande « Installer ») |
 | <img src="public/logos/googledrive.svg" width="22"> | **Google Drive** | Donner tes fichiers du Drive à l'IA, y envoyer tes vidéos | Un interrupteur (il faut Google Drive pour ordinateur) |
 | <img src="public/logos/treg.svg" width="22" style="background:#000"> | **Treg** (conseillé) | Publier sur les réseaux, lire tes chiffres et tes commentaires, dresser ton profil de créateur | *Relier mes réseaux* : trois gestes, Dérush te guide et te montre quels réseaux sont reliés |
 | <img src="public/logos/blender.svg" width="22"> | **Blender** | La 3D réaliste (facultatif) | *Installer* |
@@ -320,6 +324,7 @@ Rien d'autre n'est installé ailleurs, sauf ce que tu acceptes (FFmpeg, Blender,
 - **Le suivi sur téléphone** a été essayé avec un téléphone simulé sur le même ordinateur, pas encore avec un vrai iPhone ni un vrai téléphone Android. Sur Windows, le pare-feu demande d'autoriser Node.js la première fois, et le réseau doit être réglé sur « Réseau privé » ; si l'ordinateur s'endort, le téléphone ne le voit plus (sur Mac, Dérush le garde éveillé tant que le téléphone regarde).
 - **Sur Mac seulement** : le recadrage qui suit les visages et le titre « derrière la personne » (ils utilisent Apple Vision).
 - **Codex** travaille dans un bac à sable : il écrit dans le dossier du projet, et Dérush fait les rendus pour lui. Claude, lui, travaille directement.
+- **Le montage dans ta timeline** (12.1) a été essayé en vrai avec ChatGPT (Codex) ; avec Claude, seulement avec une IA d'essai qui fait les mêmes gestes. Gemini, lui, fabrique encore sa vidéo à part. Dis-nous ce qui coince.
 - **La publication** dépend de Treg et de tes comptes : TikTok en brouillon seulement, YouTube limité à quelques envois par jour, Instagram par un lien public temporaire. Elle n'a pas encore été essayée en vrai sur tous les réseaux.
 - **Les vrais sons** viennent d'Openverse (Freesound, Wikimedia Commons…). Dérush ne garde que les licences qui permettent une vidéo commerciale (domaine public et CC BY) et note chaque crédit, mais Openverse relaie la licence indiquée par la source sans la garantir : pour une publicité ou un client important, ouvre la page du son avant de publier. 200 recherches par jour au plus. Real SFX et Earshot n'ont été essayés que sur Mac.
 - **Remotion**, le moteur de rendu, est gratuit pour les particuliers et les structures de trois personnes au plus ; au-delà, il faut une licence (https://remotion.dev/license).

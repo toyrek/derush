@@ -70,12 +70,18 @@ fs.writeFileSync(FAUX_MONTEUR, `import fs from 'node:fs';
 import readline from 'node:readline';
 import {spawn} from 'node:child_process';
 const a = process.argv.slice(2);
-const cfg = JSON.parse(a[a.indexOf('--mcp-config') + 1]);
+const v = a[a.lastIndexOf('--mcp-config') + 1];
+const cfg = JSON.parse(v.trim().startsWith('{') ? v : fs.readFileSync(v, 'utf8'));
 const srv = cfg.mcpServers.derush;
-fs.writeFileSync('lancement.json', JSON.stringify({args: a, permis: a[a.indexOf('--allowedTools') + 1] ?? null}));
+const classique = a.includes('--input-format');
+fs.writeFileSync('lancement.json', JSON.stringify({args: a, permis: a[a.indexOf('--allowedTools') + 1] ?? null, classique, consignes: classique ? fs.readFileSync(a[a.indexOf('--append-system-prompt-file') + 1], 'utf8').slice(0, 4000) : null}));
 const out = (j) => process.stdout.write(JSON.stringify(j) + '\\n');
 let consigne = '';
-for await (const x of process.stdin) consigne += x;
+if (classique) {
+  // le monteur classique (12.1) : le message de la personne arrive en une ligne JSON, l'entrée reste ouverte
+  const l = readline.createInterface({input: process.stdin});
+  for await (const ligne of l) { try { consigne = JSON.parse(ligne).message?.content?.map?.((c) => c.text ?? '').join('') ?? ligne; } catch { consigne = ligne; } break; }
+} else for await (const x of process.stdin) consigne += x;
 out({type: 'system', subtype: 'init', mcp_servers: [{name: 'derush', status: 'connected'}], session_id: 'faux'});
 const p = spawn(srv.command, srv.args, {env: {...process.env, ...srv.env}, stdio: ['pipe', 'pipe', 'inherit']});
 const rl = readline.createInterface({input: p.stdout});
@@ -89,6 +95,20 @@ await appel('lire_projet', {});
 await new Promise((ok) => setTimeout(ok, 400));
 await appel('ajouter_plan', {media: 'M1', entree: 0, duree: 1.5, titre: 'Par le faux Claude', apres: 'debut'});
 await appel('poser_marqueur', {temps: 0.5, nom: 'Faux Claude', couleur: 'violet'});
+if (classique) {
+  const code = "import React from 'react';\\nimport {AbsoluteFill} from 'remotion';\\nexport default function Titre() { return <AbsoluteFill><h1>FAUX</h1></AbsoluteFill>; }\\n";
+  await appel('poser_animation', {code, nom: 'Titre du faux Claude', debut: 0.2, duree: 1});
+  const cv = await appel('creer_video', {attendre: true});
+  const d = JSON.parse(cv.content[0].text.split('\\n').slice(1).join('\\n'));
+  fs.mkdirSync('rendu/livraison', {recursive: true});
+  fs.copyFileSync(d.finies[0].fichier, 'rendu/livraison/faux-claude-v1.mp4');
+  fs.writeFileSync('rendu/livraison/livraison.json', JSON.stringify([{fichier: 'faux-claude-v1.mp4', titre: 'Par le faux Claude'}]));
+  out({type: 'assistant', message: {content: [{type: 'text', text: 'J’ai monté dans ta timeline et fabriqué la vidéo.'}]}});
+  out({type: 'result', subtype: 'success', is_error: false, result: 'J’ai monté dans ta timeline : un plan, un marqueur et un titre animé. La vidéo est faite depuis la timeline.'});
+  p.stdin.end();
+  setTimeout(() => process.exit(0), 100);
+  await new Promise(() => {});
+}
 fs.writeFileSync('reponse.json', JSON.stringify({fait: 'J’ai posé un plan de cuisine au début, et un marqueur. Consigne reçue : ' + consigne.slice(0, 60)}));
 out({type: 'assistant', message: {content: [{type: 'text', text: 'Fini.'}]}});
 out({type: 'result', subtype: 'success', is_error: false, result: 'Fini.'});
@@ -363,8 +383,25 @@ if (a[0] !== 'render') process.exit(0);
 const sortie = a[3];
 const M = JSON.parse(fs.readFileSync(path.join(process.cwd(), '..', 'montage.json'), 'utf8'));
 const {largeur, hauteur, fps} = M.sortie;
+if (a.includes('--sequence')) {
+  // 12.1 : une animation de l'IA, rendue image par image (un rectangle rouge à moitié transparent). L'entrée écrite par
+  // Dérush dit le composant (dans une copie du kit, ou dans le kit de l'IA) et le nombre d'images
+  const entree = fs.readFileSync(path.join(process.cwd(), a[1]), 'utf8');
+  const imp = /import AnimationIA from '\\.\\/([^']+)'/.exec(entree)[1];
+  const code = fs.readFileSync(path.join(process.cwd(), 'src', imp + '.tsx'), 'utf8');
+  M.sortie.images = Number(/durationInFrames=\\{(\\d+)\\}/.exec(entree)[1]);
+  if (code.includes('ERREUR_EXPRES')) { console.error('Error: src/AnimationIA.tsx(3,7): Cannot find name ERREUR_EXPRES.'); process.exit(1); }
+  fs.mkdirSync(sortie, {recursive: true});
+  // un rectangle rouge (opaque à 90 %) sur un fond transparent : le pavé de couleur, agrandi par un bord vide
+  execFileSync(${json(FFMPEG)}, ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=red@0.9:s=' + Math.round(largeur / 2) + 'x' + Math.round(hauteur / 6) + ':r=' + fps + ',format=rgba,pad=' + largeur + ':' + hauteur + ':40:80:color=black@0',
+    '-frames:v', String(M.sortie.images), path.join(sortie, 'element-%04d.png')]);
+  fs.appendFileSync(${json(path.join(T, 'animations.jsonl'))}, JSON.stringify({images: M.sortie.images, largeur, hauteur, fps}) + '\\n');
+  console.log('Rendered ' + M.sortie.images + '/' + M.sortie.images);
+  process.exit(0);
+}
 const duree = Math.max(0.5, M.sortie.duree.s);
-fs.appendFileSync(${json(RENDUS)}, JSON.stringify({plans: M.montage.map((x) => x.id), largeur, hauteur, images: a.find((x) => x.startsWith('--frames=')) ?? null}) + '\\n');
+fs.appendFileSync(${json(RENDUS)}, JSON.stringify({plans: M.montage.map((x) => x.id), largeur, hauteur, images: a.find((x) => x.startsWith('--frames=')) ?? null,
+  animations: (M.habillage?.effets ?? []).filter((e) => e.animation).map((e) => [e.animation.id, fs.existsSync(path.join(process.cwd(), 'public', e.animation.dossier, 'a_00000.webp'))])}) + '\\n');
 execFileSync(${json(FFMPEG)}, ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=' + largeur + 'x' + hauteur + ':rate=' + fps + ':duration=' + duree, '-f', 'lavfi', '-i', 'sine=frequency=440:duration=' + duree,
   '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-c:a', 'aac', '-shortest', sortie]);
 console.log('Rendered 1/1');
@@ -431,7 +468,7 @@ console.log('Encoded 1/1');
     essai('l’éditeur s’ouvre sur le projet, avec la porte', ouvert, ouvert ? '' : {erreurs: erreursPage.slice(0, 5)});
     if (!ouvert) throw new Error('l’éditeur ne s’est pas ouvert');
     // la garde : aucune fenêtre « Ouvrir », aucun envoi à une IA
-    await js(`(() => { window.__urls = []; const vrai = window.fetch.bind(window); window.fetch = async (url, o = {}) => { const u = String(url); window.__urls.push(u); if (u.startsWith('/api/choisir') || /^\\/api\\/claude\\/(demander|ajouter)/.test(u)) return new Response('{"erreur":"coupé"}', {status: 400}); return vrai(url, o); }; return true; })()`);
+    await js(`(() => { window.__urls = []; const vrai = window.fetch.bind(window); window.fetch = async (url, o = {}) => { const u = String(url); window.__urls.push(u); if (u.startsWith('/api/choisir') || (!window.__demandePermise && /^\\/api\\/claude\\/(demander|ajouter)/.test(u))) return new Response('{"erreur":"coupé"}', {status: 400}); return vrai(url, o); }; return true; })()`);
     await jusqua("document.querySelector('#piste-montage')");
     essai('la fenêtre vient chercher les gestes des IA dès son ouverture', await jusqua('window.derush.porte.etat().tours > 0', 8000), await js('JSON.stringify(window.derush.porte.etat())'));
 
@@ -797,37 +834,111 @@ console.log('Encoded 1/1');
     await js("document.querySelector('.feuille [data-fermer]')?.click()");
     await dormir(300);
 
-    titre('« Sur ma timeline » : ton IA monte ici, par la porte (un faux Claude)');
-    await jusqua('window.derush.claude() && document.querySelector(\'[data-cl="mode-timeline"]\')', 15000);
+    titre('Un seul mode (12.1) : ton IA monte dans ta timeline, sous tes yeux, et fabrique la vidéo depuis elle (un faux Claude)');
+    await jusqua('window.derush.claude()', 15000);
     const avantTl = await page();
-    await js("document.querySelector('[data-cl=\"mode-timeline\"]').click()");
-    await jusqua('window.derush.ui().surTimeline === true', 3000);
-    await js("window.derush.ecrire('Pose un plan de la cuisine au tout début, et marque le moment fort.')");
-    await js('window.derush.envoyer()');
-    const finTl = await jusqua("document.querySelector('#panneau-timeline.fini')", 60000);
+    // comme une personne : « Demander à l'IA » ouvre la colonne de l'IA (un plan choisi y laissait ses réglages)
+    await js("document.querySelector('#b-claude').click()");
+    await jusqua("!document.querySelector('#claude').classList.contains('cache')", 3000);
+    essai('un seul mode : plus de choix entre « Vidéo finie » et « Dans ma timeline », la phrase dit que l’IA monte dans la timeline',
+      await jusqua("!document.querySelector('[data-cl=\"mode-timeline\"], [data-cl=\"mode-video\"], #claude .cl-mode') && /monte dans ta timeline/.test(document.querySelector('.cl-mode-aide')?.textContent ?? '')", 4000),
+      await js("document.querySelector('.cl-mode-aide')?.textContent ?? null"));
+    if (CAPTURES) await dormir(800); // la colonne finit d'apparaître (fondu)
+    await capture('07a-un-seul-mode');
+    await js("window.derush.ecrire('Pose un plan de la cuisine au tout début, ajoute un titre animé, et fais la vidéo.')");
+    // la garde de l'essai laisse partir cette demande-ci : seul le faux Claude peut être lancé (lib/ia.mjs est remplacé)
+    await js('window.__demandePermise = true');
+    const envoi = await js("window.derush.envoyer().then(() => 'ok', (e) => 'ERREUR ' + (e?.stack ?? e))");
+    if (envoi !== 'ok') console.log('    (envoi)', String(envoi).slice(0, 600));
+    const finTl = await jusqua("(() => { const c = window.derush.claude(); return !!c && !c.en_cours && c.echanges.at(-1)?.role === 'claude'; })()", 120000);
+    await js('window.__demandePermise = false');
+    const etatC = await js("window.derush.claude()");
     const apresTl = await page();
     const plan = apresTl.montage[0];
-    const fLancement = path.join(PROJET, '.derush', 'sur-la-timeline', 'lancement.json');
-    if (!fs.existsSync(fLancement)) console.log('    (diagnostic)', JSON.stringify({etat: await js("window.derush.api('GET', '/api/timeline')").catch((e) => e.message), panneau: await js("document.querySelector('#panneau-timeline')?.textContent ?? null"), sur: await js('window.derush.ui().surTimeline'), notes: await js("[...document.querySelectorAll('.note, .notes > *')].map((n) => n.textContent).slice(-4)"), serveur: journalServeur.slice(-4)}).slice(0, 1500));
-    const lancement = fs.existsSync(fLancement) ? JSON.parse(fs.readFileSync(fLancement, 'utf8')) : {args: []};
-    essai('le mode « Timeline » envoie la demande à l’IA avec la seule porte de Dérush (--strict-mcp-config, ses outils permis), et ses gestes arrivent dans la timeline',
-      finTl && plan.titre === 'Par le faux Claude' && plan.media === 'M1' && (await js('window.derush.projet().marqueurs')).some((k) => k.nom === 'Faux Claude')
-      && lancement.args.includes('--strict-mcp-config') && lancement.permis === 'mcp__derush', {montage: apresTl.montage.slice(0, 2), lancement: lancement.args.slice(-12)});
-    const textePt = await js("document.querySelector('#panneau-timeline').textContent");
-    essai('… le panneau dit ce que l’IA a fait (sa réponse)', /C’est fait/.test(textePt) && /posé un plan de cuisine/.test(textePt), textePt);
-    await capture('07-sur-ma-timeline');
+    const fEtatC = path.join(PROJET, 'claude', 'etat.json');
+    const atelierC = fs.existsSync(fEtatC) ? JSON.parse(fs.readFileSync(fEtatC, 'utf8')).atelier : null;
+    const fLancement = atelierC ? path.join(PROJET, atelierC, 'lancement.json') : '';
+    const lancement = fLancement && fs.existsSync(fLancement) ? JSON.parse(fs.readFileSync(fLancement, 'utf8')) : {args: []};
+    if (!lancement.classique) console.log('    (diagnostic)', JSON.stringify({fini: finTl, dernier: etatC?.echanges?.at(-1), en_cours: etatC?.en_cours ?? null, atelierC, notes: await js("[...document.querySelectorAll('.note, .notes > *')].map((n) => n.textContent).join(' | ')"), feuille: await js("document.querySelector('.feuille')?.textContent?.slice(0, 300) ?? null"), brouillon: await js('window.derush.ui().brouillon ?? null')}).slice(0, 2500));
+    // les serveurs donnés à Claude : en ligne (aucun connecteur), ou dans un fichier du dossier de travail (avec ses connecteurs)
+    const vM = lancement.args?.length ? lancement.args[lancement.args.lastIndexOf('--mcp-config') + 1] : null;
+    const cfgM = vM ? JSON.parse(vM.trim().startsWith('{') ? vM : fs.readFileSync(vM, 'utf8')) : null;
+    essai('la demande part au monteur avec la porte de Dérush (ses outils permis) et la méthode de la timeline dans ses consignes',
+      lancement.classique && cfgM?.mcpServers?.derush?.env?.DERUSH_PORTE_IA === 'Claude' && lancement.permis === 'mcp__derush' && /tu montes DANS la timeline/.test(lancement.consignes ?? '')
+      // 12.1 : le dossier de Dérush est donné au pont (Codex ne transmet pas l'environnement : le pont lisait un autre dossier)
+      && cfgM.mcpServers.derush.env.DERUSH_SUPPORT === SUPPORT && fs.readFileSync(cfgM.mcpServers.derush.args[0], 'utf8').includes(`export DERUSH_SUPPORT='${SUPPORT}'`),
+      {args: lancement.args?.slice(-14), consignes: (lancement.consignes ?? '').slice(0, 200)});
+    essai('… ses gestes arrivent dans la timeline : son plan, son marqueur, et son titre animé (un bloc de la piste des effets)',
+      finTl && plan?.titre === 'Par le faux Claude' && plan.media === 'M1' && (await js('window.derush.projet().marqueurs')).some((k) => k.nom === 'Faux Claude')
+      && apresTl.indic.some((i) => i.modele === 'animation' && i.animation?.nom === 'Titre du faux Claude'), {montage: apresTl.montage.slice(0, 2), effets: apresTl.indic.map((i) => i.modele)});
+    essai('… sa vidéo, fabriquée depuis la timeline, est sa livraison : une version dans la conversation, et la suite reprend la même conversation',
+      etatC?.versions?.length === 1 && etatC.echanges.at(-1)?.version === 1 && etatC.montage_change === false, {versions: etatC?.versions?.length, dernier: etatC?.echanges?.at(-1), change: etatC?.montage_change});
+    const animC = apresTl.indic.find((i) => i.modele === 'animation');
+    essai('… son animation a été fabriquée dans SON kit (avec son matériel) : le composant reste dans son dossier, l’entrée de Dérush est partie',
+      !!animC && atelierC && fs.existsSync(path.join(PROJET, atelierC, 'remotion', 'src', 'animations-ia', `${animC.animation.id}.tsx`)) && !fs.readdirSync(path.join(PROJET, atelierC, 'remotion', 'src')).some((f) => f.startsWith('entree-animation')), animC);
+    essai('… et sous sa vidéo, Dérush ne propose pas de la « mettre dans ta timeline » : elle y est déjà (ouverte en ce moment)',
+      etatC?.versions?.[0]?.videos?.[0]?.dans_timeline?.id === 'V1' && !(await js("[...document.querySelectorAll('#claude button')].some((b) => /Mettre dans ma timeline/.test(b.textContent))")), etatC?.versions?.[0]?.videos?.[0]);
+    const finPanneau = await jusqua("document.querySelector('#panneau-timeline.fini')", 5000);
+    const textePt = await js("document.querySelector('#panneau-timeline')?.textContent ?? ''");
+    essai('… à la fin, le panneau le dit : ton IA a monté dans ta timeline, « Tout annuler » ou « Garder »', finPanneau && /a monté dans ta timeline/.test(textePt) && /Tout annuler/.test(textePt), textePt);
+    await capture('07-monte-dans-ta-timeline');
     await js("document.querySelector('#panneau-timeline [data-pt=\"annuler\"]').click()");
     await dormir(300);
     const annule = await page();
-    essai('« Tout annuler » remet le montage d’avant la demande (le plan et le marqueur de l’IA repartent)', annule.montage.length === avantTl.montage.length && annule.montage[0].id === avantTl.montage[0].id && !(await js('window.derush.projet().marqueurs')).some((k) => k.nom === 'Faux Claude'));
-    await js("document.querySelector('[data-cl=\"mode-classique\"]')?.click()");
+    essai('« Tout annuler » remet le montage d’avant la demande (le plan, le marqueur et l’animation de l’IA repartent)',
+      annule.montage.length === avantTl.montage.length && annule.montage[0].id === avantTl.montage[0].id && !(await js('window.derush.projet().marqueurs')).some((k) => k.nom === 'Faux Claude') && !annule.indic.some((i) => i.modele === 'animation'));
+    await js('window.derush.enregistrer()');
+
+    titre('Les animations de l’IA (12.1) : écrites en code, fabriquées par Dérush, posées comme des blocs');
+    const dn = (r) => { try { return JSON.parse(r.content[0].text.split('\n').slice(1).join('\n')); } catch { return null; } };
+    const CODE_ANIM = "import React from 'react';\nimport {AbsoluteFill, useCurrentFrame} from 'remotion';\nexport default function TitreEssai() {\n  const f = useCurrentFrame();\n  return <AbsoluteFill><div style={{fontSize: 120, color: 'white', opacity: Math.min(1, f / 10)}}>ESSAI</div></AbsoluteFill>;\n}\n";
+    const leA = await ia.outil('lister_effets');
+    essai('lister_effets ne propose pas le bloc « animation » (il se pose avec poser_animation, depuis son code)', !leA.isError && !(dn(leA) ?? []).some((x) => x.modele === 'animation'));
+    const pe = await ia.outil('poser_effet', {modele: 'animation', debut: 0.5});
+    essai('… et poser_effet le refuse, en disant quoi faire', pe.isError && /poser_animation/.test(pe.content[0].text), pe.content[0].text);
+    const sansDefaut = await ia.outil('poser_animation', {code: 'export function A() { return null; }', duree: 1});
+    essai('un code sans « export default » : refusé avant tout rendu, avec la forme attendue', sansDefaut.isError && /par défaut/.test(sansDefaut.content[0].text), sansDefaut.content[0].text);
+    const casse = await ia.outil('poser_animation', {code: CODE_ANIM.replace('const f', 'ERREUR_EXPRES; const f'), nom: 'Cassée', duree: 1});
+    essai('un code qui ne compile pas : l’erreur du compilateur revient à l’IA (elle corrige et recommence), rien n’est posé',
+      casse.isError && /n’a pas pu être fabriquée/.test(casse.content[0].text) && /Cannot find name ERREUR_EXPRES/.test(casse.content[0].text) && !(await page()).indic.some((i) => i.modele === 'animation'), casse.content[0].text.slice(0, 300));
+    const paA = await ia.outil('poser_animation', {code: CODE_ANIM, nom: 'Titre essai', debut: 0.5, duree: 1.5});
+    const dpa = dn(paA);
+    const blocA = (await page()).indic.find((i) => i.modele === 'animation');
+    const dossierA = blocA ? path.join(PROJET, 'animations', blocA.animation.id) : '';
+    const imagesA = dossierA && fs.existsSync(dossierA) ? fs.readdirSync(dossierA).filter((f) => /^a_\d{5}\.webp$/.test(f)).length : 0;
+    essai('poser_animation : 45 images (1,5 s à 30 i/s) en WebP dans animations/A…, le code gardé à côté, le bloc posé dans la piste des effets à 0,5 s',
+      !paA.isError && blocA && dpa?.id === blocA.id && imagesA === 45 && fs.existsSync(path.join(dossierA, 'source.tsx')) && Math.abs(blocA.debut - 0.5) < 0.02 && Math.abs(blocA.fin - 2) < 0.02 && blocA.animation.images === 45,
+      {texte: paA.content[0].text.slice(0, 300), blocA, imagesA});
+    const alpha = (x, y) => { const r = fs.existsSync(path.join(dossierA, 'a_00000.webp')) ? spawnSync(FFMPEG, ['-v', 'error', '-i', path.join(dossierA, 'a_00000.webp'), '-vf', `alphaextract,crop=8:8:${x}:${y}`, '-f', 'rawvideo', '-pix_fmt', 'gray', 'pipe:1'], {maxBuffer: 1 << 20}) : null; return r?.status === 0 && r.stdout.length ? [Math.min(...r.stdout), Math.max(...r.stdout)] : null; };
+    const coin = alpha(0, 0);
+    const dessin = alpha(120, 160);
+    essai('… les images gardent leur transparence : vide hors du dessin, plein dans le dessin', coin?.[1] === 0 && dessin?.[0] > 200, {coin, dessin});
+    await js('window.derush.aller(1.2)');
+    const pixels = "(() => { const c = document.querySelector('#hab-animations'); if (!c || c.classList.contains('cache')) return 0; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 3; i < d.length; i += 4000) if (d[i] > 0) n++; return n; })()";
+    essai('l’aperçu de Dérush dessine l’animation à 1,2 s (la toile des animations a des pixels)', await jusqua(`${pixels} > 0`, 8000), await js(pixels));
+    await capture('08-animation-de-l-ia');
+    await js('window.derush.aller(0.2)');
+    essai('… et rien avant son début', await jusqua("document.querySelector('#hab-animations')?.classList.contains('cache')", 4000));
+    const lpA = await ia.outil('lire_projet');
+    essai('lire_projet la montre dans les effets, avec son animation', (dn(lpA)?.effets ?? []).some((e) => e.modele === 'animation' && e.animation === blocA.animation.id && /Titre essai/.test(e.nom)), (dn(lpA)?.effets ?? []).filter((e) => e.modele === 'animation'));
+    const rem = await ia.outil('poser_animation', {code: CODE_ANIM.replace('ESSAI', 'BIS'), nom: 'Titre bis', duree: 1, remplace: blocA.id});
+    const blocB = (await page()).indic.find((i) => i.id === blocA.id);
+    essai('« remplace » : la nouvelle animation prend la place de l’ancienne (même bloc, même début, sa propre durée)',
+      !rem.isError && blocB && blocB.animation.id !== blocA.animation.id && Math.abs(blocB.debut - 0.5) < 0.02 && Math.abs(blocB.fin - 1.5) < 0.02 && (await page()).indic.filter((i) => i.modele === 'animation').length === 1, {texte: rem.content[0].text, blocB});
+    await ia.outil('historique', {action: 'annuler'});
+    const blocC = (await page()).indic.find((i) => i.id === blocA.id);
+    essai('un ⌘Z (historique) remet l’animation d’avant', blocC?.animation.id === blocA.animation.id && Math.abs(blocC.fin - 2) < 0.02, blocC);
+    await ia.outil('historique', {action: 'retablir'});
+    await js('window.derush.enregistrer()');
 
     titre('Créer la vidéo, demandé par une IA');
+    const nRendusAvant = fs.existsSync(RENDUS) ? fs.readFileSync(RENDUS, 'utf8').trim().split('\n').filter(Boolean).length : 0;
     const cv = await ia.outil('creer_video', {attendre: true});
     const cvd = JSON.parse(cv.content[0].text.split('\n').slice(1).join('\n'));
-    const rendus = fs.existsSync(RENDUS) ? fs.readFileSync(RENDUS, 'utf8').trim().split('\n').map((l) => JSON.parse(l)) : [];
+    const rendus = fs.existsSync(RENDUS) ? fs.readFileSync(RENDUS, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)).slice(nRendusAvant) : [];
+    essai('… l’animation de l’IA est dans la vidéo : le kit a trouvé ses images dans le pack', rendus.at(-1)?.animations?.length === 1 && rendus.at(-1).animations[0][1] === true, rendus.at(-1)?.animations);
     essai('creer_video (attendre) : la vidéo du montage tel qu’il est dans la page, rangée dans « vidéos »',
-      !cv.isError && cvd.finies?.length === 1 && fs.existsSync(cvd.finies[0].fichier) && rendus.length === 1 && json(rendus[0].plans) === json((await page()).montage.map((x) => x.id)), {cv: cv.content[0].text.slice(0, 300), rendus});
+      !cv.isError && cvd.finies?.length >= 1 && fs.existsSync(cvd.finies[0].fichier) && rendus.length === 1 && json(rendus[0].plans) === json((await page()).montage.map((x) => x.id)), {cv: cv.content[0].text.slice(0, 300), rendus});
     const vu = await jusqua('window.derush.ui().renduTache === null || document.querySelector(".feuille video")', 8000);
     essai('la fenêtre suit la vidéo lancée par l’IA, et la montre quand elle est prête', vu);
     await capture('02-video-de-l-ia');
